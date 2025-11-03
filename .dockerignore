@@ -1,0 +1,26 @@
+# Исключаем ненужные файлы и директории из сборки
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.log
+*.sock
+*.pid
+*.zip
+*.tar
+*.gz
+*.bak
+
+# Исключаем Docker volumes и базы данных
+mysql_data/
+grafana_data/
+prometheus_data/
+loki_data/
+alertmanager_data/
+
+# Исключаем системные файлы
+venv/
+.env
+.DS_Store
+.git/
+.gitignore

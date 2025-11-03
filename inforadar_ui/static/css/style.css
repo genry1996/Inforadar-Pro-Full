@@ -1,0 +1,50 @@
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background-color: #0e0e0e;
+  color: #eaeaea;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar {
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+
+.table thead {
+  background-color: #202020;
+  color: #0dcaf0;
+}
+
+.table tbody tr:hover {
+  background-color: #1b1b1b;
+}
+
+.btn-primary {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.btn-primary:hover {
+  background-color: #0bb8db;
+  border-color: #0bb8db;
+}
+
+input, select {
+  background-color: #181818 !important;
+  color: #f0f0f0 !important;
+  border: 1px solid #444 !important;
+}
+
+.table td, .table th {
+  vertical-align: middle;
+}
+
+.table-responsive {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.container {
+  max-width: 1200px;
+}

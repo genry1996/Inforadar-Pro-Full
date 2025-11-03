@@ -1,0 +1,31 @@
+{
+  "id": null,
+  "title": "System Overview",
+  "tags": ["system", "node_exporter"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "CPU Usage (%)",
+      "targets": [
+        { "expr": "100 - (avg by (instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU", "refId": "A" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Memory Usage (%)",
+      "targets": [
+        { "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "legendFormat": "Memory", "refId": "B" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Disk Usage",
+      "targets": [
+        { "expr": "node_filesystem_size_bytes - node_filesystem_free_bytes", "legendFormat": "Used Space", "refId": "C" }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}

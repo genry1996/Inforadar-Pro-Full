@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['node_exporter_inforadar:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor_inforadar:8080']
+
+  - job_name: 'mysql_exporter'
+    static_configs:
+      - targets: ['mysql_exporter_inforadar:9104']
+
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki_inforadar:3100']

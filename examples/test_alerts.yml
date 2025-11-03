@@ -1,0 +1,10 @@
+groups:
+  - name: manual_alerts
+    rules:
+      - alert: Test_Manual_Alert
+        expr: vector(1)
+        for: 10s
+        labels:
+          severity: info
+        annotations:
+          summary: "Manual test alert triggered manually"

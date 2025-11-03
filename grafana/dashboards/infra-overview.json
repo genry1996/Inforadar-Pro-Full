@@ -1,0 +1,15 @@
+{
+  "annotations": {"list":[{"builtIn":1,"type":"dashboard","name":"Annotations & Alerts","hide":true}]},
+  "editable": true,
+  "panels": [
+    { "type": "stat", "title": "CPU %", "gridPos": {"x":0,"y":0,"w":6,"h":4},
+      "targets":[{"expr":"inforadar_cpu_percent","refId":"A"}] },
+    { "type": "stat", "title": "Memory %", "gridPos": {"x":6,"y":0,"w":6,"h":4},
+      "targets":[{"expr":"inforadar_mem_percent","refId":"A"}] },
+    { "type": "graph", "title": "UI CPU/Memory over time", "gridPos": {"x":0,"y":4,"w":12,"h":8},
+      "targets":[{"expr":"inforadar_cpu_percent","refId":"A"},{"expr":"inforadar_mem_percent","refId":"B"}] }
+  ],
+  "schemaVersion": 38,
+  "title": "Infra Overview",
+  "version": 1
+}

@@ -1,0 +1,21 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "telegram"
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: "telegram"
+    telegram_configs:
+      - bot_token: "<ВСТАВЬ_СВОЙ_BOT_TOKEN>"
+        chat_id: <ВСТАВЬ_СВОЙ_CHAT_ID>
+        parse_mode: "Markdown"
+        message: |
+          🚨 *{{ .CommonLabels.alertname }}*
+          *Instance:* {{ .CommonLabels.instance }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Time:* {{ .StartsAt }}

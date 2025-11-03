@@ -1,0 +1,22 @@
+# .gitignore
+
+# IDE
+.idea/
+__pycache__/
+
+# Env
+.env
+
+# Docker volumes / data
+mysql_data/
+prometheus_data/
+prometheus-data/
+grafana_data/
+loki_data/
+loki_wal/
+
+# Submodules
+my-odds-app/
+
+# Misc
+*.sock

@@ -1,0 +1,41 @@
+groups:
+  - name: inforadar.rules
+    rules:
+      - alert: HighCPUUsage
+        expr: inforadar_cpu_percent > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая загрузка CPU ({{ $value }}%)"
+          description: "CPU приложения Inforadar UI выше 80% более 1 минуты."
+
+      - alert: HighMemoryUsage
+        expr: inforadar_mem_percent > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая загрузка RAM ({{ $value }}%)"
+          description: "Память приложения Inforadar UI выше 80% более 1 минуты."
+
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Экспортёр/сервис недоступен"
+          description: "Экспортёр {{ $labels.job }} на {{ $labels.instance }} не отвечает 2+ минуты."
+
+      - name: TelegramTestAlerts
+        rules:
+          - alert: PrometheusTestAlert
+            expr: vector(1)
+            for: 1m
+            labels:
+              severity: info
+            annotations:
+              summary: "🔔 Тестовое уведомление"
+              description: "Prometheus успешно подключен к Alertmanager и Telegram."
+

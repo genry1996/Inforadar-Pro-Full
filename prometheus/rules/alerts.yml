@@ -1,0 +1,34 @@
+groups:
+  - name: system_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: system_cpu_usage_percent > 85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage > 85%"
+
+      - alert: HighMemoryUsage
+        expr: memory_usage_mb > 7000
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage > 7GB"
+
+      - alert: AppDown
+        expr: up{job="flask_app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flask app is DOWN"
+
+      - alert: ContainerDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "One of the monitored containers is DOWN"

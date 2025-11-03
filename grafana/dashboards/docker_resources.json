@@ -1,0 +1,23 @@
+{
+  "id": null,
+  "title": "Docker Resources (cAdvisor)",
+  "tags": ["docker", "cadvisor"],
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Container CPU Usage (%)",
+      "targets": [
+        { "expr": "rate(container_cpu_usage_seconds_total[1m]) * 100", "legendFormat": "{{ container_label_com_docker_compose_service }}", "refId": "A" }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Container Memory Usage (MB)",
+      "targets": [
+        { "expr": "container_memory_usage_bytes / 1024 / 1024", "legendFormat": "{{ container_label_com_docker_compose_service }}", "refId": "B" }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}

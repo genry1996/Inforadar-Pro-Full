@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Движение коэффициентов</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1><span class="icon">⭐</span> Движение коэффициентов</h1>
+        <div class="filters">
+            <button>⚽ Футбол</button>
+            <button>🏀 Баскетбол</button>
+            <button>🏐 Волейбол</button>
+            <button>🤾 Футзал</button>
+            <button>🎮 Киберспорт</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Лига</th>
+                    <th>Матч</th>
+                    <th>Коэф. 1</th>
+                    <th>Коэф. 2</th>
+                </tr>
+            </thead>
+            <tbody id="data">
+                <!-- Данные будут подгружены сюда -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    async function loadMatches() {
+      try {
+        const response = await fetch('/api/matches');
+        const matches = await response.json();
+        const tbody = document.getElementById('data');
+        tbody.innerHTML = ''; // очистить старые строки
+
+        matches.forEach(match => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${match.league}</td>
+            <td>${match.match_name}</td>
+            <td>${match.odds1}</td>
+            <td>${match.odds2}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Ошибка загрузки матчей:', err);
+      }
+    }
+
+    loadMatches();
+    </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "id": null,
+  "title": "Flask App Metrics",
+  "tags": ["flask", "app"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Request Count",
+      "targets": [
+        { "expr": "request_count_total", "legendFormat": "Requests", "refId": "A" }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "CPU Usage (%)",
+      "targets": [
+        { "expr": "system_cpu_usage_percent", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "max": 100 } }
+    },
+    {
+      "type": "gauge",
+      "title": "Memory Usage (MB)",
+      "targets": [
+        { "expr": "memory_usage_mb", "refId": "C" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Uptime (seconds)",
+      "targets": [
+        { "expr": "app_uptime_seconds", "refId": "D" }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}

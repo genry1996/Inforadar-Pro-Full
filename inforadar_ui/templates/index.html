@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Inforadar — Matches</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-light">
+<nav class="navbar navbar-expand-lg navbar-dark bg-black border-bottom border-secondary">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold">Inforadar UI</span>
+    <div class="ms-auto small">
+      <span id="statMatches">—</span> матчей •
+      <span id="statOdds">—</span> котировок •
+      Обновлено: <span id="statUpdated">—</span>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-3">
+  <div class="row g-2 mb-3">
+    <div class="col-md-3">
+      <input id="filterLeague" class="form-control form-control-sm" placeholder="Лига"/>
+    </div>
+    <div class="col-md-3">
+      <input id="filterTeam" class="form-control form-control-sm" placeholder="Команда"/>
+    </div>
+    <div class="col-md-3">
+      <select id="filterSince" class="form-select form-select-sm">
+        <option value="60">За 1 час</option>
+        <option value="180" selected>За 3 часа</option>
+        <option value="1440">За сутки</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-grid">
+      <button id="btnLoad" class="btn btn-primary btn-sm">Загрузить</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-dark table-sm align-middle" id="tbl">
+      <thead class="table-active">
+      <tr>
+        <th>Время</th>
+        <th>Лига</th>
+        <th>Матч</th>
+        <th>БК</th>
+        <th>Маркет</th>
+        <th>Исход</th>
+        <th class="text-end">Кэф</th>
+        <th>Обновл.</th>
+      </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mt-3">
+    <button class="btn btn-outline-secondary btn-sm" id="prev">← Назад</button>
+    <div class="small">Стр. <span id="page">1</span></div>
+    <button class="btn btn-outline-secondary btn-sm" id="next">Вперёд →</button>
+  </div>
+</div>
+
+<script>
+  let page = 1, perPage = 50;
+
+  async function loadStats(){
+    const r = await fetch('/api/stats');
+    const s = await r.json();
+    document.getElementById('statMatches').innerText = s.matches.toLocaleString('ru-RU');
+    document.getElementById('statOdds').innerText = s.odds.toLocaleString('ru-RU');
+    document.getElementById('statUpdated').innerText = s.last_update_utc ?? '—';
+  }
+
+  function qs(id){return document.getElementById(id)}
+
+  async function loadMatches(){
+    const params = new URLSearchParams({
+      page, per_page: perPage,
+      league: qs('filterLeague').value,
+      team: qs('filterTeam').value,
+      since_minutes: qs('filterSince').value
+    });
+
+    const r = await fetch('/api/matches?' + params.toString());
+    const data = await r.json();
+
+    qs('page').innerText = data.page;
+
+    const tbody = document.querySelector('#tbl tbody');
+    tbody.innerHTML = '';
+    for (const row of data.items){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${new Date(row.start_time).toLocaleString()}</td>
+        <td>${row.league ?? ''}</td>
+        <td>${row.team_home} — ${row.team_away}</td>
+        <td>${row.bookmaker ?? ''}</td>
+        <td>${row.market ?? ''}</td>
+        <td>${row.outcome ?? ''}</td>
+        <td class="text-end fw-bold">${row.odds ?? ''}</td>
+        <td>${row.updated_at ? new Date(row.updated_at).toLocaleTimeString() : ''}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  qs('btnLoad').onclick = () => { page = 1; loadMatches(); };
+  qs('prev').onclick = () => { page = Math.max(1, page-1); loadMatches(); };
+  qs('next').onclick = () => { page = page+1; loadMatches(); };
+
+  // first load
+  loadStats();
+  loadMatches();
+  // auto refresh
+  setInterval(()=>{loadStats(); loadMatches();}, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Inforadar Matches</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f8f9fa; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+        th { background-color: #343a40; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        h1 { color: #343a40; }
+    </style>
+</head>
+<body>
+    <h1>📊 Матчи из базы Inforadar</h1>
+    {% if matches %}
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Лига</th>
+                <th>Команда 1</th>
+                <th>Команда 2</th>
+                <th>Время начала</th>
+                <th>Кэф 1</th>
+                <th>Ничья</th>
+                <th>Кэф 2</th>
+                <th>Изменение</th>
+            </tr>
+            {% for match in matches %}
+            <tr>
+                <td>{{ match.id }}</td>
+                <td>{{ match.league }}</td>
+                <td>{{ match.team1 }}</td>
+                <td>{{ match.team2 }}</td>
+                <td>{{ match.start_time }}</td>
+                <td>{{ match.win1 }}</td>
+                <td>{{ match.draw }}</td>
+                <td>{{ match.win2 }}</td>
+                <td>{{ match.change_symbol }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>Нет данных в таблице matches.</p>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "id": null,
+  "title": "Container Logs (Loki)",
+  "tags": ["logs", "loki"],
+  "panels": [
+    {
+      "type": "logs",
+      "title": "Container Logs",
+      "targets": [
+        {
+          "expr": "{job=\"promtail\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}
