@@ -1,22 +1,46 @@
-# .gitignore
-
-# IDE
-.idea/
+# --- Python ---
 __pycache__/
-
-# Env
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
 .env
+.DS_Store
 
-# Docker volumes / data
+# --- Virtual Environment ---
+venv/
+env/
+.venv/
+
+# --- IDE / Editors ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Docker / Local Volumes ---
 mysql_data/
-prometheus_data/
-prometheus-data/
 grafana_data/
+prometheus_data/
 loki_data/
-loki_wal/
+provisioning/
+dashboards_backup/
+__init__.py
 
-# Submodules
-my-odds-app/
+# --- System / Cache ---
+*.bak
+*.tmp
+*.swp
+*.log
+*.pid
 
-# Misc
-*.sock
+# --- Jupyter / Notebooks (если есть) ---
+.ipynb_checkpoints/
+
+# --- Windows ---
+Thumbs.db
+Desktop.ini
+
+# --- MacOS ---
+.DS_Store
