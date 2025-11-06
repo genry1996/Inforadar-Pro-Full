@@ -1,0 +1,15 @@
+{
+  "uid": "top5_container_errors",
+  "title": "Top 5 Container Errors (5m)",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "type": "table",
+      "title": "Top 5 Containers by Error Count",
+      "targets": [
+        { "expr": "count_over_time({job=\"promtail\"} |= \"error\" [5m])", "legendFormat": "{{container}}" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": null,
+  "uid": "mysql_overview",
+  "title": "MySQL Overview",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "MySQL Connections",
+      "targets": [
+        { "expr": "mysql_global_status_threads_connected", "legendFormat": "Connections" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "MySQL Queries per Second",
+      "targets": [
+        { "expr": "rate(mysql_global_status_queries_total[1m])", "legendFormat": "QPS" }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    }
+  ]
+}

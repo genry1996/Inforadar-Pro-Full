@@ -1,0 +1,34 @@
+{
+  "id": null,
+  "uid": "system_metrics",
+  "title": "System Metrics Overview",
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "CPU Usage (%)",
+      "targets": [
+        { "expr": "avg(rate(node_cpu_seconds_total{mode!='idle'}[1m])) * 100", "legendFormat": "CPU" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Memory Usage (MB)",
+      "targets": [
+        { "expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024", "legendFormat": "Used Memory" }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Network I/O (bytes/sec)",
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total[1m])", "legendFormat": "Received" },
+        { "expr": "rate(node_network_transmit_bytes_total[1m])", "legendFormat": "Sent" }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    }
+  ]
+}

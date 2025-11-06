@@ -1,0 +1,47 @@
+{
+  "uid": "project_overview",
+  "title": "Project Overview",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Containers",
+      "targets": [
+        { "expr": "count(container_last_seen{image!=''})", "legendFormat": "containers" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 }
+    },
+    {
+      "type": "graph",
+      "title": "Total CPU Usage (%)",
+      "targets": [
+        { "expr": "avg(rate(container_cpu_usage_seconds_total{image!=''}[1m])) * 100", "legendFormat": "CPU" }
+      ],
+      "gridPos": { "x": 4, "y": 0, "w": 10, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Total Memory Usage (MB)",
+      "targets": [
+        { "expr": "sum(container_memory_usage_bytes)/1024/1024", "legendFormat": "Memory" }
+      ],
+      "gridPos": { "x": 14, "y": 0, "w": 10, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Parser Activity (matches/min)",
+      "targets": [
+        { "expr": "rate(parser_matches_total[1m])", "legendFormat": "matches" }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "MySQL Connections",
+      "targets": [
+        { "expr": "mysql_global_status_threads_connected", "legendFormat": "connections" }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    }
+  ]
+}

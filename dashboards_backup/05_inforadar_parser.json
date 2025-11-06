@@ -1,0 +1,31 @@
+{
+  "uid": "inforadar_parser",
+  "title": "Inforadar Parser Monitor",
+  "schemaVersion": 36,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Parser Run Duration (s)",
+      "targets": [
+        { "expr": "rate(parser_runtime_seconds_sum[1m]) / rate(parser_runtime_seconds_count[1m])", "legendFormat": "Duration" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Scraped Matches per Minute",
+      "targets": [
+        { "expr": "rate(parser_matches_total[1m])", "legendFormat": "Matches" }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "logs",
+      "title": "Parser Logs",
+      "targets": [
+        { "expr": "{job=\"promtail\"} |= \"parser\"", "refId": "A" }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    }
+  ]
+}
