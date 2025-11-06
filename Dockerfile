@@ -1,10 +1,11 @@
 FROM python:3.10
 
 WORKDIR /app
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . /app
-
-# Устанавливаем зависимости, включая cryptography
-RUN pip install --no-cache-dir flask pymysql cryptography
-
 EXPOSE 5000
-CMD ["python", "app.py"]
+
+# gunicorn + 4 воркера — оптимально для простого UI
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]

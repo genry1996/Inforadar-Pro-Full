@@ -1,0 +1,64 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "up{job=\"inforadar_ui\"}", "refId": "A", "legendFormat": "UI Status" }
+      ],
+      "title": "🟢 Flask-UI Availability",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "rate(http_requests_total{job=\"inforadar_ui\"}[5m])", "refId": "A", "legendFormat": "Requests / s" }
+      ],
+      "title": "📈 HTTP Requests per second",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Loki",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "{job=\"docker\"} |= `ERROR` or {job=\"docker\"} |= `5xx`",
+          "refId": "A"
+        }
+      ],
+      "title": "⚠️ Application Errors (4xx / 5xx)",
+      "type": "logs"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "expr": "mysql_global_status_threads_connected",
+          "refId": "A",
+          "legendFormat": "MySQL threads"
+        }
+      ],
+      "title": "🗄 MySQL Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "targets": [
+        { "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m]))", "refId": "A" }
+      ],
+      "title": "💾 Container CPU Load",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["inforadar", "alerts"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Inforadar-Pro Alerts & UI Monitor",
+  "version": 1
+}
