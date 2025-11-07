@@ -2,22 +2,23 @@ global:
   resolve_timeout: 5m
 
 route:
-  receiver: 'default-receiver'
+  receiver: 'telegram-notifications'
   group_by: ['alertname']
   group_wait: 10s
   group_interval: 30s
   repeat_interval: 1h
 
 receivers:
-  - name: 'default-receiver'
+  - name: 'telegram-notifications'
     telegram_configs:
-      - bot_token: 8564224015:AAEVK8cG_-9LnbAyRhLGFwq_0F6s4NxQuzs
+      - bot_token: '8395433352:AAEIvIuX7cJ-_is2NbCjs7uA0-QF3e_eoTY'
         chat_id: 5377484616
+        parse_mode: 'Markdown'
         message: |
           🚨 *Alert:* {{ .CommonLabels.alertname }}
-          🔍 Instance: {{ .CommonLabels.instance }}
-          📊 Severity: {{ .CommonLabels.severity }}
-          📅 Time: {{ .StartsAt }}
+          🔍 *Instance:* {{ .CommonLabels.instance }}
+          📊 *Severity:* {{ .CommonLabels.severity }}
+          🕒 *Time:* {{ .StartsAt }}
           💬 {{ .Annotations.description }}
 
 inhibit_rules:

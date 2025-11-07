@@ -25,25 +25,6 @@ services:
       retries: 30
     networks: [inforadar_net]
 
-  inforadar_ui:
-    container_name: inforadar_ui
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      DB_HOST: mysql_inforadar
-      DB_PORT: "3306"
-      DB_NAME: inforadar
-      DB_USER: radar
-      DB_PASSWORD: ryban8991!
-    depends_on:
-      mysql_inforadar:
-        condition: service_healthy
-    ports:
-      - "5000:5000"
-    networks: [inforadar_net]
-
   grafana_inforadar:
     image: grafana/grafana:latest
     container_name: grafana_inforadar
@@ -117,6 +98,31 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     networks: [inforadar_net]
+
+  inforadar_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inforadar_ui
+    ports:
+      - "5000:5000"
+    restart: always
+    depends_on:
+      - mysql_inforadar
+      - prometheus_inforadar
+      - grafana_inforadar
+      - loki_inforadar
+
+  alertmanager_inforadar:
+    image: prom/alertmanager:latest
+    container_name: alertmanager_inforadar
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    restart: always
 
 volumes:
   mysql_data:

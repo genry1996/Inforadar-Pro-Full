@@ -1,0 +1,11 @@
+groups:
+  - name: TestAlerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🚨 Instance is down"
+          description: "Target {{ $labels.instance }} is not responding"

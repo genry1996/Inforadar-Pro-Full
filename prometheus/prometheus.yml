@@ -1,23 +1,40 @@
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager_inforadar:9093"
 
 scrape_configs:
-  - job_name: 'prometheus'
+  - job_name: "prometheus"
     static_configs:
-      - targets: ['prometheus_inforadar:9090']
+      - targets: ["localhost:9090"]
 
-  - job_name: 'node_exporter'
+  - job_name: "mysql_inforadar"
     static_configs:
-      - targets: ['node_exporter_inforadar:9100']
+      - targets: ["mysql_inforadar:3306"]
 
-  - job_name: 'cadvisor'
+  - job_name: "grafana_inforadar"
     static_configs:
-      - targets: ['cadvisor_inforadar:8080']
+      - targets: ["grafana_inforadar:3000"]
 
-  - job_name: 'mysql'
+  - job_name: "loki_inforadar"
     static_configs:
-      - targets: ['mysql_inforadar:9104']
+      - targets: ["loki_inforadar:3100"]
 
-  - job_name: 'inforadar_ui'
+  - job_name: "inforadar_ui"
     static_configs:
-      - targets: [ 'inforadar_ui:5000' ]
+      - targets: ["inforadar_ui:5000"]
+
+  - job_name: "cadvisor_inforadar"
+    static_configs:
+      - targets: ["cadvisor_inforadar:8080"]
+
+  - job_name: "node_exporter_inforadar"
+    static_configs:
+      - targets: ["node_exporter_inforadar:9100"]
