@@ -1,0 +1,28 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default-receiver'
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: 'default-receiver'
+    telegram_configs:
+      - bot_token: 8564224015:AAEVK8cG_-9LnbAyRhLGFwq_0F6s4NxQuzs
+        chat_id: 5377484616
+        message: |
+          🚨 *Alert:* {{ .CommonLabels.alertname }}
+          🔍 Instance: {{ .CommonLabels.instance }}
+          📊 Severity: {{ .CommonLabels.severity }}
+          📅 Time: {{ .StartsAt }}
+          💬 {{ .Annotations.description }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
