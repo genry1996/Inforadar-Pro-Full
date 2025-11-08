@@ -45,14 +45,14 @@ services:
   prometheus_inforadar:
     image: prom/prometheus:latest
     container_name: prometheus_inforadar
-    restart: unless-stopped
-    command: --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - prometheus_data:/prometheus
     ports:
       - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks: [inforadar_net]
+    networks:
+      - inforadar_net
 
   loki_inforadar:
     image: grafana/loki:latest
@@ -113,16 +113,17 @@ services:
       - grafana_inforadar
       - loki_inforadar
 
-  alertmanager_inforadar:
+  alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager_inforadar
+    volumes:
+      - ./alertmanager/config.yml:/etc/alertmanager/config.yml
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
     ports:
       - "9093:9093"
-    volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-    restart: always
+    networks:
+      - inforadar_net
 
 volumes:
   mysql_data:

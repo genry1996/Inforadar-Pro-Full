@@ -1,0 +1,11 @@
+groups:
+  - name: TelegramTest
+    rules:
+      - alert: TelegramConnectionTest
+        expr: vector(1)
+        for: 10s
+        labels:
+          severity: info
+        annotations:
+          summary: "🚀 Тестовое уведомление в Telegram"
+          description: "Если ты получил это сообщение — всё работает корректно!"

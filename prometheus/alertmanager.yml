@@ -1,30 +1,29 @@
 global:
-  resolve_timeout: 1m
+  resolve_timeout: 5m
 
 route:
-  receiver: 'telegram'
-  group_wait: 10s
-  group_interval: 10s
-  repeat_interval: 1h
+  receiver: 'telegram-notifications'
   group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 1h
 
 receivers:
-  - name: 'telegram'
+  - name: 'telegram-notifications'
     telegram_configs:
-      - bot_token: "8395433352:AAEIvIuX7cJ-_is2NbCjs7uA0-QF3e_eoTY"
+      - bot_token: '8395433352:AAEIvIuX7cJ-_is2NbCjs7uA0-QF3e_eoTY'
         chat_id: 5377484616
         parse_mode: 'Markdown'
-        send_resolved: true
         message: |
-          🚨 *{{ .Status | toUpper }} ALERT* 🚨
-          *Alert:* {{ .CommonLabels.alertname }}
-          *Severity:* {{ .CommonLabels.severity }}
-          *Summary:* {{ .CommonAnnotations.summary }}
-          *Description:* {{ .CommonAnnotations.description }}
+          🚨 *Alert:* {{ .CommonLabels.alertname }}
+          🔍 *Instance:* {{ .CommonLabels.instance }}
+          📊 *Severity:* {{ .CommonLabels.severity }}
+          🕒 *Time:* {{ .StartsAt }}
+          💬 {{ .Annotations.description }}
 
 inhibit_rules:
   - source_match:
       severity: 'critical'
     target_match:
       severity: 'warning'
-    equal: ['alertname', 'dev', 'instance']
+    equal: ['alertname', 'instance']
