@@ -51,8 +51,7 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
-    networks:
-      - inforadar_net
+    networks: [inforadar_net]
 
   loki_inforadar:
     image: grafana/loki:latest
@@ -105,8 +104,10 @@ services:
       dockerfile: Dockerfile
     container_name: inforadar_ui
     ports:
-      - "127.0.0.1:5000:5000"
+      - "5000:5000"
     restart: always
+    volumes:
+      - ./inforadar_ui:/app
     depends_on:
       mysql_inforadar:
         condition: service_healthy
@@ -116,8 +117,6 @@ services:
         condition: service_started
       loki_inforadar:
         condition: service_started
-    volumes:
-      - ./inforadar_ui:/app        # 👈 вот это добавляем
     networks:
       - inforadar_net
 

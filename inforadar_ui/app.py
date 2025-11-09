@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# Параметры подключения к MySQL (контейнер mysql_inforadar)
+# --- Настройки базы данных ---
 DB_HOST = "mysql_inforadar"
 DB_PORT = 3306
 DB_USER = "radar"
@@ -12,7 +12,6 @@ DB_PASSWORD = "ryban8991!"
 DB_NAME = "inforadar"
 
 def get_connection():
-    """Создаёт подключение к базе данных MySQL"""
     try:
         conn = pymysql.connect(
             host=DB_HOST,
@@ -25,31 +24,36 @@ def get_connection():
         )
         return conn
     except Exception as e:
-        print(f"❌ Ошибка подключения к MySQL: {e}")
+        print(f"Ошибка подключения к MySQL: {e}")
         return None
 
+# --- Маршруты ---
 
 @app.route("/")
 def index():
-    """Главная страница: проверка соединения с базой"""
+    """Главная страница (OddlyOdds Dashboard)"""
+    return render_template("index.html")
+
+@app.route("/api/matches")
+def get_matches():
+    """API для вывода всех матчей"""
     conn = get_connection()
     if conn is None:
-        return "<b>Ошибка подключения к MySQL:</b> не удалось установить соединение."
+        return jsonify({"error": "Ошибка подключения к базе"}), 500
+
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT NOW() as now;")
-            result = cursor.fetchone()
-        conn.close()
-        return f"<h3>✅ Подключение к MySQL успешно!</h3><p>Текущее время: {result['now']}</p>"
+            cursor.execute("""
+                SELECT id, sport, league, home_team, away_team,
+                       score_home, score_away, start_time, created_at
+                FROM matches ORDER BY start_time DESC
+            """)
+            data = cursor.fetchall()
+        return jsonify(data)
     except Exception as e:
-        return f"<b>Ошибка подключения к MySQL:</b> {e}"
-
-
-@app.route("/api/test")
-def api_test():
-    """Тестовый эндпоинт для проверки API"""
-    return jsonify({"status": "ok", "message": "API Inforadar работает"})
-
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
