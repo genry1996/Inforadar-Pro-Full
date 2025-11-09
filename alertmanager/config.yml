@@ -3,26 +3,23 @@ global:
 
 route:
   receiver: 'telegram'
-  group_wait: 10s
-  group_interval: 1m
-  repeat_interval: 3h
 
 receivers:
   - name: 'telegram'
     telegram_configs:
-      - bot_token: '8341243138:AAGu3-5VIBFHTxj5Uo8iXRe6Ee9I3m4genc'
+      - bot_token: '8564224015:AAEVK8cG_-9LnbAyRhLGFwq_0F6s4NxQuzs'
         chat_id: 5377484616
-        parse_mode: 'Markdown'
+        parse_mode: Markdown
         message: |
           🚨 *Alert:* {{ .CommonLabels.alertname }}
-          📦 *Instance:* {{ .CommonLabels.instance }}
+          🧱 *Instance:* {{ .CommonLabels.instance }}
           🔥 *Status:* {{ .Status }}
-          {{- if .CommonLabels.job }}
-          ⚙️ *Job:* {{ .CommonLabels.job }}
-          {{- end }}
-          {{- if .CommonAnnotations.summary }}
-          🧾 *Summary:* {{ .CommonAnnotations.summary }}
-          {{- end }}
-          {{- if .CommonAnnotations.description }}
-          💬 *Description:* {{ .CommonAnnotations.description }}
-          {{- end }}
+          ⏰ *Time:* {{ .StartsAt }}
+          📊 *Description:* {{ .Annotations.summary }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
