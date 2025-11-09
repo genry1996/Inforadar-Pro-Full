@@ -101,7 +101,7 @@ services:
 
   inforadar_ui:
     build:
-      context: .
+      context: ./inforadar_ui
       dockerfile: Dockerfile
     container_name: inforadar_ui
     ports:
@@ -116,6 +116,8 @@ services:
         condition: service_started
       loki_inforadar:
         condition: service_started
+    volumes:
+      - ./inforadar_ui:/app        # 👈 вот это добавляем
     networks:
       - inforadar_net
 
