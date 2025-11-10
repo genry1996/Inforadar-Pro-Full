@@ -80,3 +80,36 @@ td {
 tr:hover {
   background: #fff8e2;
 }
+
+/* === Кнопка Telegram === */
+.telegram-btn {
+    background-color: #2aabee;
+    color: #fff !important;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin-left: 10px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.telegram-btn:hover {
+    background-color: #1b8ec8;
+    box-shadow: 0 0 8px rgba(26, 143, 200, 0.5);
+}
+
+/* === Селектор языка === */
+.lang-select {
+    background-color: #fff8e1;
+    border: 1px solid #b97f1a;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-weight: 600;
+    color: #4b2900;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.lang-select:hover {
+    background-color: #ffe88b;
+}
