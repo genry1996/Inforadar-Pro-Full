@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <!-- Лоадер таблицы -->
+  <div id="table-loader" class="table-loader">
+    <div class="mini-ring"></div>
+    <span>Загрузка LIVE...</span>
+  </div>
+
+  <!-- Заголовок и фильтр -->
+  <div class="live-stats-panel">
+    <h2 class="page-title">🔴 LIVE Матчи</h2>
+    <div class="live-filters">
+      <label for="sport-filter">Фильтр по спорту:</label>
+      <select id="sport-filter">
+        <option value="all" selected>Все</option>
+        <option value="Soccer">Soccer ⚽</option>
+        <option value="Esports">Esports 🎮</option>
+        <option value="Basketball">Basketball 🏀</option>
+      </select>
+    </div>
+    <div class="live-stats">
+      <span id="live-count">Матчей в LIVE: 0</span>
+      <span id="last-update">Обновлено: --:--:--</span>
+    </div>
+  </div>
+
+  <!-- Таблица -->
+  <table id="live-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Sport</th>
+        <th>League</th>
+        <th>Home</th>
+        <th>Away</th>
+        <th>Score</th>
+        <th>Start Time</th>
+      </tr>
+    </thead>
+    <tbody id="live-body"></tbody>
+  </table>
+
+  <p id="no-live" style="display:none;text-align:center;color:#a24c00;font-weight:600;">
+    Нет активных LIVE матчей.
+  </p>
+
+  <!-- JS логика -->
+  <script>
+    const liveBody = document.getElementById('live-body');
+    const loader = document.getElementById('table-loader');
+    const noLive = document.getElementById('no-live');
+    const liveCountEl = document.getElementById('live-count');
+    const lastUpdateEl = document.getElementById('last-update');
+    const sportFilter = document.getElementById('sport-filter');
+
+    let previousData = {};
+
+    async function loadLive() {
+      try {
+        loader.style.display = 'flex';
+        const res = await fetch('/api/matches');
+        const data = await res.json();
+        loader.style.display = 'none';
+        liveBody.innerHTML = '';
+
+        // применяем фильтр
+        const selected = sportFilter.value;
+        let liveMatches = data.filter(m => m.is_live === true || m.status === 'LIVE');
+
+        if (selected !== 'all') {
+          liveMatches = liveMatches.filter(m => m.sport === selected);
+        }
+
+        const liveCount = liveMatches.length;
+
+        if (liveCount === 0) {
+          noLive.style.display = 'block';
+          liveCountEl.textContent = "Матчей в LIVE: 0";
+          return;
+        } else {
+          noLive.style.display = 'none';
+        }
+
+        liveMatches.forEach(match => {
+          const id = match.id;
+          const score = `${match.score_home ?? 0}-${match.score_away ?? 0}`;
+          const prevScore = previousData[id]?.score || '';
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${id}</td>
+            <td>${match.sport ?? ''}</td>
+            <td>${match.league ?? ''}</td>
+            <td>${match.home_team ?? ''}</td>
+            <td>${match.away_team ?? ''}</td>
+            <td class="live-score">${score}</td>
+            <td>${new Date(match.start_time).toLocaleString('ru-RU')}</td>
+          `;
+
+          if (prevScore && prevScore !== score) {
+            row.classList.add('goal-flash');
+            setTimeout(() => row.classList.remove('goal-flash'), 1500);
+          }
+
+          liveBody.appendChild(row);
+          previousData[id] = { score };
+        });
+
+        updateStats(liveCount);
+      } catch (err) {
+        console.error('Ошибка загрузки LIVE:', err);
+        loader.style.display = 'none';
+      }
+    }
+
+    function updateStats(count) {
+      liveCountEl.textContent = `Матчей в LIVE: ${count}`;
+      const now = new Date();
+      lastUpdateEl.textContent =
+        "Обновлено: " + now.toLocaleTimeString("ru-RU", { hour12: false });
+      liveCountEl.classList.add('count-flash');
+      setTimeout(() => liveCountEl.classList.remove('count-flash'), 1000);
+    }
+
+    sportFilter.addEventListener('change', loadLive);
+
+    loadLive();
+    setInterval(loadLive, 10000);
+  </script>
+{% endblock %}

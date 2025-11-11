@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="matches-container">
+  <h2 class="page-title">📊 OddlyOdds — Матчи</h2>
+
+  <!-- ====== Вкладки ====== -->
+  <div class="tabs">
+    <button id="btn-live" class="tab-btn active">🔴 Live</button>
+    <button id="btn-prematch" class="tab-btn">🕒 Prematch</button>
+    <button id="btn-results" class="tab-btn">✅ Results</button>
+  </div>
+
+  <!-- ====== Инфопанель ====== -->
+  <div id="stats-panel" class="stats-panel">
+    <span>🔴 Live: <b id="live-count">0</b></span>
+    <span>🕒 Prematch: <b id="prematch-count">0</b></span>
+    <span>✅ Results: <b id="results-count">0</b></span>
+    <span>⏱ Обновлено: <b id="last-update">--:--:--</b></span>
+  </div>
+
+  <!-- ====== Таблица ====== -->
+    <!-- ====== Таблица ====== -->
+
+  <!-- 🔸 Shimmer Loader (анимация загрузки) -->
+  <div id="table-loader" class="table-shimmer">
+    <div class="shimmer-row"></div>
+    <div class="shimmer-row"></div>
+    <div class="shimmer-row"></div>
+    <div class="shimmer-row"></div>
+  </div>
+
+  <div class="table-wrapper">
+    <table id="matches-table">
+      <thead>
+        <tr>
+          <th>Sport</th>
+          <th>League</th>
+          <th>Home</th>
+          <th>Away</th>
+          <th>Score</th>
+          <th>Start Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="6" style="text-align:center;">Загрузка данных...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTab = "live";
+
+async function fetchMatches() {
+  try {
+    const res = await fetch("/api/matches");
+    const data = await res.json();
+    renderTable(data);
+    updateStats(data);
+  } catch (e) {
+    console.error("Ошибка при получении данных:", e);
+  }
+}
+
+function renderTable(matches) {
+  const tbody = document.querySelector("#matches-table tbody");
+  tbody.innerHTML = "";
+
+  const now = new Date();
+  const rows = matches.filter(match => {
+    const start = new Date(match.start_time);
+    if (currentTab === "live") return start <= now && now - start < 7200000;
+    if (currentTab === "prematch") return start > now;
+    if (currentTab === "results") return now - start >= 7200000;
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Нет матчей</td></tr>`;
+    return;
+  }
+
+  rows.forEach(m => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${m.sport}</td>
+      <td>${m.league}</td>
+      <td>${m.home_team}</td>
+      <td>${m.away_team}</td>
+      <td><b>${m.score_home} - ${m.score_away}</b></td>
+      <td>${new Date(m.start_time).toLocaleString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateStats(matches) {
+  const now = new Date();
+  const live = matches.filter(m => new Date(m.start_time) <= now && now - new Date(m.start_time) < 7200000).length;
+  const prematch = matches.filter(m => new Date(m.start_time) > now).length;
+  const results = matches.filter(m => now - new Date(m.start_time) >= 7200000).length;
+
+  document.getElementById("live-count").textContent = live;
+  document.getElementById("prematch-count").textContent = prematch;
+  document.getElementById("results-count").textContent = results;
+  document.getElementById("last-update").textContent = new Date().toLocaleTimeString();
+
+  const panel = document.getElementById("stats-panel");
+  panel.classList.add("highlight");
+  setTimeout(() => panel.classList.remove("highlight"), 500);
+}
+
+document.getElementById("btn-live").addEventListener("click", () => switchTab("live"));
+document.getElementById("btn-prematch").addEventListener("click", () => switchTab("prematch"));
+document.getElementById("btn-results").addEventListener("click", () => switchTab("results"));
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+  document.getElementById(`btn-${tab}`).classList.add("active");
+  fetchMatches();
+}
+
+// Запуск автообновления
+fetchMatches();
+setInterval(fetchMatches, 10000);
+</script>
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div id="table-loader" class="table-loader">
+    <div class="mini-ring"></div>
+    <span>Загрузка киберспорта...</span>
+  </div>
+
+  <div class="live-stats-panel">
+    <h2 class="page-title">🎮 Esports Матчи</h2>
+    <div class="live-filters">
+      <label for="game-filter">Игра:</label>
+      <select id="game-filter">
+        <option value="all" selected>Все</option>
+        <option value="CS2">Counter-Strike 2 🔫</option>
+        <option value="Dota 2">Dota 2 ⚔️</option>
+        <option value="Valorant">Valorant 🎯</option>
+      </select>
+    </div>
+    <div class="live-stats">
+      <span id="es-count">Матчей: 0</span>
+      <span id="last-update">Обновлено: --:--:--</span>
+    </div>
+  </div>
+
+  <table id="esports-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Игра/Лига</th>
+        <th>Турнир</th>
+        <th>Команда 1</th>
+        <th>Команда 2</th>
+        <th>Счёт</th>
+        <th>Начало</th>
+      </tr>
+    </thead>
+    <tbody id="esports-body"></tbody>
+  </table>
+
+  <p id="no-esports" style="display:none;text-align:center;color:#a24c00;font-weight:600;">
+    Нет активных матчей киберспорта.
+  </p>
+
+  <script>
+    const bodyEl = document.getElementById('esports-body');
+    const loader = document.getElementById('table-loader');
+    const countEl = document.getElementById('es-count');
+    const noEs = document.getElementById('no-esports');
+    const lastUpd = document.getElementById('last-update');
+    const gameFilter = document.getElementById('game-filter');
+
+    let previous = {};
+
+    // простая эвристика: по league определяем игру
+    function detectGame(m) {
+      const L = (m.league || '').toLowerCase();
+      if (L.includes('cs') || L.includes('counter')) return 'CS2';
+      if (L.includes('dota')) return 'Dota 2';
+      if (L.includes('valorant')) return 'Valorant';
+      return m.league || 'Esports';
+    }
+
+    async function loadEsports() {
+      loader.style.display = 'flex';
+      try {
+        const res = await fetch('/api/matches');
+        const data = await res.json();
+        loader.style.display = 'none';
+        bodyEl.innerHTML = '';
+
+        // берём только киберспорт (по полю sport)
+        let matches = (data || []).filter(m => (m.sport || '').toLowerCase().includes('esport'));
+
+        const selected = gameFilter.value;
+        if (selected !== 'all') {
+          matches = matches.filter(m => detectGame(m) === selected);
+        }
+
+        if (!matches.length) {
+          noEs.style.display = 'block';
+          countEl.textContent = 'Матчей: 0';
+          return;
+        }
+        noEs.style.display = 'none';
+
+        matches.forEach(m => {
+          const id = m.id;
+          const game = detectGame(m);
+          const score = `${m.score_home ?? 0}-${m.score_away ?? 0}`;
+          const prev = previous[id]?.score;
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${id}</td>
+            <td>${game}</td>
+            <td>${m.league ?? ''}</td>
+            <td>${m.home_team ?? ''}</td>
+            <td>${m.away_team ?? ''}</td>
+            <td class="live-score">${score}</td>
+            <td>${new Date(m.start_time).toLocaleString('ru-RU')}</td>
+          `;
+
+          if (prev && prev !== score) {
+            row.classList.add('goal-flash');
+            setTimeout(() => row.classList.remove('goal-flash'), 1500);
+          }
+
+          bodyEl.appendChild(row);
+          previous[id] = { score };
+        });
+
+        updateStats(matches.length);
+      } catch (e) {
+        console.error('Ошибка загрузки Esports:', e);
+        loader.style.display = 'none';
+      }
+    }
+
+    function updateStats(count) {
+      countEl.textContent = `Матчей: ${count}`;
+      lastUpd.textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru-RU', { hour12: false });
+      countEl.classList.add('count-flash');
+      setTimeout(() => countEl.classList.remove('count-flash'), 800);
+    }
+
+    gameFilter.addEventListener('change', loadEsports);
+    loadEsports();
+    setInterval(loadEsports, 10000);
+  </script>
+{% endblock %}

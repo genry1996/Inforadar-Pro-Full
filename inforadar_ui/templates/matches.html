@@ -1,48 +1,150 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Inforadar Matches</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f8f9fa; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
-        th { background-color: #343a40; color: white; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-        h1 { color: #343a40; }
-    </style>
-</head>
-<body>
-    <h1>📊 Матчи из базы Inforadar</h1>
-    {% if matches %}
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Лига</th>
-                <th>Команда 1</th>
-                <th>Команда 2</th>
-                <th>Время начала</th>
-                <th>Кэф 1</th>
-                <th>Ничья</th>
-                <th>Кэф 2</th>
-                <th>Изменение</th>
-            </tr>
-            {% for match in matches %}
-            <tr>
-                <td>{{ match.id }}</td>
-                <td>{{ match.league }}</td>
-                <td>{{ match.team1 }}</td>
-                <td>{{ match.team2 }}</td>
-                <td>{{ match.start_time }}</td>
-                <td>{{ match.win1 }}</td>
-                <td>{{ match.draw }}</td>
-                <td>{{ match.win2 }}</td>
-                <td>{{ match.change_symbol }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>Нет данных в таблице matches.</p>
-    {% endif %}
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="matches-container">
+  <h2 class="page-title fade-in">📊 Мониторинг матчей</h2>
+  <p class="fade-in-delay">
+    Следите за изменением коэффициентов и результатов в реальном времени.
+    Таблица обновляется каждые <b>10 секунд</b> с эффектом shimmer-анимации ⚡
+  </p>
+
+  <!-- Контейнер для таблицы -->
+  <div id="matches-table" class="fade-in-late"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ====== shimmer эффект ====== */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #f6f7f8;
+  background-image: linear-gradient(
+    to right,
+    #f6f7f8 0%,
+    #edeef1 20%,
+    #f6f7f8 40%,
+    #f6f7f8 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 100%;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
+}
+.shimmer-container { padding: 15px; }
+.shimmer-line { height: 18px; margin-bottom: 10px; border-radius: 6px; }
+
+/* ====== таблица ====== */
+#matches-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: #fff9ef;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 8px rgba(0,0,0,0.05);
+  transition: opacity 0.4s ease;
+}
+#matches-table th, #matches-table td {
+  padding: 10px 12px;
+  text-align: center;
+  border-bottom: 1px solid #f1e6c4;
+}
+#matches-table th {
+  background: #ffecb3;
+  font-weight: 600;
+  color: #795548;
+}
+#matches-table tr:hover {
+  background: #fff3d1;
+}
+
+/* fade-in эффект */
+.fade-in-table {
+  animation: fadeIn 0.6s ease-in;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // --- shimmer-анимация ---
+  function showShimmer() {
+    const table = document.getElementById("matches-table");
+    table.innerHTML = `
+      <div class="shimmer-container">
+        <div class="shimmer shimmer-line" style="width: 90%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 70%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 80%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 60%; height: 20px;"></div>
+      </div>
+    `;
+  }
+
+  // --- загрузка матчей ---
+  async function loadMatches() {
+    showShimmer();
+    try {
+      const response = await fetch("/api/matches");
+      const data = await response.json();
+      setTimeout(() => renderTable(data), 500); // плавный переход
+    } catch (err) {
+      console.error("Ошибка загрузки:", err);
+    }
+  }
+
+  // --- отрисовка таблицы ---
+  function renderTable(matches) {
+    const table = document.getElementById("matches-table");
+
+    if (!matches || matches.length === 0) {
+      table.innerHTML = "<p>Нет данных для отображения.</p>";
+      return;
+    }
+
+    let html = `
+      <table class="fade-in-table">
+        <thead>
+          <tr>
+            <th>Спорт</th>
+            <th>Лига</th>
+            <th>Дом</th>
+            <th>Гости</th>
+            <th>Счёт</th>
+            <th>Время</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    matches.forEach(m => {
+      html += `
+        <tr>
+          <td>${m.sport}</td>
+          <td>${m.league}</td>
+          <td>${m.home_team}</td>
+          <td>${m.away_team}</td>
+          <td>${m.score_home ?? "-"} : ${m.score_away ?? "-"}</td>
+          <td>${m.start_time}</td>
+        </tr>
+      `;
+    });
+
+    html += "</tbody></table>";
+    table.innerHTML = html;
+  }
+
+  // --- автозагрузка и обновление каждые 10 секунд ---
+  loadMatches();
+  setInterval(loadMatches, 10000);
+});
+</script>
+{% endblock %}

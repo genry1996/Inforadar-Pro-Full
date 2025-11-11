@@ -1,42 +1,178 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>OddlyOdds Production</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
-</head>
-<body>
-  <header>
-    <h1>⚽🏀🎮 OddlyOdds <span>Production</span></h1>
-    <nav>
-      <button class="active">Soccer</button>
-      <button>Basketball</button>
-      <button>Esports</button>
-      <button>All</button>
-    </nav>
-  </header>
+{% extends "base.html" %}
 
-  <main>
-    <div class="mode-buttons">
-      <button class="active">Live</button>
-      <button>Prematch</button>
-      <button>Result</button>
+{% block content %}
+<div class="welcome-container">
+  <h2 class="page-title fade-in">🏆 Добро пожаловать в OddlyOdds Production</h2>
+  <p class="fade-in-delay">Интеллектуальная панель мониторинга спортивных коэффициентов и событий в реальном времени ⚙️</p>
+
+  <!-- ====== Блок иконок ====== -->
+  <div class="sports-icons fade-in-slow">
+    <div class="icon-card">
+      <img src="{{ url_for('static', filename='images/soccer.png') }}" alt="Soccer">
+      <p>⚽ Футбол (Soccer)</p>
     </div>
+    <div class="icon-card">
+      <img src="{{ url_for('static', filename='images/basketball.png') }}" alt="Basketball">
+      <p>🏀 Баскетбол (NBA)</p>
+    </div>
+    <div class="icon-card">
+      <img src="{{ url_for('static', filename='images/esports.png') }}" alt="Esports">
+      <p>🎮 Киберспорт (Esports)</p>
+    </div>
+  </div>
 
-    <table id="matches-table">
-      <thead>
+  <!-- ====== Вкладки навигации ====== -->
+  <div class="tabs fade-in-late">
+    <button onclick="location.href='/live'" class="tab-btn">🔴 Live</button>
+    <button onclick="location.href='/prematch'" class="tab-btn">🕒 Prematch</button>
+    <button onclick="location.href='/matches'" class="tab-btn">📊 Matches</button>
+    <button onclick="location.href='/esports'" class="tab-btn">🎮 Esports</button>
+  </div>
+
+  <!-- ====== Контейнер таблицы с shimmer ====== -->
+  <div id="matches-container" class="fade-in-late"></div>
+
+  <!-- ====== Инфо блок ====== -->
+  <div class="welcome-panel fade-in-late">
+    <p>
+      Следите за изменением коэффициентов в реальном времени, анализируйте движение линий и сравнивайте результаты разных видов спорта.
+      Данные обновляются каждые <b>10 секунд</b> с высокой точностью 📈
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* --- shimmer эффект --- */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #f6f7f8;
+  background-image: linear-gradient(
+    to right,
+    #f6f7f8 0%,
+    #edeef1 20%,
+    #f6f7f8 40%,
+    #f6f7f8 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 100%;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
+}
+.shimmer-container { padding: 10px; }
+.shimmer-line { height: 16px; margin-bottom: 8px; border-radius: 6px; }
+
+/* эффект появления таблицы */
+.fade-in-table {
+  animation: fadeIn 0.5s ease-in;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* оформление таблицы */
+#matches-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  background: #fff9ef;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 8px rgba(0,0,0,0.05);
+}
+#matches-container th, #matches-container td {
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid #f1e6c4;
+}
+#matches-container th {
+  background: #ffe082;
+  font-weight: 600;
+}
+#matches-container tr:hover {
+  background: #fff3d1;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".fade-in, .fade-in-delay, .fade-in-slow, .fade-in-late")
+    .forEach((el, i) => setTimeout(() => el.classList.add("visible"), 200 + i * 250));
+
+  // --- shimmer-анимация ---
+  function showShimmer() {
+    const container = document.getElementById("matches-container");
+    container.innerHTML = `
+      <div class="shimmer-container">
+        <div class="shimmer shimmer-line" style="width: 90%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 75%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 85%; height: 20px;"></div>
+        <div class="shimmer shimmer-line" style="width: 60%; height: 20px;"></div>
+      </div>
+    `;
+  }
+
+  async function loadMatches() {
+    showShimmer();
+    try {
+      const response = await fetch("/api/matches");
+      const data = await response.json();
+      setTimeout(() => renderTable(data), 500); // имитация плавного обновления
+    } catch (error) {
+      console.error("Ошибка загрузки:", error);
+    }
+  }
+
+  function renderTable(matches) {
+    const container = document.getElementById("matches-container");
+
+    if (!matches || matches.length === 0) {
+      container.innerHTML = "<p>Нет данных для отображения.</p>";
+      return;
+    }
+
+    let html = `
+      <table class="fade-in-table">
+        <thead>
+          <tr>
+            <th>Спорт</th>
+            <th>Лига</th>
+            <th>Дом</th>
+            <th>Гости</th>
+            <th>Счёт</th>
+            <th>Время</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    matches.forEach(m => {
+      html += `
         <tr>
-          <th>Sport</th>
-          <th>League</th>
-          <th>Home</th>
-          <th>Away</th>
-          <th>Score</th>
-          <th>Start Time</th>
+          <td>${m.sport}</td>
+          <td>${m.league}</td>
+          <td>${m.home_team}</td>
+          <td>${m.away_team}</td>
+          <td>${m.score_home ?? "-"} : ${m.score_away ?? "-"}</td>
+          <td>${m.start_time}</td>
         </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </main>
-</body>
-</html>
+      `;
+    });
+
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  // --- запуск shimmer + обновления каждые 10 секунд ---
+  loadMatches();
+  setInterval(loadMatches, 10000);
+});
+</script>
+{% endblock %}
