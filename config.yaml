@@ -1,0 +1,11 @@
+telegram:
+  token: 8395433352:AAEIvIuX7cJ-_is2NbCjs7uA0-QF3e_eoTY   # TODO: Вставьте токен бота от BotFather
+  chat_id: 5377484616           # TODO: Идентификатор чата или канала для алертов
+
+# TODO: при необходимости добавить настройки БД, API букмекеров и т.д.
+database:
+  host: "localhost"
+  port: 5432
+  user: "user"
+  password: "password"
+  name: "oddsdb"
