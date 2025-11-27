@@ -502,3 +502,42 @@ main {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+.anom-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    border-left: 6px solid #f1c40f;
+}
+
+.anom-up { border-left-color: #2ecc71; }
+.anom-down { border-left-color: #e74c3c; }
+.anom-limit { border-left-color: #9b59b6; }
+
+.badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: white;
+}
+
+.badge-up { background: #2ecc71; }
+.badge-down { background: #e74c3c; }
+.badge-limit { background: #9b59b6; }
+
+.filter-btn {
+    padding: 6px 12px;
+    background: #fff3cd;
+    border-radius: 10px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    color: black;
+}
+.filter-btn.active {
+    background: #ffc107;
+}
+

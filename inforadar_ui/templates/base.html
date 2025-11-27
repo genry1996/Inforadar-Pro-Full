@@ -26,6 +26,14 @@
         <a href="/" class="{{ 'active' if request.path == '/' else '' }}">Soccer</a>
         <a href="/live" class="{{ 'active' if request.path.startswith('/live') else '' }}">Live</a>
         <a href="/matches" class="{{ 'active' if request.path.startswith('/matches') else '' }}">Matches</a>
+
+        <!-- ⭐ ВСТАВЛЕННАЯ КНОПКА АНОМАЛИИ ⭐ -->
+        <a href="{{ url_for('anomalies_page') }}"
+           class="{{ 'active' if request.path.startswith('/anomalies') else '' }}">
+           Аномалии
+        </a>
+        <!-- ⭐ КОНЕЦ ВСТАВКИ ⭐ -->
+
         <a href="/esports" class="{{ 'active' if request.path.startswith('/esports') else '' }}">Esports</a>
         <a href="/prematch" class="{{ 'active' if request.path.startswith('/prematch') else '' }}">Prematch</a>
       </nav>
@@ -68,23 +76,21 @@
       }
     });
 
-    // Мини-лоадер таблицы
-    // ===== Shimmer-анимация при загрузке таблицы =====
-document.addEventListener("DOMContentLoaded", () => {
-  const loader = document.getElementById("table-loader");
-  const table = document.querySelector("table");
+    // Shimmer loader для таблиц
+    document.addEventListener("DOMContentLoaded", () => {
+      const loader = document.getElementById("table-loader");
+      const table = document.querySelector("table");
 
-  if (loader && table) {
-    loader.style.display = "block";
-    table.style.opacity = "0";
+      if (loader && table) {
+        loader.style.display = "block";
+        table.style.opacity = "0";
 
-    // Имитация загрузки — можно синхронизировать с AJAX/обновлением данных
-    setTimeout(() => {
-      loader.style.display = "none";
-      table.style.opacity = "1";
-    }, 1500);
-  }
-});
+        setTimeout(() => {
+          loader.style.display = "none";
+          table.style.opacity = "1";
+        }, 1500);
+      }
+    });
 
     // Переключение языка
     document.getElementById("lang-select")?.addEventListener("change", (e) => {
@@ -92,7 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   </script>
 
-  <!-- ===== 🌟 Глобальный плавный переход + shimmer loader ===== -->
+  <!-- ===== Глобальный лоадер переходов ===== -->
   <div id="page-loader">
     <div class="shimmer"></div>
   </div>
@@ -102,7 +108,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const loader = document.getElementById("page-loader");
       loader.style.display = "none";
 
-      // плавная загрузка при переходах
       document.querySelectorAll("a, button").forEach(el => {
         el.addEventListener("click", e => {
           const href = el.getAttribute("href");

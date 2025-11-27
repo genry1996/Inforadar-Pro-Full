@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.anom-header {
+    margin-bottom: 18px;
+}
+.anom-header h2 {
+    margin: 0 0 6px 0;
+}
+.anom-header p {
+    margin: 0;
+    font-size: 14px;
+    color: #777;
+}
+
+.anom-filters {
+    margin-bottom: 16px;
+}
+
+.filter-btn {
+    padding: 6px 14px;
+    background: #fff3cd;
+    border-radius: 10px;
+    margin-right: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    color: #000;
+    border: 1px solid transparent;
+}
+.filter-btn:hover {
+    border-color: #ffcf33;
+}
+.filter-btn.active {
+    background: #ffc107;
+    font-weight: 600;
+}
+
+.anom-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.04);
+    border-left: 5px solid #f7c948;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.anom-card:hover {
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+
+.badge {
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #fff;
+}
+.badge-drop { background:#e74c3c; }
+.badge-rise { background:#2ecc71; }
+.badge-limit { background:#9b59b6; }
+.badge-other { background:#34495e; }
+
+.anom-match {
+    font-size: 15px;
+    font-weight: 600;
+}
+.anom-meta {
+    font-size: 12px;
+    color: #888;
+}
+
+.anom-body {
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.pagination {
+    margin-top: 18px;
+    text-align: center;
+}
+.page-btn {
+    display: inline-block;
+    padding: 5px 10px;
+    margin: 0 3px;
+    border-radius: 8px;
+    border: 1px solid #ffd666;
+    text-decoration: none;
+    font-size: 13px;
+    color: #444;
+    background: #fffdf5;
+}
+.page-btn.active {
+    background: #ffc107;
+    color: #000;
+    font-weight: 600;
+}
+.page-btn:hover {
+    background: #ffe083;
+}
+</style>
+
+<div class="anom-header">
+    <h2>⚡ Аномалии коэффициентов</h2>
+    <p>Подозрительные виды движения линий и лимитов.</p>
+</div>
+
+<div class="anom-filters">
+    <a href="{{ url_for('anomalies_page', type='all') }}"
+       class="filter-btn {% if filter_type == 'all' %}active{% endif %}">Все</a>
+
+    <a href="{{ url_for('anomalies_page', type='live') }}"
+       class="filter-btn {% if filter_type == 'live' %}active{% endif %}">LIVE</a>
+
+    <a href="{{ url_for('anomalies_page', type='prematch') }}"
+       class="filter-btn {% if filter_type == 'prematch' %}active{% endif %}">Prematch</a>
+</div>
+
+{% if anomalies|length == 0 %}
+<p style="color:#777;">Нет данных.</p>
+{% else %}
+    {% for a in anomalies %}
+
+        {# Название матча #}
+        {% if a.home_team or a.away_team %}
+            {% set match_title = (a.home_team or '?') ~ ' vs ' ~ (a.away_team or '?') %}
+        {% else %}
+            {% set match_title = 'Матч ID ' ~ a.match_id %}
+        {% endif %}
+
+        {# Определяем тип #}
+        {% set badge_class="badge-other" %}
+        {% set label=a.anomaly_type %}
+
+        {% if 'DROP' in a.anomaly_type %}
+            {% set badge_class="badge-drop" %}
+            {% set label="Падение коэффициента" %}
+        {% elif 'RISE' in a.anomaly_type %}
+            {% set badge_class="badge-rise" %}
+            {% set label="Рост коэффициента" %}
+        {% elif 'LIMIT' in a.anomaly_type %}
+            {% set badge_class="badge-limit" %}
+            {% set label="Порезка лимита" %}
+        {% endif %}
+
+        <div class="anom-card">
+            <div class="anom-title-line">
+                <div>
+                    <div class="anom-match">{{ match_title }}</div>
+                    <div class="anom-meta">
+                        {{ a.sport }} • {{ a.league }} • {{ a.occurred_at }}
+                    </div>
+                </div>
+                <span class="badge {{ badge_class }}">{{ label }}</span>
+            </div>
+
+            <div class="anom-body">
+                {% if a.before_odd is not none and a.after_odd is not none %}
+                <div class="anom-odds-line">
+                    Кэф: <b>{{ a.before_odd }}</b> → <b>{{ a.after_odd }}</b>
+                    {% if a.diff_pct %}<span style="color:#999;">({{ a.diff_pct }}%)</span>{% endif %}
+                </div>
+                {% endif %}
+
+                {% if a.before_limit and a.after_limit %}
+                <div class="anom-odds-line">
+                    Лимит: <b>{{ a.before_limit }}</b> → <b>{{ a.after_limit }}</b>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    {% endfor %}
+{% endif %}
+
+{% if total_pages > 1 %}
+    <div class="pagination">
+        {% for p in range(1, total_pages+1) %}
+            <a href="{{ url_for('anomalies_page', type=filter_type, page=p) }}"
+               class="page-btn {% if p == page %}active{% endif %}">
+                {{ p }}
+            </a>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<script>
+setInterval(() => location.reload(), 15000);
+</script>
+
+{% endblock %}
