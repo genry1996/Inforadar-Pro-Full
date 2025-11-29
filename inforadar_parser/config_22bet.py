@@ -20,12 +20,13 @@ ANOMALY_WINDOW_MINUTES = int(os.getenv("ANOMALY_WINDOW_MINUTES", "30"))
 
 # ====== НАСТРОЙКИ БД ======
 
-MYSQL_HOST = os.getenv("MYSQL_HOST", "mysql_inforadar")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_USER = os.getenv("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "root")
-MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")
+# config_22bet.py
 
+MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")  # или 'localhost'
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3307"))  # порт из docker‑compose
+MYSQL_USER = os.getenv("MYSQL_USER", "radar")      # как в docker‑compose
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ryban8991!")  # пароль
+MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")
 
 # ====== ПРОКСИ ДЛЯ PLAYWRIGHT ======
 # Пример: http://user:pass@ip:port  или  socks5://user:pass@ip:port
