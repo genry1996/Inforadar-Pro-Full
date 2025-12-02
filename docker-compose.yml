@@ -25,6 +25,28 @@ services:
       retries: 30
     networks: [inforadar_net]
 
+
+  playwright_22bet:
+    build:
+      context: ./inforadar_parser
+      dockerfile: parser_22bet_playwright.Dockerfile
+    container_name: playwright_22bet
+    restart: always
+    depends_on:
+      - mysql_inforadar
+    environment:
+      MYSQL_HOST: mysql_inforadar
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: "ryban8991!"
+      MYSQL_DB: inforadar
+
+      # Правильный вариант для Chromium через ENV
+      ALL_PROXY: "socks5://p5wCXOtxz2NYPe7k:ll0NYne2DSrm18Ot@geo.iproyal.com:12321"
+      HTTPS_PROXY: "socks5://p5wCXOtxz2NYPe7k:ll0NYne2DSrm18Ot@geo.iproyal.com:12321"
+      HTTP_PROXY: "socks5://p5wCXOtxz2NYPe7k:ll0NYne2DSrm18Ot@geo.iproyal.com:12321"
+
+
   grafana_inforadar:
     image: grafana/grafana:latest
     container_name: grafana_inforadar
@@ -131,6 +153,7 @@ services:
       - "9093:9093"
     networks:
       - inforadar_net
+
 
 volumes:
   mysql_data:

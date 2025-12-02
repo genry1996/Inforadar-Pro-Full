@@ -60,8 +60,9 @@ def anomalies_page():
 
     if conn:
         with conn.cursor() as cursor:
+
             query = """
-                SELECT 
+                SELECT
                     a.id,
                     a.match_id,
                     a.anomaly_type,
@@ -84,13 +85,18 @@ def anomalies_page():
             elif filter_type == "prematch":
                 query += " WHERE a.anomaly_type NOT LIKE '%LIVE%'"
 
-            query += " ORDER BY a.occurred_at DESC LIMIT 300"
+            query += " ORDER BY a.occurred_at DESC LIMIT 200"
 
             cursor.execute(query)
             anomalies = cursor.fetchall()
 
-    return render_template("anomalies.html", anomalies=anomalies, filter_type=filter_type)
-
+    return render_template(
+        "anomalies.html",
+        anomalies=anomalies,
+        filter_type=filter_type,
+        total_pages=1,
+        page=1
+    )
 
 # ====== MAIN PAGE ======
 @app.route("/")
