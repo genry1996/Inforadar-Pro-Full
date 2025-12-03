@@ -9,7 +9,9 @@ PARSER_LOOP_INTERVAL = int(os.getenv("PARSER_LOOP_INTERVAL", "30"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "15"))
 ANOMALY_WINDOW_MINUTES = int(os.getenv("ANOMALY_WINDOW_MINUTES", "30"))
 
-# ====== БАЗА ДАННЫХ ======
+# ====== БАЗА ДАННЫХ (для локального parser_22bet.py) ======
+# Когда ты запускаешь parser_22bet.py из Windows, он ходит в MySQL по этим настройкам.
+# (Docker-контейнеры используют свои env-переменные и от этого блока не зависят.)
 
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3307"))
@@ -17,10 +19,28 @@ MYSQL_USER = os.getenv("MYSQL_USER", "radar")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ryban8991!")
 MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")
 
-# ====== ПРОКСИ (IPROYAL RESIDENTIAL SOCKS5) ======
+# ====== ПРОКСИ (IPRoyal ISP Sweden HTTP) ======
+# Данные взяты с твоего скрина (Host/Port/User/Pass).
 
-# ВАЖНО: это та же строка, что ты уже используешь
-PROXY_URL = "socks5h://p5wCXOtxz2NYPe7k:ll0NYne2DSrm18Ot@geo.iproyal.com:12321"
+PROXY_HOST = "213.137.91.35"
+PROXY_PORT = 12323
+PROXY_USER = "14ab48c9d85c1"
+PROXY_PASS = "5d234f6517"
+
+# Полная строка для requests и прочих HTTP-клиентов
+PROXY_URL = "http://14ab48c9d85c1:5d234f6517@213.137.91.35:12323"
+
+REQUESTS_PROXIES = {
+    "http": PROXY_URL,
+    "https": PROXY_URL,
+}
+
+# Отдельный формат для Playwright (Chromium)
+PLAYWRIGHT_PROXY: Dict[str, Any] = {
+    "server": f"http://{PROXY_HOST}:{PROXY_PORT}",
+    "username": PROXY_USER,
+    "password": PROXY_PASS,
+}
 
 # ====== СПОРТЫ ======
 
@@ -56,9 +76,9 @@ SPORTS: Dict[str, SportConfig] = {
     ),
 }
 
-# ====== (СТАРОЕ) API 22BET — можно не трогать, если понадобится ======
+# ====== (СТАРОЕ) API 22BET — пока не трогаем, вдруг пригодится ======
 
-BASE_URL = "https://betlines.xyz"   # сейчас не используется, можно потом удалить
+BASE_URL = "https://betlines.xyz"   # сейчас не используется
 
 ENDPOINTS = {
     "prematch_by_sport": (
@@ -77,7 +97,7 @@ def get_endpoint(name: str, **kwargs: Any) -> str:
         raise ValueError(f"Unknown endpoint: {name}")
     return template.format(**kwargs)
 
-# ====== PLAYWRIGHT НАСТРОЙКИ ДЛЯ 22BET ======
+# ============= PLAYWRIGHT НАСТРОЙКИ =============
 
 # Зеркала фронта 22BET — браузер будет по очереди пробовать каждое
 PLAYWRIGHT_MIRRORS = [
@@ -88,13 +108,11 @@ PLAYWRIGHT_MIRRORS = [
     "https://22bet-8.com",
 ]
 
-# URL-линии по видам спорта (относительно домена из PLAYWRIGHT_MIRRORS)
-# Эти пути можно править, если вдруг у 22BET поменяется структура
+# URL линии по видам спорта (относительно домена из PLAYWRIGHT_MIRRORS)
 SPORT_LINE_URLS = {
-    "football": "/line/football/",   # типичный путь для футбольной линии
+    "football": "/line/football/",
 }
 
-# Настройки браузера
-PLAYWRIGHT_HEADLESS = True          # можно поставить False для дебага
-PLAYWRIGHT_SLOW_MO_MS = 50          # замедление, чтобы не рвало всё резко
-PLAYWRIGHT_PAGE_TIMEOUT_MS = 30000  # 30 сек на загрузку страницы
+PLAYWRIGHT_HEADLESS = True
+PLAYWRIGHT_SLOW_MO_MS = 50
+PLAYWRIGHT_PAGE_TIMEOUT_MS = 30000

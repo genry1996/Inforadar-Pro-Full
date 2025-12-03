@@ -3,3 +3,4 @@ pymysql
 pysocks
 playwright
 pymysql
+cryptography
