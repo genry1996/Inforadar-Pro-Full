@@ -1,6 +1,7 @@
 name: inforadar_pro
 
 services:
+
   mysql_inforadar:
     image: mysql:8.0
     container_name: mysql_inforadar
@@ -26,25 +27,25 @@ services:
     networks:
       - inforadar_net
 
+
   playwright_22bet:
+    container_name: playwright_22bet
     build:
       context: ./inforadar_parser
-    # если dockerfile не стандартный — оставь строку:
-    #   dockerfile: parser_22bet_playwright.Dockerfile
       dockerfile: parser_22bet_playwright.Dockerfile
-    container_name: playwright_22bet
-    restart: always
-    depends_on:
-      - mysql_inforadar
+    command: ["python3", "/app/parser_22bet_playwright.py"]
     environment:
-      - MYSQL_HOST=mysql_inforadar
-      - MYSQL_PORT=3306
-      - MYSQL_USER=radar
-      - MYSQL_PASSWORD=ryban8991!
-      - MYSQL_DB=inforadar
-      - PROXY_URL=http://14ab48c9d85c1:5d234f6517@213.137.91.35:12323
+      MYSQL_HOST: mysql_inforadar
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ryban8991!
+      MYSQL_DB: inforadar
+    volumes:
+      - ./inforadar_parser:/app
+    depends_on:
+      mysql_inforadar:
+        condition: service_healthy
     networks:
-      - inforadar_net               # 👈 ЭТО ГЛАВНОЕ
+      - inforadar_net
 
 
   grafana_inforadar:
@@ -64,6 +65,7 @@ services:
       - loki_inforadar
     networks: [inforadar_net]
 
+
   prometheus_inforadar:
     image: prom/prometheus:latest
     container_name: prometheus_inforadar
@@ -74,6 +76,7 @@ services:
     ports:
       - "9090:9090"
     networks: [inforadar_net]
+
 
   loki_inforadar:
     image: grafana/loki:latest
@@ -87,6 +90,7 @@ services:
       - loki_data:/loki
     networks: [inforadar_net]
 
+
   promtail_inforadar:
     image: grafana/promtail:latest
     container_name: promtail_inforadar
@@ -94,10 +98,11 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./promtail/config.yml:/etc/promtail/config.yml:ro
     command: -config.file=/etc/promtail/config.yml
-    networks:
-      - inforadar_net
     depends_on:
       - loki_inforadar
+    networks:
+      - inforadar_net
+
 
   node_exporter_inforadar:
     image: prom/node-exporter:latest
@@ -106,6 +111,7 @@ services:
     ports:
       - "9100:9100"
     networks: [inforadar_net]
+
 
   cadvisor_inforadar:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -119,6 +125,7 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     networks: [inforadar_net]
+
 
   inforadar_ui:
     build:
@@ -142,13 +149,14 @@ services:
     networks:
       - inforadar_net
 
+
   alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager_inforadar
     volumes:
       - ./alertmanager/config.yml:/etc/alertmanager/config.yml
     command:
-      - '--config.file=/etc/alertmanager/config.yml'
+      - "--config.file=/etc/alertmanager/config.yml"
     ports:
       - "9093:9093"
     networks:

@@ -1,26 +1,23 @@
-FROM mcr.microsoft.com/playwright/python:v1.56.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
 
-# ==== Устанавливаем системные зависимости ====
+# системные зависимости
 RUN apt-get update && apt-get install -y \
-    python3-dev \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
-    curl \
-    && apt-get clean
+    python3-dev build-essential libssl-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# ==== Копируем requirements ====
+# копируем зависимости
 COPY requirements.txt .
 
-# ==== Устанавливаем Python зависимости (включая cryptography) ====
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir cryptography
+RUN pip install cryptography
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ==== Копируем проект ====
+# КОПИРУЕМ ВСЁ (включая dump_html.py)
 COPY . .
 
-# ==== Playwright browsers ====
+# ставим Chromium
 RUN playwright install --with-deps chromium
+
+CMD ["python3", "parser_22bet_playwright.py"]

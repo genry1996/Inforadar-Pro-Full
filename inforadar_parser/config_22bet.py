@@ -2,16 +2,18 @@ import os
 from dataclasses import dataclass
 from typing import Dict, Any
 
-# ====== ОБЩИЕ ======
+# =========================
+# ОБЩИЕ НАСТРОЙКИ
+# =========================
 
 BOOKMAKER_ID = 1
 PARSER_LOOP_INTERVAL = int(os.getenv("PARSER_LOOP_INTERVAL", "30"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "15"))
 ANOMALY_WINDOW_MINUTES = int(os.getenv("ANOMALY_WINDOW_MINUTES", "30"))
 
-# ====== БАЗА ДАННЫХ (для локального parser_22bet.py) ======
-# Когда ты запускаешь parser_22bet.py из Windows, он ходит в MySQL по этим настройкам.
-# (Docker-контейнеры используют свои env-переменные и от этого блока не зависят.)
+# =========================
+# БАЗА ДАННЫХ
+# =========================
 
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3307"))
@@ -19,30 +21,36 @@ MYSQL_USER = os.getenv("MYSQL_USER", "radar")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ryban8991!")
 MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")
 
-# ====== ПРОКСИ (IPRoyal ISP Sweden HTTP) ======
-# Данные взяты с твоего скрина (Host/Port/User/Pass).
+# =========================
+# ПРОКСИ IPRoyal ISP (Sweden)
+# =========================
+# !!! ЭТО ОСНОВНАЯ ИСПРАВЛЕННАЯ ЧАСТЬ !!!
+# Playwright и curl требуют авторизацию.
+# Если указать только host:port → будет 407 Proxy Authentication Required.
 
 PROXY_HOST = "213.137.91.35"
 PROXY_PORT = 12323
 PROXY_USER = "14ab48c9d85c1"
 PROXY_PASS = "5d234f6517"
 
-# Полная строка для requests и прочих HTTP-клиентов
-PROXY_URL = "http://14ab48c9d85c1:5d234f6517@213.137.91.35:12323"
+# Полная строка — для requests, curl, http-клиентов
+PROXY_URL = f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
 
 REQUESTS_PROXIES = {
     "http": PROXY_URL,
     "https": PROXY_URL,
 }
 
-# Отдельный формат для Playwright (Chromium)
+# Формат для Playwright
 PLAYWRIGHT_PROXY: Dict[str, Any] = {
     "server": f"http://{PROXY_HOST}:{PROXY_PORT}",
     "username": PROXY_USER,
     "password": PROXY_PASS,
 }
 
-# ====== СПОРТЫ ======
+# =========================
+# СПОРТЫ И МАРКЕТЫ
+# =========================
 
 @dataclass
 class MarketConfig:
@@ -76,19 +84,18 @@ SPORTS: Dict[str, SportConfig] = {
     ),
 }
 
-# ====== (СТАРОЕ) API 22BET — пока не трогаем, вдруг пригодится ======
+# =========================
+# (СТАРЫЕ) API 22bet — пусть остаются
+# =========================
 
-BASE_URL = "https://betlines.xyz"   # сейчас не используется
+BASE_URL = "https://betlines.xyz"
 
 ENDPOINTS = {
-    "prematch_by_sport": (
-        BASE_URL
-        + "/LineFeed/GetEvents?sportId={sport_id}&lng=en&cfview=0&mode=4&count=200&partner=51&getEmpty=true"
-    ),
-    "live_by_sport": (
-        BASE_URL
-        + "/LiveFeed/GetEvents?sportId={sport_id}&lng=en&cfview=0&mode=4&count=200&partner=51&getEmpty=true"
-    ),
+    "prematch_by_sport":
+        BASE_URL + "/LineFeed/GetEvents?sportId={sport_id}&lng=en&cfview=0&mode=4&count=200&partner=51&getEmpty=true",
+
+    "live_by_sport":
+        BASE_URL + "/LiveFeed/GetEvents?sportId={sport_id}&lng=en&cfview=0&mode=4&count=200&partner=51&getEmpty=true",
 }
 
 def get_endpoint(name: str, **kwargs: Any) -> str:
@@ -97,22 +104,23 @@ def get_endpoint(name: str, **kwargs: Any) -> str:
         raise ValueError(f"Unknown endpoint: {name}")
     return template.format(**kwargs)
 
-# ============= PLAYWRIGHT НАСТРОЙКИ =============
+# =========================
+# PLAYWRIGHT — зеркала 22Bet
+# =========================
 
-# Зеркала фронта 22BET — браузер будет по очереди пробовать каждое
+# рекомендованный порядок — от самых рабочих
 PLAYWRIGHT_MIRRORS = [
-    "https://22bet.com",
-    "https://22bet1.com",
-    "https://22bet7.com",
-    "https://22bet-7.com",
+    "https://22betluck.com",
     "https://22bet-8.com",
+    "https://22bet7.com",
+    "https://22bet1.com",
+    "https://22bet.com",
 ]
 
-# URL линии по видам спорта (относительно домена из PLAYWRIGHT_MIRRORS)
 SPORT_LINE_URLS = {
     "football": "/line/football/",
 }
 
 PLAYWRIGHT_HEADLESS = True
 PLAYWRIGHT_SLOW_MO_MS = 50
-PLAYWRIGHT_PAGE_TIMEOUT_MS = 30000
+PLAYWRIGHT_PAGE_TIMEOUT_MS = 45000
