@@ -6,7 +6,7 @@ from collections import defaultdict
 app = Flask(__name__)
 
 # ====== DB SETTINGS ======
-DB_HOST = "mysql_inforadar"
+DB_HOST = "mysql_inforadar"  # внутри Docker-сети
 DB_PORT = 3306
 DB_USER = "root"
 DB_PASSWORD = "ryban8991!"
@@ -33,6 +33,13 @@ def get_connection():
 def timeago(value):
     if not value:
         return ""
+    if isinstance(value, str):
+        # на всякий случай — если строка
+        try:
+            value = datetime.fromisoformat(value)
+        except Exception:
+            return value
+
     now = datetime.utcnow()
     diff = now - value
     seconds = diff.total_seconds()
@@ -54,46 +61,97 @@ def timeago(value):
 # ===========================================================
 @app.route("/anomalies")
 def anomalies_page():
+    """
+    Страница аномалий:
+    - тянем последние 200 записей из anomalies (+матч, если есть)
+    - форматируем коэффициенты и проценты
+    - фильтр по type: all / spread / live / prematch
+    """
     filter_type = request.args.get("type", "all")
 
     conn = get_connection()
-    anomalies = []
+    if not conn:
+        return "Ошибка подключения к MySQL"
 
-    if conn:
+    try:
         with conn.cursor() as cursor:
-            # Ничего не предполагаем про схему anomalies:
-            # просто берём a.* и добавляем поля из matches
-            query = """
+            cursor.execute(
+                """
                 SELECT
-                    a.*,
+                    a.id,
+                    a.match_id,
+                    a.anomaly_type,
+                    a.before_value,
+                    a.after_value,
+                    a.diff_pct,
+                    a.created_at,
+                    a.comment,
                     m.sport,
                     m.league,
                     m.home_team,
                     m.away_team
                 FROM anomalies a
                 LEFT JOIN matches m ON a.match_id = m.id
-            """
+                ORDER BY a.created_at DESC, a.id DESC
+                LIMIT 200
+                """
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
 
-            if filter_type == "live":
-                query += " WHERE a.anomaly_type LIKE '%LIVE%'"
-            elif filter_type == "prematch":
-                query += " WHERE a.anomaly_type NOT LIKE '%LIVE%'"
+    def fmt_odd(val):
+        """Приводим Decimal/float/строку к строке с 2–3 знаками без лишних нулей."""
+        if val is None:
+            return None
+        try:
+            f = float(val)
+        except (TypeError, ValueError):
+            return str(val)
+        s = f"{f:.3f}".rstrip("0").rstrip(".")
+        return s
 
-            query += " ORDER BY a.occurred_at DESC LIMIT 200"
+    anomalies = []
+    for row in rows:
+        # коэффициенты
+        row["before_value"] = fmt_odd(row.get("before_value"))
+        row["after_value"] = fmt_odd(row.get("after_value"))
 
-            cursor.execute(query)
-            anomalies = cursor.fetchall()
+        # процент
+        diff_val = row.get("diff_pct")
+        if diff_val is not None:
+            try:
+                row["diff_pct"] = float(diff_val)
+            except (TypeError, ValueError):
+                row["diff_pct"] = None
+
+        # created_at оставляем datetime — фильтр timeago сам форматирует
+        anomalies.append(row)
+
+    # ===== Фильтр по типу =====
+    filtered = anomalies
+    if filter_type == "spread":
+        filtered = [a for a in anomalies if (a.get("anomaly_type") == "ODDS_SPREAD")]
+    elif filter_type == "live":
+        filtered = [
+            a for a in anomalies if "LIVE" in (a.get("anomaly_type") or "")
+        ]
+    elif filter_type == "prematch":
+        filtered = [
+            a for a in anomalies if "LIVE" not in (a.get("anomaly_type") or "")
+        ]
 
     return render_template(
         "anomalies.html",
-        anomalies=anomalies,
-        filter_type=filter_type,
+        anomalies=filtered,
+        filter_type=filter_type,   # для подсветки таба
+        current_type=filter_type,  # если в шаблоне используется другое имя
         total_pages=1,
         page=1,
     )
 
 
-# алиас, чтобы /anomaly тоже открывал страницу аномалий
+# alias /anomaly -> /anomalies (на всякий случай, если где-то старый линк)
 @app.route("/anomaly")
 def anomalies_single_alias():
     return anomalies_page()
@@ -194,6 +252,12 @@ def index():
     return render_template("index.html")
 
 
-# ====== RUN ======
+@app.route("/metrics")
+def metrics_stub():
+    # Заглушка для Prometheus, чтобы не было 404
+    return "ok\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+# ====== RUN LOCAL (в докере всё равно не используется) ======
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

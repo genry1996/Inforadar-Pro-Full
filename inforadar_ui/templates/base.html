@@ -22,20 +22,24 @@
     </h1>
 
     <div class="header-right">
-      <nav>
+      <nav class="main-nav">
         <a href="/" class="{{ 'active' if request.path == '/' else '' }}">Soccer</a>
         <a href="/live" class="{{ 'active' if request.path.startswith('/live') else '' }}">Live</a>
         <a href="/matches" class="{{ 'active' if request.path.startswith('/matches') else '' }}">Matches</a>
 
-        <!-- ⭐ ВСТАВЛЕННАЯ КНОПКА АНОМАЛИИ ⭐ -->
+        <!-- Аномалии (работает и /anomaly, и /anomalies) -->
         <a href="{{ url_for('anomalies_page') }}"
-           class="{{ 'active' if request.path.startswith('/anomalies') else '' }}">
-           Аномалии
+           class="{{ 'active' if request.path.startswith('/anomaly') or request.path.startswith('/anomalies') else '' }}">
+          Аномалии
         </a>
-        <!-- ⭐ КОНЕЦ ВСТАВКИ ⭐ -->
 
         <a href="/esports" class="{{ 'active' if request.path.startswith('/esports') else '' }}">Esports</a>
         <a href="/prematch" class="{{ 'active' if request.path.startswith('/prematch') else '' }}">Prematch</a>
+
+        <!-- Новая страница с EPL из The Odds API -->
+        <a href="/oddsapi/epl" class="{{ 'active' if request.path.startswith('/oddsapi/epl') else '' }}">
+          EPL (Odds API)
+        </a>
       </nav>
 
       <a class="telegram-btn" href="https://t.me/OddlyOddsProduction" target="_blank" rel="noopener">✈️ Telegram</a>
@@ -111,6 +115,7 @@
       document.querySelectorAll("a, button").forEach(el => {
         el.addEventListener("click", e => {
           const href = el.getAttribute("href");
+          // Перехватываем только внутренние ссылки, начинающиеся с "/"
           if (href && href.startsWith("/")) {
             e.preventDefault();
             loader.style.display = "flex";

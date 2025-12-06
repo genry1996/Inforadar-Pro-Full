@@ -16,8 +16,8 @@ from client import OddsApiClient, OddsApiError
 
 
 # === Настройки MySQL (подправишь под свои, если нужно) ===
-MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))  # если проброшен 3307 — поменяешь
+MYSQL_HOST = os.getenv("MYSQL_HOST", "mysql_inforadar")
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ryban8991!")
 MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")

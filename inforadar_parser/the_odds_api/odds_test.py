@@ -5,12 +5,14 @@ odds_test.py — тест The Odds API (Starter план).
 
 print(">>> odds_test.py: файл загружен")
 
-import sys
 import os
+import sys
 import requests
 
-# 🔑 ТВОЙ КЛЮЧ из dash.the-odds-api.com (Starter plan)
-API_KEY = "9e9dbe8f30bf91889058d11e3b6538ef"
+# 🔑 Ключ берём только из переменной окружения
+API_KEY = os.getenv("ODDS_API_KEY")
+if not API_KEY:
+    raise RuntimeError("ODDS_API_KEY is not set")
 
 BASE_URL = "https://api.the-odds-api.com/v4"
 
