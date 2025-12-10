@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
+
+WORKDIR /app
+
+# Копируем requirements
+COPY requirements_betwatch.txt .
+
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir -r requirements_betwatch.txt
+
+# Копируем парсер
+COPY betwatch_parser.py .
+
+# Запускаем
+CMD ["python3", "betwatch_parser.py"]

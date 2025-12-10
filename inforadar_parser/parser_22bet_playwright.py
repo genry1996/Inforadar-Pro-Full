@@ -1,309 +1,187 @@
-import os
-import time
-import logging
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from urllib.parse import urlparse
-
-import pymysql
 import asyncio
-from playwright.async_api import async_playwright, Page
+import logging
+from playwright.async_api import async_playwright
+import mysql.connector
+import os
+from datetime import datetime
 
-from config_22bet import (
-    BOOKMAKER_ID,
-    PARSER_LOOP_INTERVAL,
-    PROXY_URL,
-    PLAYWRIGHT_PROXY,        # 👈 добавили
-    SPORTS,
-    PLAYWRIGHT_MIRRORS,
-    SPORT_LINE_URLS,
-    PLAYWRIGHT_HEADLESS,
-    PLAYWRIGHT_SLOW_MO_MS,
-    PLAYWRIGHT_PAGE_TIMEOUT_MS,
-)
-
-# ================== ЛОГИ ==================
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
-logger = logging.getLogger("parser_22bet_playwright")
-
-# ================== MySQL ==================
-# Внутри контейнера параметры берутся из ENV, которые ты передаёшь в docker-compose.
-# Эти значения — только дефолт на случай, если переменных нет.
-
-MYSQL_HOST = os.getenv("MYSQL_HOST", "mysql_inforadar")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_USER = os.getenv("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ryban8991!")
-MYSQL_DB = os.getenv("MYSQL_DB", "inforadar")
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
+logger = logging.getLogger(__name__)
 
 def get_db_connection():
-    """Подключение к MySQL с ретраями."""
-    while True:
-        try:
-            conn = pymysql.connect(
-                host=MYSQL_HOST,
-                port=MYSQL_PORT,
-                user=MYSQL_USER,
-                password=MYSQL_PASSWORD,
-                database=MYSQL_DB,
-                autocommit=True,
-                cursorclass=pymysql.cursors.DictCursor,
-            )
-            logger.info("✅ Успешное подключение к MySQL")
-            return conn
-        except Exception as e:
-            logger.error(f"❌ Ошибка подключения к MySQL: {e}")
-            logger.info("Повторим через 5 секунд.")
-            time.sleep(5)
-
-# ================== ПРОКСИ ДЛЯ PLAYWRIGHT ==================
-
-def build_playwright_proxy() -> Optional[Dict[str, Any]]:
-    """
-    Возвращает конфиг прокси для Playwright.
-
-    1) Если в config_22bet задан PLAYWRIGHT_PROXY — используем его как есть.
-    2) Иначе, если задан PROXY_URL (строка), парсим её.
-    3) Если ничего нет — работаем без прокси.
-    """
-    # Вариант 1: готовый словарь
-    if PLAYWRIGHT_PROXY and PLAYWRIGHT_PROXY.get("server"):
-        logger.info(
-            f"Используем Playwright прокси (dict): {PLAYWRIGHT_PROXY['server']}"
-        )
-        return PLAYWRIGHT_PROXY
-
-    # Вариант 2: строка PROXY_URL
-    if not PROXY_URL:
-        logger.warning("⚠ PROXY_URL пуст — Playwright пойдёт без прокси")
-        return None
-
-    parsed = urlparse(PROXY_URL)
-    scheme = parsed.scheme or "http"
-
-    # если вдруг будет socks5h → для Chromium лучше http
-    if scheme.startswith("socks"):
-        scheme_for_browser = "http"
-    else:
-        scheme_for_browser = scheme
-
-    server = f"{scheme_for_browser}://{parsed.hostname}:{parsed.port}"
-    proxy: Dict[str, Any] = {"server": server}
-
-    if parsed.username:
-        proxy["username"] = parsed.username
-    if parsed.password:
-        proxy["password"] = parsed.password
-
-    logger.info(
-        f"Используем Playwright прокси (из PROXY_URL): {server}"
-        + (f" (user={parsed.username})" if parsed.username else "")
-    )
-    return proxy
-
-# ================== ВСТАВКА МАТЧЕЙ В БД ==================
-
-def insert_matches(conn, events: List[Dict[str, Any]], sport_code: str):
-    """
-    Вставка матчей в таблицу matches.
-    Ожидаем структуру events:
-      {
-        "league": str,
-        "home": str,
-        "away": str,
-        "start_time": datetime | None,
-      }
-    """
-    if not events:
-        return 0
-
-    sql = """
-        INSERT INTO matches (
-            bookmaker_id, sport, league,
-            home_team, away_team, start_time, is_live
-        )
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-        ON DUPLICATE KEY UPDATE
-            league     = VALUES(league),
-            home_team  = VALUES(home_team),
-            away_team  = VALUES(away_team),
-            start_time = VALUES(start_time),
-            is_live    = VALUES(is_live)
-    """
-
-    cur = conn.cursor()
-    count = 0
-
-    for m in events:
-        try:
-            cur.execute(
-                sql,
-                (
-                    BOOKMAKER_ID,
-                    sport_code,
-                    m.get("league", ""),
-                    m.get("home", ""),
-                    m.get("away", ""),
-                    m.get("start_time"),
-                    False,  # пока парсим только прематч
-                ),
-            )
-            count += 1
-        except Exception as e:
-            logger.error(f"Ошибка вставки матча {m}: {e}")
-
-    return count
-
-# ================== ПАРСИНГ СТРАНИЦЫ (пока простая версия) ==================
-
-async def parse_football_page(page: Page) -> List[Dict[str, Any]]:
-    """
-    Упрощённый парсер линии футбола 22BET.
-    Сейчас основная задача — проверить, что мы стабильно проходим на линию.
-    Когда будет стабильное зеркало — можно будет допилить селекторы.
-
-    Возвращает список events с полями:
-      league, home, away, start_time
-    """
-    events: List[Dict[str, Any]] = []
-
-    # небольшая пауза, чтобы страница успела дорисоваться
-    await page.wait_for_timeout(2000)
-
-    html = await page.content()
-
-    # Если попали на Cloudflare/522 — просто логируем и выходим
-    if "Connection timed out" in html or "cf-wrapper" in html:
-        logger.warning("Похоже, попали на Cloudflare / 522 страницу, матчей нет.")
-        return events
-
-    # Пробуем найти блоки лиг 22BET (по типичным классам 1xBet/22Bet)
-    league_blocks = await page.query_selector_all(
-        "div.c-events__liga, div.c-events__league"
+    return mysql.connector.connect(
+        host=os.getenv("MYSQL_HOST", "localhost"),
+        user=os.getenv("MYSQL_USER", "root"),
+        password=os.getenv("MYSQL_PASSWORD", "ryban8991!"),
+        database=os.getenv("MYSQL_DB", "inforadar")
     )
 
-    if not league_blocks:
-        # на случай смены вёрстки просто логируем кусок HTML
-        snippet = html[:1000].replace("\n", " ")
-        logger.warning(
-            "Не нашли блоков лиг по селектору c-events__liga/c-events__league."
-        )
-        logger.warning(f"Фрагмент HTML: {snippet}")
-        return events
-
-    logger.info(f"На странице найдено блоков лиг: {len(league_blocks)}")
-
-    # ⚠ Здесь можно потом аккуратно реализовать разбор каждой лиги и матчей.
-    # Пока оставляем как заглушку, чтобы цикл работал и было видно HTML в логах.
-    # Когда появится стабильное рабочее зеркало — вместе допилим конкретные селекторы.
-
-    return events
-
-# ================== ВЫБОР РАБОЧЕГО ЗЕРКАЛА ==================
-
-async def find_working_mirror(page: Page) -> Optional[str]:
-    """
-    Проходит по PLAYWRIGHT_MIRRORS и возвращает первое живое зеркало.
-    """
-    for base in PLAYWRIGHT_MIRRORS:
-        try:
-            logger.info(f"Пробуем зеркало: {base}")
-            await page.goto(
-                base,
-                wait_until="domcontentloaded",
-                timeout=PLAYWRIGHT_PAGE_TIMEOUT_MS,
-            )
-            logger.info(f"Зеркало ответило: {page.url}")
-            return base
-        except Exception as e:
-            logger.warning(f"Зеркало не работает: {base} → {e}")
-    logger.error("Не удалось найти рабочее зеркало 22BET через Playwright.")
-    return None
-
-# ================== ОСНОВНОЙ ЦИКЛ PLAYWRIGHT-ПАРСЕРА ==================
-
-async def run_playwright_loop():
+try:
     conn = get_db_connection()
+    conn.close()
+    logger.info("✅ Успешное подключение к MySQL")
+except Exception as e:
+    logger.error(f"❌ Ошибка подключения к MySQL: {e}")
+    exit(1)
 
-    while True:
-        logger.info("=== Старт цикла Playwright-парсера 22BET ===")
+PROXY_CONFIG = {
+    "server": "http://213.137.91.35:12323",
+    "username": "14ab48c9d85c1",
+    "password": "5d234f6517"
+}
 
-        proxy_cfg = build_playwright_proxy()
+MIRRORS = ["https://22betluck.com", "https://22bet.com"]
+SPORTS = [
+    {"name": "Football", "slug": "football"},
+    {"name": "Basketball", "slug": "basketball"}
+]
 
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(
-                    headless=PLAYWRIGHT_HEADLESS,
-                    slow_mo=PLAYWRIGHT_SLOW_MO_MS,
-                    proxy=proxy_cfg,
-                )
-                page = await browser.new_page()
-
-                # 1. Находим рабочее зеркало
-                base = await find_working_mirror(page)
-                if not base:
-                    await browser.close()
-                    logger.error("Нет рабочего зеркала — выходим из цикла итерации.")
-                else:
-                    # 2. Проходим по видам спорта (сейчас у нас только football)
-                    for sport_key, sport_cfg in SPORTS.items():
-                        if sport_key not in SPORT_LINE_URLS:
-                            logger.warning(
-                                f"Для спорта {sport_key} нет URL линии в SPORT_LINE_URLS"
-                            )
-                            continue
-
-                        line_path = SPORT_LINE_URLS[sport_key]
-                        full_url = base.rstrip("/") + line_path
-
-                        logger.info(
-                            f"Открываем линию спорта {sport_cfg.name} ({sport_key}): {full_url}"
-                        )
-
-                        try:
-                            await page.goto(
-                                full_url,
-                                wait_until="domcontentloaded",
-                                timeout=PLAYWRIGHT_PAGE_TIMEOUT_MS,
-                            )
-                        except Exception as e:
-                            logger.error(
-                                f"Ошибка загрузки линии {sport_key} по адресу {full_url}: {e}"
-                            )
-                            continue
-
-                        # 3. Парсим страницу
-                        if sport_key == "football":
-                            events = await parse_football_page(page)
+async def parse_22bet():
+    async with async_playwright() as p:
+        logger.info(f"Используем прокси: {PROXY_CONFIG['server']}")
+        browser = await p.chromium.launch(
+            headless=True,
+            proxy=PROXY_CONFIG,
+            args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
+        )
+        context = await browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+        page = await context.new_page()
+        
+        working_mirror = None
+        for mirror in MIRRORS:
+            try:
+                logger.info(f"Пробуем: {mirror}")
+                response = await page.goto(mirror, wait_until="domcontentloaded", timeout=15000)
+                if response.status < 400:
+                    logger.info(f"✅ Работает: {mirror}")
+                    working_mirror = mirror
+                    break
+            except Exception as e:
+                logger.warning(f"Недоступно {mirror}: {e}")
+        
+        if not working_mirror:
+            logger.error("❌ Все зеркала недоступны")
+            await browser.close()
+            return
+        
+        for sport in SPORTS:
+            sport_url = f"{working_mirror}/line/{sport['slug']}/"
+            logger.info(f"Открываем: {sport_url}")
+            
+            try:
+                await page.goto(sport_url, wait_until="networkidle", timeout=60000)
+                
+                selectors = [".c-events__item_col", ".c-events__liga"]
+                for selector in selectors:
+                    try:
+                        await page.wait_for_selector(selector, timeout=10000)
+                        logger.info(f"✅ Контент: {selector}")
+                        break
+                    except:
+                        continue
+                
+                html = await page.content()
+                debug_file = f"/app/debug_22bet_{sport['slug']}.html"
+                with open(debug_file, "w", encoding="utf-8") as f:
+                    f.write(html)
+                logger.info(f"📄 HTML: {debug_file}")
+                
+                all_events = await page.query_selector_all(".c-events__item.c-events__item_col")
+                logger.info(f"📊 Найдено событий: {len(all_events)}")
+                
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                matches_count = 0
+                
+                for idx, event in enumerate(all_events[:50]):  # Парсим ВСЕ события
+                    try:
+                        logger.info(f"\n===== СОБЫТИЕ {idx+1} =====")
+                        
+                        # ===== ЛОГИРОВАНИЕ HTML СОБЫТИЯ =====
+                        event_html = await event.inner_html()
+                        logger.info(f"EVENT HTML:\n{event_html[:600]}\n")
+                        
+                        # Команды
+                        teams = await event.query_selector_all(".c-events__team")
+                        logger.info(f"DEBUG: Найдено команд: {len(teams)}")
+                        
+                        if len(teams) >= 2:
+                            home_team = (await teams[0].inner_text()).strip()
+                            away_team = (await teams[1].inner_text()).strip()
+                            logger.info(f"DEBUG: ✓ Команды: {home_team} vs {away_team}")
                         else:
-                            events = []
+                            logger.info(f"DEBUG: ✗ Команд < 2, пропускаю")
+                            continue
+                        
+                        # Коэффициенты
+                        odds_elems = await event.query_selector_all(".c-bets__inner")
+                        logger.info(f"DEBUG: Найдено коэффициентов: {len(odds_elems)}")
+                        
+                        odds_list = []
+                        for odd_elem in odds_elems[:5]:
+                            try:
+                                odd_val = float(await odd_elem.inner_text())
+                                odds_list.append(odd_val)
+                            except Exception as e:
+                                logger.debug(f"Ошибка парсинга коэффициента: {e}")
+                        
+                        logger.info(f"DEBUG: Распарсено коэффициентов: {len(odds_list)}")
+                        
+                        if len(odds_list) < 3:
+                            logger.info(f"DEBUG: ✗ Коэффициентов < 3, пропускаю")
+                            continue
+                        
+                        odd_1 = odds_list[0]
+                        odd_x = odds_list[1]
+                        odd_2 = odds_list[2]
+                        
+                        logger.info(f"DEBUG: ✓ Коэффициенты: {odd_1}, {odd_x}, {odd_2}")
+                        
+                        # ===== ВСТАВЛЯЕМ В ТАБЛИЦУ events =====
+                        cursor.execute("""
+                            INSERT INTO events (sport, league, home_team, away_team, match_time, status)
+                            VALUES (%s, %s, %s, %s, %s, 'scheduled')
+                            ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)
+                        """, (sport['name'], "Mixed", home_team, away_team, None))
+                        
+                        event_id = cursor.lastrowid
+                        
+                        # ===== ВСТАВЛЯЕМ В ТАБЛИЦУ odds =====
+                        cursor.execute("""
+                            INSERT INTO odds (event_id, bookmaker, market_type, odd_1, odd_x, odd_2)
+                            VALUES (%s, %s, '1x2', %s, %s, %s)
+                        """, (event_id, "22bet", odd_1, odd_x, odd_2))
+                        
+                        matches_count += 1
+                        logger.info(f"✓ УСПЕШНО: {home_team} vs {away_team} | {odd_1:.2f}, {odd_x:.2f}, {odd_2:.2f}\n")
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка события: {e}\n")
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                logger.info(f"🎉 [{sport['name']}] Вставлено: {matches_count}")
+                
+            except Exception as e:
+                logger.error(f"❌ Ошибка {sport['name']}: {e}")
+        
+        await browser.close()
 
-                        # 4. Вставляем в MySQL
-                        inserted = insert_matches(conn, events, sport_key)
-                        logger.info(
-                            f"[{sport_key}] Вставлено матчей (Playwright): {inserted}"
-                        )
-
-                await browser.close()
-
+async def main():
+    logger.info("=== Старт парсера 22BET ===")
+    while True:
+        try:
+            await parse_22bet()
         except Exception as e:
-            logger.error(f"Фатальная ошибка Playwright-парсера: {e}")
-
-        logger.info(f"Цикл завершён. Спим {PARSER_LOOP_INTERVAL} сек.\n")
-        await asyncio.sleep(PARSER_LOOP_INTERVAL)
-
-
-def main():
-    try:
-        asyncio.run(run_playwright_loop())
-    except KeyboardInterrupt:
-        logger.info("Остановка по Ctrl+C")
-
+            logger.error(f"Критическая ошибка: {e}")
+        logger.info("💤 Спим 60 сек...")
+        await asyncio.sleep(60)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
