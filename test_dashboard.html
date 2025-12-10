@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Betwatch Test Dashboard</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a2e; color: #fff; }
+        .card { background: #16213e; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .signal { background: #0f3460; padding: 10px; margin: 5px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Betwatch Dashboard (Test)</h1>
+    <div class="card">
+        <h2>Summary</h2>
+        <div id="summary">Loading...</div>
+    </div>
+    <div class="card">
+        <h2>Recent Signals</h2>
+        <div id="signals">Loading...</div>
+    </div>
+
+    <script>
+        // Fetch summary
+        fetch('/api/dashboard/summary')
+            .then(r => r.json())
+            .then(data => {
+                const s = data.summary;
+                document.getElementById('summary').innerHTML = `
+                    <p>Total Signals (24h): <b>${s.total_signals}</b></p>
+                    <p>Unique Events (24h): <b>${s.unique_events}</b></p>
+                    <p>Sharp Moves (1h): <b>${s.sharp_moves_1h}</b></p>
+                    <p>Signals (1h): <b>${s.signals_1h}</b></p>
+                `;
+
+                const signals = data.recent.map(sig => `
+                    <div class="signal">
+                        <b>${sig.signal_type}</b> | ${sig.event_name}<br>
+                        <small>${sig.league} - ${sig.timestamp}</small>
+                    </div>
+                `).join('');
+                document.getElementById('signals').innerHTML = signals || '<p>No signals</p>';
+            })
+            .catch(err => {
+                document.getElementById('summary').innerHTML = '<p style="color:red">Error: ' + err + '</p>';
+            });
+    </script>
+</body>
+</html>

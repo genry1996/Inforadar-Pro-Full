@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betwatch Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eaeaea;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        #app {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid #0f3460;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #a8b2d1;
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(15, 52, 96, 0.6);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #0f3460;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #667eea;
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-card h3 {
+            color: #a8b2d1;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chart-container {
+            background: rgba(15, 52, 96, 0.6);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #0f3460;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .chart-container h2 {
+            color: #eaeaea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .signals-list {
+            background: rgba(15, 52, 96, 0.6);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #0f3460;
+            backdrop-filter: blur(10px);
+        }
+
+        .signals-list h2 {
+            color: #eaeaea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .signal-item {
+            background: rgba(22, 33, 62, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .signal-item:hover {
+            transform: translateX(5px);
+            border-left-color: #764ba2;
+        }
+
+        .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .signal-type {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .signal-time {
+            color: #a8b2d1;
+            font-size: 0.85rem;
+        }
+
+        .signal-event {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #eaeaea;
+            margin-bottom: 5px;
+        }
+
+        .signal-league {
+            color: #a8b2d1;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a8b2d1;
+        }
+
+        .error {
+            background: rgba(220, 38, 38, 0.2);
+            border: 1px solid #dc2626;
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>🎯 Betwatch Dashboard</h1>
+            <p>Real-time betting signal monitoring</p>
+        </div>
+
+        <div v-if="loading" class="loading">
+            <h2>Loading data...</h2>
+        </div>
+
+        <div v-else-if="error" class="error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+
+        <div v-else>
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Signals (24h)</h3>
+                    <div class="value">{{ summary.total_signals || 0 }}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Unique Events (24h)</h3>
+                    <div class="value">{{ summary.unique_events || 0 }}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Sharp Moves (1h)</h3>
+                    <div class="value">{{ summary.sharp_moves_1h || 0 }}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Signals (1h)</h3>
+                    <div class="value">{{ summary.signals_1h || 0 }}</div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-container">
+                <h2>Signal Types Distribution</h2>
+                <canvas id="signalChart"></canvas>
+            </div>
+
+            <!-- Recent Signals -->
+            <div class="signals-list">
+                <h2>Recent Signals</h2>
+                <div v-if="recent.length === 0" class="loading">
+                    <p>No signals yet. Parser is monitoring events...</p>
+                </div>
+                <div v-else>
+                    <div v-for="signal in recent" :key="signal.id" class="signal-item">
+                        <div class="signal-header">
+                            <span class="signal-type">{{ signal.signal_type }}</span>
+                            <span class="signal-time">{{ formatTime(signal.timestamp) }}</span>
+                        </div>
+                        <div class="signal-event">{{ signal.event_name }}</div>
+                        <div class="signal-league">{{ signal.league }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    loading: true,
+                    error: null,
+                    summary: {},
+                    topSignals: [],
+                    recent: [],
+                    chart: null
+                }
+            },
+            mounted() {
+                this.fetchData();
+                setInterval(() => this.fetchData(), 10000); // Refresh every 10 seconds
+            },
+            methods: {
+                async fetchData() {
+                    try {
+                        const response = await fetch('/api/dashboard/summary');
+                        if (!response.ok) throw new Error('Failed to fetch data');
+                        
+                        const data = await response.json();
+                        
+                        this.summary = data.summary || {};
+                        this.topSignals = data.top_signals || [];
+                        this.recent = data.recent || [];
+                        
+                        this.loading = false;
+                        this.error = null;
+                        
+                        this.$nextTick(() => {
+                            this.updateChart();
+                        });
+                    } catch (err) {
+                        this.error = err.message;
+                        this.loading = false;
+                    }
+                },
+                updateChart() {
+                    const ctx = document.getElementById('signalChart');
+                    if (!ctx) return;
+
+                    const labels = this.topSignals.map(s => s.signal_type);
+                    const data = this.topSignals.map(s => s.count);
+
+                    if (this.chart) {
+                        this.chart.destroy();
+                    }
+
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Number of Signals',
+                                data: data,
+                                backgroundColor: [
+                                    'rgba(102, 126, 234, 0.8)',
+                                    'rgba(118, 75, 162, 0.8)',
+                                    'rgba(237, 100, 166, 0.8)',
+                                    'rgba(255, 154, 158, 0.8)',
+                                    'rgba(250, 208, 196, 0.8)'
+                                ],
+                                borderColor: [
+                                    'rgba(102, 126, 234, 1)',
+                                    'rgba(118, 75, 162, 1)',
+                                    'rgba(237, 100, 166, 1)',
+                                    'rgba(255, 154, 158, 1)',
+                                    'rgba(250, 208, 196, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        color: '#a8b2d1'
+                                    },
+                                    grid: {
+                                        color: 'rgba(168, 178, 209, 0.1)'
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        color: '#a8b2d1'
+                                    },
+                                    grid: {
+                                        color: 'rgba(168, 178, 209, 0.1)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+                formatTime(timestamp) {
+                    if (!timestamp) return '';
+                    const date = new Date(timestamp);
+                    const now = new Date();
+                    const diff = Math.floor((now - date) / 1000);
+                    
+                    if (diff < 60) return `${diff}s ago`;
+                    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                    return date.toLocaleDateString();
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
