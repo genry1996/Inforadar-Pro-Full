@@ -44,3 +44,8 @@ Desktop.ini
 
 # --- MacOS ---
 .DS_Store
+node_modules/
+*.pyc
+Dockerfile.*
+requirements_*.txt
+.env
