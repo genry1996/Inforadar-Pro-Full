@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Установка зависимостей
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем requirements
+COPY inforadar_parser/requirements_betwatch.txt .
+
+# Установка Python зависимостей
+RUN pip install --no-cache-dir -r requirements_betwatch.txt
+
+# Установка Playwright
+RUN pip install --no-cache-dir playwright && \
+    playwright install chromium
+
+# Копируем парсер
+COPY inforadar_parser/betwatch-advanced.py /app/betwatch_parser.py
+
+# Запуск парсера
+CMD ["python", "/app/betwatch_parser.py"]
