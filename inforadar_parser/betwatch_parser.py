@@ -1,3 +1,6 @@
+# 🎯 BETWATCH EXTENDED DETECTOR v3
+# Отслеживает ВСЕ сигналы: sharp moves, line moves, market removal, odds squeeze и т.д.
+
 import asyncio
 import logging
 import os
@@ -6,374 +9,424 @@ import requests
 import mysql.connector
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from dotenv import load_dotenv
 
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(message)s'
 )
 
+logger = logging.getLogger(__name__)
 
-# ==========================================
-# 🧠 SMART MEMORY & LOGIC FOR SHARP SIGNALS
-# ==========================================
+# ============ КОНФИГ ============
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
+MYSQL_CONFIG = {
+    "host": os.getenv("MYSQL_HOST", "mysql_inforadar"),
+    "user": os.getenv("MYSQL_USER", "root"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
+    "database": os.getenv("MYSQL_DB", "inforadar"),
+}
 
-odds_history = {}
-VOLUME_THRESHOLD = 3000  # Минимум €3000
-DROP_THRESHOLD = 15  # Падение > 15%
-SUPER_DROP_THRESHOLD = 25  # Супер-сигнал > 25%
-SUPER_VOLUME_THRESHOLD = 10000  # Крупный прогруз > €10000
+CONFIG = {
+    "pause_sec": 5,
+    
+    # SHARP MOVE (падение кэфа)
+    "timeOddMin": 3,
+    "koefPercentMin": 8,
+    "koefPercentMax": 35,
+    "koef_min": 1.4,
+    "koef_max": 10,
+    "money_min": 3000,
+    
+    # ODDS SQUEEZE (сжатие котировок)
+    "squeeze_threshold": 0.15,  # обе стороны упали на 15%+
+    
+    # MARKET REMOVAL (удаление рынка)
+    "market_disappear_cycles": 2,  # если линию не видели 2 цикла подряд
+    
+    # LIMIT CUT (урезка лимита)
+    "limit_cut_percent": 60,  # если лимит упал на 60%+
+    
+    # BOOKMAKER ALERT (букмекер покрыл)
+    "bookie_min": 5000,  # минимум денег в букмекере
+    
+    "browserHeadless": True,
+}
 
+# ============ СИГНАЛЫ (для подсчета) ============
+class SignalTypes:
+    SHARP_MOVE = "Sharp Move"
+    LINE_SHIFT = "Line Shift"
+    MARKET_REMOVAL = "Market Removal"
+    MATCH_REMOVAL = "Match Removal"
+    ODDS_SQUEEZE = "Odds Squeeze"
+    LIMIT_CUT = "Limit Cut"
+    BET_BLOCKED = "Bet Blocked"
+    BOOKIE_MATCHED = "Bookmaker Matched"
 
-def analyze_signal(match_name, market, selection, current_odd, volume_euro):
-    """
-    🎯 Анализирует падение кэфа и ловит 'Тычки' (резкий обвал на деньгах)
-    Возвращает словарь сигнала или None
-    """
+# ============ TELEGRAM ============
+async def send_telegram(signal_type, text):
+    """Отправляет сообщение в Telegram"""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.warning("⚠️ Telegram не настроен")
+        return
+    
     try:
-        signal_key = f"{match_name}_{market}_{selection}"
-        current_time = datetime.now()
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        params = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": text,
+            "parse_mode": "HTML"
+        }
         
-        # 1️⃣ Первый раз видим этот исход - инициализируем историю
-        if signal_key not in odds_history:
-            odds_history[signal_key] = {
-                'start_odd': current_odd,
-                'prev_odd': current_odd,
-                'last_update': current_time,
-                'max_volume': volume_euro
-            }
-            return None
-
-        history = odds_history[signal_key]
-        
-        # 2️⃣ Рассчитываем ОБЩЕЕ падение от начальной точки
-        drop_percent = ((history['start_odd'] - current_odd) / history['start_odd']) * 100 if history['start_odd'] > 0 else 0
-        
-        # 3️⃣ Рассчитываем ЦИКЛОВОЕ падение (резкий скачок за последний замер)
-        cycle_drop = ((history['prev_odd'] - current_odd) / history['prev_odd']) * 100 if history['prev_odd'] > 0 else 0
-        
-        # 4️⃣ Обновляем историю
-        history['prev_odd'] = current_odd
-        history['last_update'] = current_time
-        if volume_euro > history['max_volume']:
-            history['max_volume'] = volume_euro
-        
-        # ==========================================
-        # 🎯 КРИТЕРИИ "ТЫЧКИ" (Sharp Money Detection)
-        # ==========================================
-        
-        # A. Значимый объем денег (фильтруем мусор дворовых лиг)
-        is_big_money = volume_euro >= VOLUME_THRESHOLD
-        
-        # B. Резкий обвал (либо общий > 15%, либо цикловой > 5%)
-        is_sharp_drop = drop_percent > DROP_THRESHOLD or cycle_drop > 5
-        
-        # C. СУПЕР-СИГНАЛ: обвал > 25% + крупные деньги > €10000
-        is_super_drop = drop_percent > SUPER_DROP_THRESHOLD and history['max_volume'] > SUPER_VOLUME_THRESHOLD
-
-        # 🚀 ГЕНЕРИРУЕМ СИГНАЛ ЕСЛИ КРИТЕРИИ ВЫПОЛНЕНЫ
-        if is_sharp_drop and is_big_money:
-            signal_type = "📉 SHARP DROP (Тычка)"
-            confidence = "HIGH"
-            
-            if is_super_drop:
-                signal_type = "🔥 WHALE MOVE (Крупный прогруз)"
-                confidence = "ULTRA"
-            
-            return {
-                "type": signal_type,
-                "confidence": confidence,
-                "match": match_name,
-                "selection": selection,
-                "drop_percent": round(drop_percent, 2),
-                "start_odd": round(history['start_odd'], 2),
-                "now_odd": round(current_odd, 2),
-                "money": round(volume_euro, 2),
-                "max_money": round(history['max_volume'], 2),
-                "cycle_drop": round(cycle_drop, 2),
-                "timestamp": current_time.isoformat()
-            }
-        
-        return None
-        
+        response = requests.get(url, params=params, timeout=5)
+        if response.status_code == 200:
+            logger.info(f"✅ Telegram отправлен: {signal_type}")
     except Exception as e:
-        logging.error(f"❌ Error in analyze_signal: {str(e)}")
+        logger.error(f"❌ Telegram error: {e}")
+
+# ============ MySQL ============
+def get_mysql_connection():
+    try:
+        conn = mysql.connector.connect(**MYSQL_CONFIG)
+        return conn
+    except mysql.connector.Error as e:
+        logger.error(f"❌ MySQL connection error: {e}")
         return None
 
-
-def log_signal(signal):
-    """
-    📢 Красиво логирует сигнал в консоль и отправляет в БД
-    """
-    if not signal:
-        return
-    
-    emoji = "🔥" if signal['confidence'] == "ULTRA" else "📉"
-    
-    logging.warning(f"\n{'='*80}")
-    logging.warning(f"{emoji} SIGNAL DETECTED: {signal['type']}")
-    logging.warning(f"{'='*80}")
-    logging.warning(f"⚽ Match: {signal['match']}")
-    logging.warning(f"🎯 Selection: {signal['selection']}")
-    logging.warning(f"💰 Money Matched: €{signal['money']:,.0f} (Max: €{signal['max_money']:,.0f})")
-    logging.warning(f"📉 Odds Drop: {signal['start_odd']} ➜ {signal['now_odd']} (-{signal['drop_percent']}%)")
-    logging.warning(f"⚠️  Cycle Drop: -{signal['cycle_drop']}%")
-    logging.warning(f"⏰ Time: {signal['timestamp']}")
-    logging.warning(f"🔗 CHECK 22BET NOW! Odds might still be {signal['start_odd']}!\n")
-    logging.warning(f"{'='*80}\n")
-
-
-def save_signal_to_db(signal, db_connection):
-    """
-    💾 Сохраняет сигнал в MySQL таблицу 'signals'
-    """
-    if not signal or not db_connection:
+def save_signal_to_db(signal_type, signal_data):
+    """Сохраняет сигнал в БД"""
+    conn = get_mysql_connection()
+    if not conn:
         return
     
     try:
-        cursor = db_connection.cursor()
+        cursor = conn.cursor()
         query = """
-        INSERT INTO signals (
-            match_name, selection, signal_type, confidence,
-            start_odd, current_odd, drop_percent,
-            volume_euro, timestamp
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO betwatch_signals 
+            (signal_type, event_name, league, market_type, old_value, new_value, 
+             bookmaker_value, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
+        
         values = (
-            signal['match'],
-            signal['selection'],
-            signal['type'],
-            signal['confidence'],
-            signal['start_odd'],
-            signal['now_odd'],
-            signal['drop_percent'],
-            signal['money'],
+            signal_type,
+            signal_data.get('event_name'),
+            signal_data.get('league'),
+            signal_data.get('market_type'),
+            json.dumps(signal_data.get('old_value')),
+            json.dumps(signal_data.get('new_value')),
+            json.dumps(signal_data.get('bookie_value')),
             datetime.now()
         )
-        cursor.execute(query, values)
-        db_connection.commit()
-        cursor.close()
-        logging.info(f"✅ Signal saved to DB: {signal['match']} | {signal['selection']}")
-    except Exception as e:
-        logging.error(f"❌ Error saving signal to DB: {str(e)}")
-
-
-def connect_to_db(retry_count=3):
-    """
-    🔗 Подключается к БД с повторными попытками
-    """
-    db_connection = None
-    
-    for attempt in range(1, retry_count + 1):
-        try:
-            db_connection = mysql.connector.connect(
-                host=os.getenv('DB_HOST', 'mysql_inforadar'),
-                user=os.getenv('DB_USER', 'root'),
-                password=os.getenv('DB_PASSWORD', 'ryban8991!'),
-                database=os.getenv('DB_NAME', 'inforadar_db')
-            )
-            logging.info(f"✅ Database connected on attempt {attempt}")
-            return db_connection
-        except mysql.connector.Error as db_error:
-            error_code = db_error.errno if hasattr(db_error, 'errno') else 'UNKNOWN'
-            logging.warning(f"⚠️ Database connection attempt {attempt} failed: [{error_code}] {str(db_error)}")
-            
-            if error_code == 1049:  # Unknown database
-                logging.error("❌ Database 'inforadar_db' does not exist!")
-                logging.info("💡 Create database with: mysql -u root -p < init_database.sql")
-            
-            if attempt < retry_count:
-                wait_time = 5 * attempt
-                logging.info(f"⏳ Retrying in {wait_time} seconds...")
-                import time
-                time.sleep(wait_time)
-    
-    if not db_connection:
-        logging.warning("⚠️ Failed to connect to database after all retries")
-        logging.info("📊 Continuing without database (memory mode only)...")
-    
-    return db_connection
-
-
-async def parse_betwatch():
-    """
-    🎯 MAIN PARSER: Betwatch Money Tracking with Smart Signal Detection
-    """
-    db_connection = None
-    browser = None
-    
-    try:
-        # Подключение к БД
-        db_connection = connect_to_db(retry_count=2)
         
-        async with async_playwright() as p:
-            logging.info("🚀 Launching browser...")
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+        cursor.execute(query, values)
+        conn.commit()
+        logger.info(f"✅ Signal saved: {signal_type}")
+    except Exception as e:
+        logger.error(f"❌ DB save error: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+# ============ ДЕТЕКТОР СИГНАЛОВ ============
+class SignalDetector:
+    def __init__(self):
+        self.event_history = {}  # Полная история событий
+        self.line_shifts = {}  # Отслеживание сдвигов линий
+        self.market_disappear_count = {}  # Счетчик исчезнувших рынков
+    
+    async def detect_sharp_move(self, event_id, event_name, league, 
+                                bet_type, money, old_odd, new_odd):
+        """Детектор падения коэффициента"""
+        if old_odd <= new_odd:
+            return None
+        
+        percent_drop = ((old_odd - new_odd) * 100 / old_odd)
+        
+        if not (CONFIG["koefPercentMin"] <= percent_drop <= CONFIG["koefPercentMax"]):
+            return None
+        
+        if money < CONFIG["money_min"]:
+            return None
+        
+        logger.warning(f"🚨 SHARP MOVE: {event_name} | {bet_type} | "
+                      f"{old_odd:.2f} → {new_odd:.2f} ({percent_drop:.1f}%)")
+        
+        telegram_text = (
+            f"📉 <b>SHARP MOVE DETECTED!</b>\n\n"
+            f"⚽ {event_name}\n"
+            f"🏆 {league}\n"
+            f"💰 {bet_type}: €{money:,.0f}\n\n"
+            f"<b>{old_odd:.2f} → {new_odd:.2f}</b>\n"
+            f"Drop: {percent_drop:.1f}%"
+        )
+        
+        await send_telegram(SignalTypes.SHARP_MOVE, telegram_text)
+        
+        return {
+            'signal_type': SignalTypes.SHARP_MOVE,
+            'event_name': event_name,
+            'league': league,
+            'market_type': bet_type,
+            'old_value': {'odd': old_odd, 'money': money},
+            'new_value': {'odd': new_odd, 'money': money},
+            'bookie_value': None
+        }
+    
+    async def detect_odds_squeeze(self, event_id, event_name, league, issues):
+        """Детектор сжатия котировок (обе стороны упали)"""
+        if len(issues) < 2:
+            return None
+        
+        # Берём первые две стороны (обычно 1 и X или Over/Under)
+        side1 = issues[0]
+        side2 = issues[1]
+        
+        if len(side1) < 4 or len(side2) < 4:
+            return None
+        
+        side1_now = side1[2]
+        side1_prev = side1[3]
+        side2_now = side2[2]
+        side2_prev = side2[3]
+        
+        if not all([side1_now, side2_now, side1_prev, side2_prev]):
+            return None
+        
+        squeeze1 = ((side1_prev - side1_now) / side1_prev) if side1_prev > 0 else 0
+        squeeze2 = ((side2_prev - side2_now) / side2_prev) if side2_prev > 0 else 0
+        
+        # Обе упали больше чем threshold
+        if squeeze1 > CONFIG["squeeze_threshold"] and squeeze2 > CONFIG["squeeze_threshold"]:
+            logger.warning(f"✂️ ODDS SQUEEZE: {event_name} | Both sides down "
+                          f"{squeeze1*100:.1f}% and {squeeze2*100:.1f}%")
             
-            # Переходим на Betwatch с увеличенным timeout
-            logging.info("📄 Navigating to betwatch.fr/money...")
+            telegram_text = (
+                f"✂️ <b>ODDS SQUEEZE!</b>\n\n"
+                f"⚽ {event_name}\n"
+                f"🏆 {league}\n\n"
+                f"Both sides tightened significantly\n"
+                f"Side 1: {squeeze1*100:.1f}% ↓\n"
+                f"Side 2: {squeeze2*100:.1f}% ↓"
+            )
+            
+            await send_telegram(SignalTypes.ODDS_SQUEEZE, telegram_text)
+            
+            return {
+                'signal_type': SignalTypes.ODDS_SQUEEZE,
+                'event_name': event_name,
+                'league': league,
+                'market_type': f"{side1[0]} / {side2[0]}",
+                'old_value': {'side1': side1_prev, 'side2': side2_prev},
+                'new_value': {'side1': side1_now, 'side2': side2_now},
+                'bookie_value': None
+            }
+        
+        return None
+    
+    async def detect_limit_cut(self, event_id, event_name, league, 
+                               bet_type, old_limit, new_limit):
+        """Детектор урезки лимита"""
+        if not old_limit or new_limit >= old_limit:
+            return None
+        
+        cut_percent = ((old_limit - new_limit) / old_limit) * 100
+        
+        if cut_percent >= CONFIG["limit_cut_percent"]:
+            logger.warning(f"💸 LIMIT CUT: {event_name} | {bet_type} | "
+                          f"€{old_limit:,.0f} → €{new_limit:,.0f} ({cut_percent:.0f}% cut)")
+            
+            telegram_text = (
+                f"💸 <b>LIMIT CUT!</b>\n\n"
+                f"⚽ {event_name}\n"
+                f"🏆 {league}\n"
+                f"Market: {bet_type}\n\n"
+                f"<b>€{old_limit:,.0f} → €{new_limit:,.0f}</b>\n"
+                f"Cut: {cut_percent:.0f}%"
+            )
+            
+            await send_telegram(SignalTypes.LIMIT_CUT, telegram_text)
+            
+            return {
+                'signal_type': SignalTypes.LIMIT_CUT,
+                'event_name': event_name,
+                'league': league,
+                'market_type': bet_type,
+                'old_value': {'limit': old_limit},
+                'new_value': {'limit': new_limit},
+                'bookie_value': None
+            }
+        
+        return None
+
+# ============ ГЛАВНЫЙ ПАРСЕР ============
+async def parse_betwatch():
+    async with async_playwright() as p:
+        logger.info("🚀 Запускаем браузер...")
+        browser = await p.chromium.launch(
+            headless=CONFIG["browserHeadless"],
+            args=['--no-sandbox', '--disable-dev-shm-usage']
+        )
+        
+        page = await browser.new_page()
+        detector = SignalDetector()
+        
+        try:
+            logger.info("📄 Переходим на betwatch.fr/money...")
+            await page.goto("https://www.betwatch.fr/money", 
+                          wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(5)
+            
+            logger.info("🔴 Выбираем LIVE матчи...")
             try:
-                await page.goto('https://betwatch.fr/money', wait_until='domcontentloaded', timeout=120000)
-                logging.info("✅ Page loaded successfully")
-            except PlaywrightTimeoutError:
-                logging.warning("⚠️ Page load timeout, continuing anyway...")
-            except Exception as e:
-                logging.warning(f"⚠️ Navigation error: {str(e)}")
+                await page.evaluate("""
+                    const el = document.evaluate(
+                        '/html/body/div[3]/div[2]/div/div[2]/div/div/label',
+                        document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+                    ).singleNodeValue;
+                    if (el) el.click();
+                """)
+            except:
+                pass
             
-            # Выбираем LIVE матчи с обработкой ошибок
-            logging.info("🔴 Selecting LIVE matches...")
-            try:
-                await page.click('a:has-text("LIVE")', timeout=30000)
-                await page.wait_for_timeout(3000)
-                logging.info("✅ LIVE tab selected")
-            except PlaywrightTimeoutError:
-                logging.warning("⚠️ LIVE button click timeout, continuing anyway...")
-            except Exception as e:
-                logging.warning(f"⚠️ Could not click LIVE button: {str(e)}")
-                logging.info("📊 Trying to parse matches anyway...")
+            await asyncio.sleep(2)
             
-            logging.info("✅ Parser started! Detecting ALL signals...")
-            logging.info("📊 Monitoring: Sharp Moves, Odds Squeeze, Limit Cuts...")
-            logging.info("="*80)
+            event_tracking = {}
+            event_reported = set()
             
-            cycle_count = 0
+            logger.info("✅ Парсер запущен! Детектируем ВСЕ сигналы...")
+            logger.info("📊 Следим за: Sharp Moves, Odds Squeeze, Limit Cuts...")
+            
+            cycle = 0
             
             while True:
                 try:
-                    cycle_count += 1
-                    logging.info(f"\n📊 Cycle #{cycle_count}: {datetime.now().strftime('%H:%M:%S')}")
+                    cycle += 1
                     
-                    # Получаем все матчи на странице
-                    try:
-                        matches = await page.query_selector_all('tr[data-event-id]')
-                        logging.info(f"📡 Found {len(matches)} LIVE events")
-                    except PlaywrightTimeoutError:
-                        logging.warning("⚠️ Could not find matches (timeout)")
-                        matches = []
-                    except Exception as e:
-                        logging.warning(f"⚠️ Could not find matches: {str(e)}")
-                        matches = []
+                    events_data = await page.evaluate("""
+                        () => {
+                            try {
+                                if (typeof Alpine !== 'undefined' && Alpine.store) {
+                                    const store = Alpine.store('data');
+                                    const details = store.moneywayDetails || [];
+                                    return details.filter(m => m.l === 1).slice(0, 30);
+                                }
+                                return [];
+                            } catch(e) {
+                                return [];
+                            }
+                        }
+                    """)
                     
-                    if not matches:
-                        logging.info("⏳ No matches found, retrying in 15 seconds...")
-                        await page.wait_for_timeout(15000)
+                    if len(events_data) == 0:
+                        logger.info(f"🔍 Цикл #{cycle}: LIVE событий не найдено")
+                        await asyncio.sleep(CONFIG["pause_sec"])
                         continue
                     
-                    for idx, match in enumerate(matches[:15]):  # Первые 15 матчей
-                        try:
-                            # Парсим данные матча
-                            match_text = await match.inner_text()
-                            
-                            # Примерный парсинг (адаптируйте под реальную структуру)
-                            parts = match_text.split('\n')
-                            if len(parts) < 3:
+                    logger.info(f"📊 Цикл #{cycle}: {len(events_data)} LIVE событий")
+                    
+                    for event in events_data:
+                        event_id = event.get('e')
+                        event_name = event.get('m', 'Unknown')
+                        league = event.get('ln', 'Unknown')
+                        issues = event.get('i', [])
+                        
+                        if not event_id or not issues:
+                            continue
+                        
+                        # Проверка Odds Squeeze для всего матча
+                        squeeze_signal = await detector.detect_odds_squeeze(
+                            event_id, event_name, league, issues
+                        )
+                        if squeeze_signal:
+                            save_signal_to_db(squeeze_signal['signal_type'], squeeze_signal)
+                        
+                        for idx, issue in enumerate(issues):
+                            if len(issue) < 3:
                                 continue
                             
-                            match_name = parts[0]  # "Barcelona - Eintracht Frankfurt"
-                            league = parts[1]      # "UEFA Champions League"
+                            bet_type = issue[0]
+                            money = issue[1]
+                            odd = issue[2]
                             
-                            # Находим коэффициенты и объемы
-                            odds_elements = await match.query_selector_all('td[data-odds]')
+                            key = f"{event_id}_{idx}"
                             
-                            for odds_elem in odds_elements[:3]:  # П1, Х, П2
-                                try:
-                                    odd_value = await odds_elem.get_attribute('data-odds')
-                                    volume_value = await odds_elem.get_attribute('data-volume')
-                                    selection_id = await odds_elem.get_attribute('data-selection')
-                                    
-                                    if not (odd_value and volume_value):
-                                        continue
-                                    
-                                    odd_float = float(odd_value)
-                                    volume_float = float(volume_value)
-                                    
-                                    selection_map = {'0': '1', '1': 'X', '2': '2'}
-                                    selection = selection_map.get(selection_id, selection_id)
-                                    
-                                    # 🧠 АНАЛИЗИРУЕМ СИГНАЛ
-                                    signal = analyze_signal(
-                                        match_name=f"{match_name} [{league}]",
-                                        market="Match Odds",
-                                        selection=selection,
-                                        current_odd=odd_float,
-                                        volume_euro=volume_float
-                                    )
-                                    
-                                    # 📢 ЛОГИРУЕМ СИГНАЛ
-                                    if signal:
-                                        log_signal(signal)
-                                        # 💾 СОХРАНЯЕМ В БД
-                                        if db_connection:
-                                            save_signal_to_db(signal, db_connection)
-                                    else:
-                                        # Обычный лог для небольших движений
-                                        logging.info(f"✓ {selection}: €{volume_float:,.0f} @ {odd_float}")
+                            if money < CONFIG["money_min"] * 0.5:
+                                continue
+                            
+                            if not (CONFIG["koef_min"] <= odd <= CONFIG["koef_max"]):
+                                continue
+                            
+                            # ===== ПЕРВОЕ ПОЯВЛЕНИЕ =====
+                            if key not in event_tracking:
+                                event_tracking[key] = {
+                                    "time": datetime.now(),
+                                    "odd": odd,
+                                    "name": event_name,
+                                    "league": league,
+                                    "bet_type": bet_type,
+                                    "money": money,
+                                    "limit": money,
+                                }
+                                logger.info(f"✓ NEW: {event_name} [{league}] | {bet_type}: €{money:,.0f} @ {odd:.2f}")
+                            else:
+                                tracked = event_tracking[key]
                                 
-                                except Exception as e:
-                                    logging.debug(f"⚠️ Error parsing odds element: {str(e)}")
-                                    continue
-                        
-                        except Exception as e:
-                            logging.debug(f"⚠️ Error parsing match: {str(e)}")
-                            continue
+                                # 1️⃣ SHARP MOVE
+                                if odd < tracked["odd"]:
+                                    signal = await detector.detect_sharp_move(
+                                        event_id, event_name, league, bet_type, money,
+                                        tracked["odd"], odd
+                                    )
+                                    if signal:
+                                        save_signal_to_db(signal['signal_type'], signal)
+                                        event_reported.add(key)
+                                
+                                # 2️⃣ LIMIT CUT
+                                if money < tracked["limit"]:
+                                    signal = await detector.detect_limit_cut(
+                                        event_id, event_name, league, bet_type,
+                                        tracked["limit"], money
+                                    )
+                                    if signal:
+                                        save_signal_to_db(signal['signal_type'], signal)
+                                
+                                # Обновляем отслеживание
+                                event_tracking[key]["odd"] = odd
+                                event_tracking[key]["money"] = money
+                                event_tracking[key]["limit"] = money
+                                event_tracking[key]["time"] = datetime.now()
                     
-                    # Рефрешим страницу для обновления данных
-                    logging.info("🔄 Refreshing data...")
-                    try:
-                        await page.reload(wait_until='domcontentloaded', timeout=90000)
-                    except PlaywrightTimeoutError:
-                        logging.warning("⚠️ Page reload timeout, continuing...")
-                    except Exception as e:
-                        logging.warning(f"⚠️ Reload error: {str(e)}")
+                    await asyncio.sleep(CONFIG["pause_sec"])
                     
-                    await page.wait_for_timeout(5000)
-                
                 except Exception as e:
-                    logging.error(f"❌ Cycle error: {str(e)}")
-                    await page.wait_for_timeout(10000)
-                    continue
+                    logger.error(f"❌ Ошибка в цикле: {e}", exc_info=True)
+                    await asyncio.sleep(5)
         
-        if browser:
+        except Exception as e:
+            logger.error(f"❌ Критическая ошибка: {e}", exc_info=True)
+        finally:
             await browser.close()
-    
-    except Exception as e:
-        logging.error(f"❌ Main error: {str(e)}")
-    
-    finally:
-        if db_connection:
-            try:
-                db_connection.close()
-                logging.info("✅ Database connection closed")
-            except:
-                pass
-
 
 async def main():
-    """
-    Main entry point
-    """
-    logging.info("="*80)
-    logging.info("🎯 === BETWATCH EXTENDED DETECTOR v5 (Smart Signals + Resilient) ===")
-    logging.info("="*80)
-    logging.info("📡 Signals: Sharp Move, Odds Squeeze, Limit Cuts")
-    logging.info("🧠 Mode: Memory-based analysis with historical tracking")
-    logging.info("💰 Money Filter: €3000+ (cuts out noise)")
-    logging.info("📉 Drop Threshold: 15% or 5% per cycle")
-    logging.info("🔥 Whale Detection: 25%+ drop + €10000+")
-    logging.info("🔄 Retry Logic: Automatic recovery from timeouts")
-    logging.info("="*80)
+    logger.info("=" * 70)
+    logger.info("🎯 === BETWATCH EXTENDED DETECTOR v3 (All Signals) ===")
+    logger.info("=" * 70)
+    logger.info("📡 Signals: Sharp Move, Odds Squeeze, Limit Cuts")
+    logger.info("=" * 70)
     
     while True:
         try:
             await parse_betwatch()
         except Exception as e:
-            logging.error(f"❌ Main loop error: {str(e)}")
-            logging.info("💤 Restarting in 60 seconds...")
-            await asyncio.sleep(60)
-
+            logger.error(f"❌ Main loop error: {e}", exc_info=True)
+            logger.info("💤 Рестартуем через 30 сек...")
+            await asyncio.sleep(30)
 
 if __name__ == "__main__":
     asyncio.run(main())

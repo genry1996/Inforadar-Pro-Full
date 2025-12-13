@@ -11,5 +11,5 @@ RUN pip install --no-cache-dir -r requirements_betwatch.txt
 # Копируем парсер
 COPY betwatch_parser.py .
 
-# Запускаем
+# Запускаем парсер
 CMD ["python3", "betwatch_parser.py"]
