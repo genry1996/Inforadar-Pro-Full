@@ -7,7 +7,6 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  
   use: {
     baseURL: 'http://localhost:5000',
     trace: 'on-first-retry',
@@ -29,7 +28,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'cd test_mock && python mock_server.py',  // ✅ ЗАПУСКАЕТ МОК-СЕРВЕР!
+    command: 'cd test_mock && python mock_server.py',
     url: 'http://localhost:5000',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
