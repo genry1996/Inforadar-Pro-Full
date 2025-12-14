@@ -29,7 +29,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'cd test_mock && python mock_server.py',
+    command: 'cd test_mock && python mock_server.py',  // ✅ ЗАПУСКАЕТ МОК-СЕРВЕР!
     url: 'http://localhost:5000',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
