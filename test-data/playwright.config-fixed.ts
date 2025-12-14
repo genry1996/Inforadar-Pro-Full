@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5000/anomalies_22bet',
+    baseURL: 'http://localhost:5000',
     trace: 'on-first-retry',
   },
 
@@ -17,21 +17,12 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
   ],
 
   webServer: {
-    command: 'python mock_server.py',
-    url: 'http://localhost:5000/anomalies_22bet',
+    command: 'python app.py',
+    url: 'http://localhost:5000',
     reuseExistingServer: !process.env.CI,
-    timeout: 30000,
-    cwd: './test_mock',
+    cwd: './inforadar_ui',
   },
 });
