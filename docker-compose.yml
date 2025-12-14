@@ -35,12 +35,14 @@ services:
     build:
       context: ./inforadar_parser
       dockerfile: Dockerfile.betwatch
-    command: ["python3", "/app/betwatch-advanced.py"]
+    command: [python3, /app/betwatch_parser.py]
     environment:
       MYSQL_HOST: mysql_inforadar
       MYSQL_USER: root
       MYSQL_PASSWORD: ryban8991!
       MYSQL_DB: inforadar
+      TELEGRAM_TOKEN: 8432470497:AAE35c89FTPLOtmMgUPpCaaD8htYd1gO9uI
+      TELEGRAM_CHAT_ID: "5377484616"
     volumes:
       - ./inforadar_parser:/app
     depends_on:

@@ -1,0 +1,50 @@
+playwright_22bet  | 2025-12-11 19:15:01,511 | INFO | 
+playwright_22bet  | ===== СОБЫТИЕ 47 =====
+playwright_22bet  | 2025-12-11 19:15:01,519 | INFO | EVENT HTML:
+playwright_22bet  | <div class="c-events__item"><div class="c-events__time min"><span>12/12 00:00</span> <!----> <!----></div> <a href="line/basketball/124789-national-collegiate-athletic-association-ncaa/291630828-virginia-tech-hokies-western-carolina-catamounts" title="Virginia Tech Hokies - Western Carolina Catamounts  Including Overtime " class="c-events__name"><span class="c-events__teams"><span class="c-events__team u-ovh">Virginia Tech Hokies</span> <span class="c-events__team u-ovh">Western Carolina Catamounts</span> <span class="u-ovh"> Including Overtime </span></span></a> <!----> <div class="c-events__
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,531 | INFO | DEBUG: Найдено команд: 2
+playwright_22bet  | 2025-12-11 19:15:01,547 | INFO | DEBUG: ✓ Команды: Virginia Tech Hokies vs Western Carolina Catamounts
+playwright_22bet  | 2025-12-11 19:15:01,560 | INFO | DEBUG: Найдено коэффициентов: 9
+playwright_22bet  | 2025-12-11 19:15:01,596 | INFO | DEBUG: Распарсено коэффициентов: 5
+playwright_22bet  | 2025-12-11 19:15:01,596 | INFO | DEBUG: ✓ Коэффициенты: 1.03, 29.0, 14.5
+playwright_22bet  | 2025-12-11 19:15:01,598 | INFO | ✓ УСПЕШНО: Virginia Tech Hokies vs Western Carolina Catamounts | 1.03, 29.00, 14.50
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,598 | INFO | 
+playwright_22bet  | ===== СОБЫТИЕ 48 =====
+playwright_22bet  | 2025-12-11 19:15:01,606 | INFO | EVENT HTML:
+playwright_22bet  | <div class="c-events__item"><div class="c-events__time min"><span>12/12 00:00</span> <!----> <!----></div> <a href="line/basketball/1678675-nba-g-league/291672552-grand-rapids-gold-windy-city-bulls" title="Grand Rapids Gold - Windy City Bulls  Including Overtime " class="c-events__name"><span class="c-events__teams"><span class="c-events__team u-ovh">Grand Rapids Gold</span> <span class="c-events__team u-ovh">Windy City Bulls</span> <span class="u-ovh"> Including Overtime </span></span></a> <!----> <div class="c-events__dop"><!----> <!----></div> <div class="c-events__more-wrap"><div class="c-
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,618 | INFO | DEBUG: Найдено команд: 2
+playwright_22bet  | 2025-12-11 19:15:01,637 | INFO | DEBUG: ✓ Команды: Grand Rapids Gold vs Windy City Bulls
+playwright_22bet  | 2025-12-11 19:15:01,652 | INFO | DEBUG: Найдено коэффициентов: 7
+playwright_22bet  | 2025-12-11 19:15:01,698 | INFO | DEBUG: Распарсено коэффициентов: 5
+playwright_22bet  | 2025-12-11 19:15:01,698 | INFO | DEBUG: ✓ Коэффициенты: 1.44, 13.0, 2.85
+playwright_22bet  | 2025-12-11 19:15:01,700 | INFO | ✓ УСПЕШНО: Grand Rapids Gold vs Windy City Bulls | 1.44, 13.00, 2.85
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,700 | INFO | 
+playwright_22bet  | ===== СОБЫТИЕ 49 =====
+playwright_22bet  | 2025-12-11 19:15:01,708 | INFO | EVENT HTML:
+playwright_22bet  | <div class="c-events__item"><div class="c-events__time min"><span>12/12 00:00</span> <!----> <!----></div> <a href="line/basketball/1678675-nba-g-league/291672551-noblesville-boom-wisconsin-herd" title="Noblesville Boom - Wisconsin Herd  Including Overtime " class="c-events__name"><span class="c-events__teams"><span class="c-events__team u-ovh">Noblesville Boom</span> <span class="c-events__team u-ovh">Wisconsin Herd</span> <span class="u-ovh"> Including Overtime </span></span></a> <!----> <div class="c-events__dop"><!----> <!----></div> <div class="c-events__more-wrap"><div class="c-events__m
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,722 | INFO | DEBUG: Найдено команд: 2
+playwright_22bet  | 2025-12-11 19:15:01,743 | INFO | DEBUG: ✓ Команды: Noblesville Boom vs Wisconsin Herd
+playwright_22bet  | 2025-12-11 19:15:01,762 | INFO | DEBUG: Найдено коэффициентов: 7
+playwright_22bet  | 2025-12-11 19:15:01,835 | INFO | DEBUG: Распарсено коэффициентов: 5
+playwright_22bet  | 2025-12-11 19:15:01,835 | INFO | DEBUG: ✓ Коэффициенты: 1.88, 13.0, 1.97
+playwright_22bet  | 2025-12-11 19:15:01,838 | INFO | ✓ УСПЕШНО: Noblesville Boom vs Wisconsin Herd | 1.88, 13.00, 1.97
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,838 | INFO | 
+playwright_22bet  | ===== СОБЫТИЕ 50 =====
+playwright_22bet  | 2025-12-11 19:15:01,852 | INFO | EVENT HTML:
+playwright_22bet  | <div class="c-events__item"><div class="c-events__time min"><span>12/12 00:00</span> <!----> <!----></div> <a href="line/basketball/165593-wncaa/291724787-west-virginia-mountaineers-women-georgia-tech-yellow-jackets-women" title="West Virginia Mountaineers (Women) - Georgia Tech Yellow Jackets (Women)  Including Overtime " class="c-events__name"><span class="c-events__teams"><span class="c-events__team u-ovh">West Virginia Mountaineers (Women)</span> <span class="c-events__team u-ovh">Georgia Tech Yellow Jackets (Women)</span> <span class="u-ovh"> Including Overtime </span></span></a> <!----> 
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:01,873 | INFO | DEBUG: Найдено команд: 2
+playwright_22bet  | 2025-12-11 19:15:01,900 | INFO | DEBUG: ✓ Команды: West Virginia Mountaineers (Women) vs Georgia Tech Yellow Jackets (Women)
+playwright_22bet  | 2025-12-11 19:15:01,921 | INFO | DEBUG: Найдено коэффициентов: 4
+playwright_22bet  | 2025-12-11 19:15:02,089 | INFO | DEBUG: Распарсено коэффициентов: 4
+playwright_22bet  | 2025-12-11 19:15:02,089 | INFO | DEBUG: ✓ Коэффициенты: 1.83, 1.83, 1.91
+playwright_22bet  | 2025-12-11 19:15:02,091 | INFO | ✓ УСПЕШНО: West Virginia Mountaineers (Women) vs Georgia Tech Yellow Jackets (Women) | 1.83, 1.83, 1.91
+playwright_22bet  | 
+playwright_22bet  | 2025-12-11 19:15:02,100 | INFO | 🎉 [Basketball] Вставлено: 49
+playwright_22bet  | 2025-12-11 19:15:02,321 | INFO | 💤 Спим 60 сек...

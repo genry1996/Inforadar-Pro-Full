@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "anom_corridor_1",
+      "bookmaker": "22bet",
+      "exchange": "betfair",
+      "sport": "football",
+      "league": "England. Premier League",
+      "event_name": "Man United - Liverpool",
+      "starts_at": "2025-12-14T18:00:00Z",
+      "market_type": "TOTALS",
+      "selection": "-2.5 vs -7.5",
+      "prematch_liveplay": "prematch",
+      "minutes_before_start": 120,
+      "match_time_info": null,
+      "anomaly_type": "CORRIDOR",
+      "severity": "medium",
+      "old_value": 2.5,
+      "new_value": 3.2,
+      "change_pct": 28.0,
+      "detected_at": "2025-12-14T15:45:00Z",
+      "status": "confirmed",
+      "confidence": 0.85,
+      "telegram_signal_id": "tg_cor_001",
+      "created_at": "2025-12-14T15:45:00Z"
+    }
+  ]
+}

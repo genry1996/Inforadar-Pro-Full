@@ -34,7 +34,6 @@ def timeago(value):
     if not value:
         return ""
     if isinstance(value, str):
-        # на всякий случай — если строка
         try:
             value = datetime.fromisoformat(value)
         except Exception:
@@ -62,10 +61,7 @@ def timeago(value):
 @app.route("/anomalies")
 def anomalies_page():
     """
-    Страница аномалий:
-    - тянем последние 200 записей из anomalies (+матч, если есть)
-    - форматируем коэффициенты и проценты
-    - фильтр по type: all / spread / live / prematch
+    Страница аномалий (общая).
     """
     filter_type = request.args.get("type", "all")
 
@@ -101,7 +97,6 @@ def anomalies_page():
         conn.close()
 
     def fmt_odd(val):
-        """Приводим Decimal/float/строку к строке с 2–3 знаками без лишних нулей."""
         if val is None:
             return None
         try:
@@ -113,11 +108,9 @@ def anomalies_page():
 
     anomalies = []
     for row in rows:
-        # коэффициенты
         row["before_value"] = fmt_odd(row.get("before_value"))
         row["after_value"] = fmt_odd(row.get("after_value"))
 
-        # процент
         diff_val = row.get("diff_pct")
         if diff_val is not None:
             try:
@@ -125,36 +118,86 @@ def anomalies_page():
             except (TypeError, ValueError):
                 row["diff_pct"] = None
 
-        # created_at оставляем datetime — фильтр timeago сам форматирует
         anomalies.append(row)
 
-    # ===== Фильтр по типу =====
     filtered = anomalies
     if filter_type == "spread":
-        filtered = [a for a in anomalies if (a.get("anomaly_type") == "ODDS_SPREAD")]
+        filtered = [a for a in anomalies if a.get("anomaly_type") == "ODDS_SPREAD"]
     elif filter_type == "live":
-        filtered = [
-            a for a in anomalies if "LIVE" in (a.get("anomaly_type") or "")
-        ]
+        filtered = [a for a in anomalies if "LIVE" in (a.get("anomaly_type") or "")]
     elif filter_type == "prematch":
-        filtered = [
-            a for a in anomalies if "LIVE" not in (a.get("anomaly_type") or "")
-        ]
+        filtered = [a for a in anomalies if "LIVE" not in (a.get("anomaly_type") or "")]
 
     return render_template(
         "anomalies.html",
         anomalies=filtered,
-        filter_type=filter_type,   # для подсветки таба
-        current_type=filter_type,  # если в шаблоне используется другое имя
+        filter_type=filter_type,
+        current_type=filter_type,
         total_pages=1,
         page=1,
     )
 
 
-# alias /anomaly -> /anomalies (на всякий случай, если где-то старый линк)
 @app.route("/anomaly")
 def anomalies_single_alias():
     return anomalies_page()
+
+
+# ===========================================================
+#           22BET ANOMALIES (ODDS_DROP)
+# ===========================================================
+@app.route("/anomalies_22bet")
+def anomalies_22bet_page():
+    conn = get_connection()
+    if not conn:
+        return "Ошибка подключения к MySQL"
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    event_name,
+                    sport,
+                    league,
+                    anomaly_type,
+                    market_type,
+                    before_value,
+                    after_value,
+                    diff_pct,
+                    status,
+                    detected_at,
+                    comment
+                FROM anomalies_22bet
+                WHERE anomaly_type = 'ODDS_DROP' AND status = 'confirmed'
+                ORDER BY detected_at DESC, id DESC
+                LIMIT 200
+                """
+            )
+            rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    def fmt_odd(val):
+        if val is None:
+            return None
+        try:
+            f = float(val)
+        except (TypeError, ValueError):
+            return str(val)
+        s = f"{f:.3f}".rstrip("0").rstrip(".")
+        return s
+
+    anomalies = []
+    for row in rows:
+        row["old_odd"] = fmt_odd(row.get("before_value"))
+        row["new_odd"] = fmt_odd(row.get("after_value"))
+        row["change_percent"] = row.get("diff_pct")
+        row["created_at"] = row.get("detected_at")
+        anomalies.append(row)
+
+    return render_template("anomalies_22bet.html", anomalies=anomalies)
 
 
 # ===========================================================
@@ -168,7 +211,6 @@ def oddsapi_epl():
 
     try:
         with conn.cursor() as cursor:
-            # 1) События EPL
             cursor.execute(
                 """
                 SELECT
@@ -191,7 +233,6 @@ def oddsapi_epl():
 
             event_ids = [row["event_id"] for row in rows_events]
 
-            # 2) H2H-коэффы по этим событиям
             placeholders = ", ".join(["%s"] * len(event_ids))
             sql_odds = f"""
                 SELECT
@@ -216,7 +257,6 @@ def oddsapi_epl():
         if conn:
             conn.close()
 
-    # Собираем удобную структуру для шаблона
     odds_by_event = defaultdict(list)
     for row in rows_odds:
         odds_by_event[row["event_id"]].append(row)
@@ -254,10 +294,8 @@ def index():
 
 @app.route("/metrics")
 def metrics_stub():
-    # Заглушка для Prometheus, чтобы не было 404
     return "ok\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 
-# ====== RUN LOCAL (в докере всё равно не используется) ======
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
