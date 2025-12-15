@@ -12,7 +12,6 @@ DB_USER = "root"
 DB_PASSWORD = "ryban8991!"
 DB_NAME = "inforadar"
 
-
 def get_connection():
     try:
         return pymysql.connect(
@@ -27,7 +26,6 @@ def get_connection():
     except Exception:
         return None
 
-
 # ====== JINJA FILTER ======
 @app.template_filter("timeago")
 def timeago(value):
@@ -38,11 +36,9 @@ def timeago(value):
             value = datetime.fromisoformat(value)
         except Exception:
             return value
-
     now = datetime.utcnow()
     diff = now - value
     seconds = diff.total_seconds()
-
     if seconds < 60:
         return "только что"
     if seconds < 3600:
@@ -51,12 +47,35 @@ def timeago(value):
         return f"{int(seconds // 3600)} ч назад"
     if seconds < 604800:
         return f"{int(seconds // 86400)} дн назад"
-
     return value.strftime("%Y-%m-%d %H:%M")
 
+# ===========================================================
+# API ENDPOINT ДЛЯ ТЕСТОВ PLAYWRIGHT
+# ===========================================================
+@app.route('/api/anomalies/test', methods=['GET'])
+def api_anomalies_test():
+    """API endpoint для Playwright тестов - возвращает mock данные"""
+    test_data = [
+        {
+            'id': 1,
+            'event_name': 'Test Match 1',
+            'sport': 'Football',
+            'league': 'Premier League',
+            'market_type': '1X2',
+            'old_odd': 2.5,
+            'new_odd': 1.8,
+            'change_percent': -28,
+            'anomaly_type': 'ODDS_DROP',
+            'severity': 'high',
+            'status': 'active',
+            'created_at': '2 mins ago',
+            'comment': 'Significant drop detected'
+        }
+    ]
+    return jsonify(test_data)
 
 # ===========================================================
-#                   АНОМАЛИИ
+# АНОМАЛИИ
 # ===========================================================
 @app.route("/anomalies")
 def anomalies_page():
@@ -64,11 +83,9 @@ def anomalies_page():
     Страница аномалий (общая).
     """
     filter_type = request.args.get("type", "all")
-
     conn = get_connection()
     if not conn:
         return "Ошибка подключения к MySQL"
-
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -110,14 +127,12 @@ def anomalies_page():
     for row in rows:
         row["before_value"] = fmt_odd(row.get("before_value"))
         row["after_value"] = fmt_odd(row.get("after_value"))
-
         diff_val = row.get("diff_pct")
         if diff_val is not None:
             try:
                 row["diff_pct"] = float(diff_val)
             except (TypeError, ValueError):
                 row["diff_pct"] = None
-
         anomalies.append(row)
 
     filtered = anomalies
@@ -144,14 +159,13 @@ def anomalies_single_alias():
 
 
 # ===========================================================
-#           22BET ANOMALIES (ODDS_DROP)
+# 22BET ANOMALIES (ODDS_DROP)
 # ===========================================================
 @app.route("/anomalies_22bet")
 def anomalies_22bet_page():
     conn = get_connection()
     if not conn:
         return "Ошибка подключения к MySQL"
-
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -201,14 +215,13 @@ def anomalies_22bet_page():
 
 
 # ===========================================================
-#          THE ODDS API — EPL (soccer_epl)
+# THE ODDS API — EPL (soccer_epl)
 # ===========================================================
 @app.route("/oddsapi/epl")
 def oddsapi_epl():
     conn = get_connection()
     if not conn:
         return "Ошибка подключения к MySQL"
-
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -227,12 +240,10 @@ def oddsapi_epl():
                 """
             )
             rows_events = cursor.fetchall()
-
             if not rows_events:
                 return render_template("oddsapi_epl.html", events=[])
 
             event_ids = [row["event_id"] for row in rows_events]
-
             placeholders = ", ".join(["%s"] * len(event_ids))
             sql_odds = f"""
                 SELECT
@@ -249,7 +260,6 @@ def oddsapi_epl():
             """
             cursor.execute(sql_odds, event_ids)
             rows_odds = cursor.fetchall()
-
     except Exception as e:
         print("❌ Ошибка в /oddsapi/epl:", e)
         return "Ошибка при получении данных The Odds API"
@@ -269,7 +279,6 @@ def oddsapi_epl():
             commence_str = commence.strftime("%Y-%m-%d %H:%M")
         else:
             commence_str = str(commence)
-
         events.append(
             {
                 "event_id": ev_id,
@@ -298,4 +307,4 @@ def metrics_stub():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)

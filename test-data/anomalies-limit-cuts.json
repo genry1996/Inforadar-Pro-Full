@@ -1,32 +1,17 @@
-{
-  "items": [
-    {
-      "id": "anom_limit_1",
-      "bookmaker": "bet365",
-      "exchange": null,
-      "sport": "football",
-      "league": "Spain. La Liga",
-      "event_name": "Barcelona - Real Madrid",
-      "starts_at": "2025-12-15T20:00:00Z",
-      "market_type": "1X2",
-      "selection": "Barcelona",
-      "prematch_liveplay": "liveplay",
-      "minutes_before_start": 5,
-      "match_time_info": {
-        "period": 1,
-        "minute": 73,
-        "is_halftime": false
-      },
-      "anomaly_type": "LIMIT_CUT",
-      "severity": "critical",
-      "old_value": 10000,
-      "new_value": 500,
-      "change_pct": -95.0,
-      "detected_at": "2025-12-15T19:55:00Z",
-      "status": "confirmed",
-      "confidence": 1.0,
-      "telegram_signal_id": "tg_limit_001",
-      "created_at": "2025-12-15T19:55:00Z"
-    }
-  ]
-}
+[
+  {
+    "id": 20,
+    "event_name": "Test Limit Cut 1",
+    "sport": "Football",
+    "league": "Champions League",
+    "market_type": "1X2",
+    "old_odd": 3.5,
+    "new_odd": 2.8,
+    "change_percent": -20,
+    "anomaly_type": "LIMIT_CUT",
+    "severity": "critical",
+    "status": "active",
+    "created_at": "1 min ago",
+    "comment": "Limit cut detected"
+  }
+]

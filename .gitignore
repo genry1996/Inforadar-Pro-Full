@@ -26,16 +26,14 @@ prometheus_data/
 loki_data/
 provisioning/
 dashboards_backup/
-__init__.py
 
 # --- System / Cache ---
 *.bak
 *.tmp
 *.swp
-*.log
 *.pid
 
-# --- Jupyter / Notebooks (если есть) ---
+# --- Jupyter / Notebooks ---
 .ipynb_checkpoints/
 
 # --- Windows ---
@@ -44,8 +42,36 @@ Desktop.ini
 
 # --- MacOS ---
 .DS_Store
+
+# --- Test Results ---
+test-results/
+htmlcov/
+.pytest_cache/
+.coverage
+
+# --- Browser Data ---
+*.crdownload
+
+# --- Parser Output ---
+*.db
+*.sqlite
+parser_output/
+
+# --- Temporary Data ---
+temp/
+tmp/
+cache/
+
+# --- Credentials (Extra Safety) ---
+.env.local
+.env.*.local
+config_local.py
+
+# --- IDE Extensions ---
+.vscode/launch.json
+.idea/runConfigurations
+
+# --- Node & Others ---
 node_modules/
-*.pyc
 Dockerfile.*
 requirements_*.txt
-.env

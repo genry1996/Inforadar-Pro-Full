@@ -1,28 +1,17 @@
-{
-  "items": [
-    {
-      "id": "anom_22bet_1",
-      "bookmaker": "22bet",
-      "exchange": null,
-      "sport": "football",
-      "league": "England. Premier League",
-      "event_name": "Arsenal - Chelsea",
-      "starts_at": "2025-12-14T20:00:00Z",
-      "market_type": "1X2",
-      "selection": "Arsenal",
-      "prematch_liveplay": "prematch",
-      "minutes_before_start": 240,
-      "match_time_info": null,
-      "anomaly_type": "ODDS_DROP",
-      "severity": "high",
-      "old_value": 2.10,
-      "new_value": 1.65,
-      "change_pct": -21.4,
-      "detected_at": "2025-12-14T16:00:00Z",
-      "status": "confirmed",
-      "confidence": 0.95,
-      "telegram_signal_id": "tg_abc123",
-      "created_at": "2025-12-14T16:00:00Z"
-    }
-  ]
-}
+[
+  {
+    "id": 1,
+    "event_name": "Test Drop Match 1",
+    "sport": "Football",
+    "league": "Premier League",
+    "market_type": "1X2",
+    "old_odd": 2.5,
+    "new_odd": 1.8,
+    "change_percent": -28,
+    "anomaly_type": "ODDS_DROP",
+    "severity": "high",
+    "status": "active",
+    "created_at": "2 mins ago",
+    "comment": "Significant drop detected"
+  }
+]
