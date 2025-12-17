@@ -1,0 +1,308 @@
+{
+  "Cardiff City vs Chelsea": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 6.55,
+      "X": 4.98,
+      "2": 1.43
+    }
+  },
+  "Eldense vs Real Sociedad": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 8.02,
+      "X": 4.57,
+      "2": 1.41
+    }
+  },
+  "Guadalajara S.A.D. vs Barcelona": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 27.0,
+      "X": 13.0,
+      "2": 1.06
+    }
+  },
+  "Sporting de Gijon vs Valencia": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.94,
+      "X": 3.285,
+      "2": 2.02
+    }
+  },
+  "Cultural y Deportiva Leonesa vs Levante UD": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.725,
+      "X": 3.28,
+      "2": 2.616
+    }
+  },
+  "Albacete Balompie vs Celta": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.76,
+      "X": 3.42,
+      "2": 2.016
+    }
+  },
+  "Atletico Baleares vs Atletico Madrid": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 11.0,
+      "X": 6.1,
+      "2": 1.25
+    }
+  },
+  "Huesca vs Osasuna": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.32,
+      "X": 3.24,
+      "2": 2.255
+    }
+  },
+  "Racing de Santander vs Villarreal": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.06,
+      "X": 3.82,
+      "2": 1.83
+    }
+  },
+  "PSV Eindhoven vs GVVV Veenendaal": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.016,
+      "X": 16.9,
+      "2": 36.0
+    }
+  },
+  "St. Gallen vs Sion": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.31,
+      "X": 3.42,
+      "2": 2.92
+    }
+  },
+  "Winterthur vs Thun": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.4,
+      "X": 4.05,
+      "2": 1.69
+    }
+  },
+  "Deportes Tolima vs Junior de Barranquilla": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.73,
+      "X": 3.54,
+      "2": 4.72
+    }
+  },
+  "Truro City vs Wealdstone": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.81,
+      "X": 3.37,
+      "2": 2.4
+    }
+  },
+  "Llandudno Town vs Mold Alexandra": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.144,
+      "X": 6.35,
+      "2": 12.2
+    }
+  },
+  "Afan Lido vs Ynyshir Albions": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.0,
+      "X": 3.54,
+      "2": 3.14
+    }
+  },
+  "Chatham Town vs Potters Bar Town": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.24,
+      "X": 5.35,
+      "2": 9.2
+    }
+  },
+  "Manchester City vs Brentford": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.52,
+      "X": 4.5,
+      "2": 5.75
+    }
+  },
+  "Chichester City vs Cheshunt": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.15,
+      "X": 3.52,
+      "2": 2.845
+    }
+  },
+  "Folkestone Invicta vs Cray Valley Paper Mills": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.48,
+      "X": 4.1,
+      "2": 5.5
+    }
+  },
+  "Wingate & Finchley vs Burgess Hill Town": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.99,
+      "X": 3.56,
+      "2": 3.14
+    }
+  },
+  "Bowers & Pitsea vs Tilbury": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.245,
+      "X": 3.55,
+      "2": 2.925
+    }
+  },
+  "New York Knicks vs San Antonio Spurs": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.725,
+      "X": 15.0,
+      "2": 2.416
+    }
+  },
+  "Boston Bruins vs Utah Mammoth": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.384,
+      "X": 4.46,
+      "2": 2.445
+    }
+  },
+  "Columbus Blue Jackets vs Anaheim Ducks": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.07,
+      "X": 4.62,
+      "2": 2.832
+    }
+  },
+  "Detroit Red Wings vs New York Islanders": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.155,
+      "X": 4.42,
+      "2": 2.752
+    }
+  },
+  "Montreal Canadiens vs Philadelphia Flyers": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.216,
+      "X": 4.36,
+      "2": 2.685
+    }
+  },
+  "New York Rangers vs Vancouver Canucks": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.256,
+      "X": 4.36,
+      "2": 2.625
+    }
+  },
+  "Toronto Maple Leafs vs Chicago Blackhawks": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.81,
+      "X": 4.6,
+      "2": 3.52
+    }
+  },
+  "Pittsburgh Penguins vs Edmonton Oilers": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.8,
+      "X": 4.56,
+      "2": 2.096
+    }
+  },
+  "Cardiff City vs Marc Guiu": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.72,
+      "X": 2.1,
+      "2": 3.755
+    }
+  },
+  "Cardiff City vs Estevao Oliveira Goncalves": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.57,
+      "X": 2.03,
+      "2": 4.37
+    }
+  },
+  "Cardiff City vs Jamie Jermaine Bynoe-Gittens": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.86,
+      "X": 2.45,
+      "2": 6.09
+    }
+  },
+  "Marathon II vs CD Victoria La Ceiba II": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.2,
+      "X": 5.8,
+      "2": 10.4
+    }
+  }
+}

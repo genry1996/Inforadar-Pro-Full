@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inforadar Pro - Anomaly Detection Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #1e40af;
+            --secondary-color: #0891b2;
+            --danger-color: #dc2626;
+            --warning-color: #f59e0b;
+            --success-color: #10b981;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+        }
+
+        body {
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .filter-panel {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .filter-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-title::before {
+            content: '⚙️';
+        }
+
+        .filter-section {
+            margin-bottom: 25px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .sports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .sport-btn {
+            padding: 10px 16px;
+            border: 2px solid var(--border-color);
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .sport-btn:hover {
+            border-color: var(--secondary-color);
+            color: var(--text-primary);
+        }
+
+        .sport-btn.active {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+            color: white;
+        }
+
+        .corridors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .corridor {
+            background: rgba(30, 64, 175, 0.1);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .corridor-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .slider-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border-color);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            cursor: pointer;
+            border: none;
+        }
+
+        .corridor-value {
+            min-width: 60px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0d97b6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--secondary-color);
+            color: var(--text-primary);
+        }
+
+        .anomalies-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '📊';
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-card {
+            background: rgba(8, 145, 178, 0.05);
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--secondary-color);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: rgba(8, 145, 178, 0.1);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+
+        tr:hover {
+            background: rgba(8, 145, 178, 0.05);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-critical {
+            background: rgba(220, 38, 38, 0.2);
+            color: #fca5a5;
+            border: 1px solid #dc2626;
+        }
+
+        .badge-high {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid #f59e0b;
+        }
+
+        .badge-medium {
+            background: rgba(14, 165, 233, 0.2);
+            color: #7dd3fc;
+            border: 1px solid #0ea5e9;
+        }
+
+        .badge-positive {
+            background: rgba(16, 185, 129, 0.2);
+            color: #86efac;
+        }
+
+        .badge-negative {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--secondary-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .sports-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .corridors-grid {
+                grid-template-columns: 1fr;
+            }
+            table {
+                font-size: 12px;
+            }
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <h1>🚨 Inforadar Pro - Anomaly Detection</h1>
+            <p class="subtitle">Мониторинг аномалий: залив денег + падение коэффициентов на бирже Betfair</p>
+        </header>
+
+        <!-- ФИЛЬТРЫ -->
+        <div class="filter-panel">
+            <div class="filter-title">Фильтр Аномалий</div>
+
+            <!-- Выбор спортов -->
+            <div class="filter-section">
+                <div class="section-label">ВЫБЕРИТЕ СПОРТЫ:</div>
+                <div class="sports-grid">
+                    <button class="sport-btn active" data-sport="football">⚽ Football</button>
+                    <button class="sport-btn active" data-sport="basketball">🏀 Basketball</button>
+                    <button class="sport-btn" data-sport="tennis">🎾 Tennis</button>
+                    <button class="sport-btn" data-sport="esports">🎮 Esports</button>
+                    <button class="sport-btn" data-sport="futsal">🤾 Futsal</button>
+                    <button class="sport-btn" data-sport="volleyball">🏐 Volleyball</button>
+                </div>
+            </div>
+
+            <!-- Коридоры фильтрации -->
+            <div class="filter-section">
+                <div class="section-label">НАСТРОЙТЕ КОРИДОРЫ ФИЛЬТРАЦИИ:</div>
+                <div class="corridors-grid">
+                    <!-- Залив денег (Volume Spike) -->
+                    <div class="corridor" style="border-left-color: var(--warning-color);">
+                        <div class="corridor-label">⚠️ Залив денег (Volume Spike %)</div>
+                        <div class="slider-container">
+                            <input type="range" id="volumeMinSlider" min="10" max="500" step="10" value="50">
+                            <span class="corridor-value" id="volumeMin">50%</span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                            От <span id="volumeMinVal">50</span>% до 1000%
+                        </div>
+                    </div>
+
+                    <!-- Падение коэффициента -->
+                    <div class="corridor" style="border-left-color: var(--danger-color);">
+                        <div class="corridor-label">📉 Падение коэффициента (%)</div>
+                        <div class="slider-container">
+                            <input type="range" id="oddsDropSlider" min="0.5" max="50" step="0.5" value="2">
+                            <span class="corridor-value" id="oddsDrop">2%</span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                            Минимум падение за 60 сек
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Тип аномалии -->
+            <div class="filter-section">
+                <div class="section-label">ТИП АНОМАЛИИ:</div>
+                <select id="anomalyType" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--dark-bg); color: var(--text-primary); min-width: 200px;">
+                    <option value="all">Все аномалии</option>
+                    <option value="VOLUME_SPIKE">Volume Spike</option>
+                    <option value="ODDS_DROP">Odds Drop</option>
+                    <option value="ODDS_DROP_WITH_SPIKE">Odds Drop + Volume Spike</option>
+                </select>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="applyFilters()">🔍 Применить фильтр</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">🔄 Сброс</button>
+            </div>
+        </div>
+
+        <!-- ОБНАРУЖЕННЫЕ АНОМАЛИИ -->
+        <div class="anomalies-section">
+            <div class="section-title">📊 Обнаруженные аномалии</div>
+
+            <!-- Статистика -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">ВСЕГО АНОМАЛИЙ</div>
+                    <div class="stat-value" id="totalAnomalies">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">КРИТИЧЕСКИХ</div>
+                    <div class="stat-value" style="color: var(--danger-color);" id="criticalCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">ВЫСОКИХ</div>
+                    <div class="stat-value" style="color: var(--warning-color);" id="highCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">СРЕДНИХ</div>
+                    <div class="stat-value" style="color: var(--secondary-color);" id="mediumCount">0</div>
+                </div>
+            </div>
+
+            <!-- Таблица аномалий -->
+            <div class="table-wrapper" id="tableContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка данных...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activeSports = ['football', 'basketball'];
+        let currentAnomalies = [];
+
+        // Обработчики выбора спортов
+        document.querySelectorAll('.sport-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.classList.toggle('active');
+                const sport = this.dataset.sport;
+
+                if (this.classList.contains('active')) {
+                    if (!activeSports.includes(sport)) {
+                        activeSports.push(sport);
+                    }
+                } else {
+                    activeSports = activeSports.filter(s => s !== sport);
+                }
+            });
+        });
+
+        // Обработчики слайдеров
+        document.getElementById('volumeMinSlider').addEventListener('input', function() {
+            document.getElementById('volumeMin').textContent = this.value + '%';
+            document.getElementById('volumeMinVal').textContent = this.value;
+        });
+
+        document.getElementById('oddsDropSlider').addEventListener('input', function() {
+            document.getElementById('oddsDrop').textContent = this.value + '%';
+        });
+
+        // ✅ ПРИМЕНИТЬ ФИЛЬТРЫ - загрузка с API
+        async function applyFilters() {
+            try {
+                // Показываем загрузку
+                document.getElementById('tableContainer').innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Загрузка данных...</p>
+                    </div>
+                `;
+
+                // Собираем параметры фильтров
+                const volumeMin = parseFloat(document.getElementById('volumeMinSlider').value);
+                const oddsDropMin = parseFloat(document.getElementById('oddsDropSlider').value);
+                const anomalyType = document.getElementById('anomalyType').value;
+
+                // Формируем query string для спортов
+                const sportParams = activeSports.map(s => `sport[]=${s}`).join('&');
+
+                // Делаем запрос к Flask API
+                const url = `/api/exchange/anomalies?${sportParams}&volume_min=${volumeMin}&odds_drop_min=${oddsDropMin}&type=${anomalyType}`;
+                console.log('Fetching:', url);
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                currentAnomalies = await response.json();
+                console.log('Loaded anomalies:', currentAnomalies);
+
+                renderTable();
+                await loadStats();
+
+            } catch (error) {
+                console.error('Error loading anomalies:', error);
+                document.getElementById('tableContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <p>Ошибка загрузки данных: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ✅ ЗАГРУЗКА СТАТИСТИКИ
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/exchange/stats');
+                const stats = await response.json();
+
+                document.getElementById('totalAnomalies').textContent = stats.total || 0;
+                document.getElementById('criticalCount').textContent = stats.critical || 0;
+                document.getElementById('highCount').textContent = stats.high || 0;
+                document.getElementById('mediumCount').textContent = stats.medium || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // СБРОС ФИЛЬТРОВ
+        function resetFilters() {
+            document.getElementById('volumeMinSlider').value = 50;
+            document.getElementById('volumeMin').textContent = '50%';
+            document.getElementById('volumeMinVal').textContent = '50';
+
+            document.getElementById('oddsDropSlider').value = 2;
+            document.getElementById('oddsDrop').textContent = '2%';
+
+            document.getElementById('anomalyType').value = 'all';
+
+            // Сброс спортов
+            document.querySelectorAll('.sport-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.sport === 'football' || btn.dataset.sport === 'basketball') {
+                    btn.classList.add('active');
+                }
+            });
+
+            activeSports = ['football', 'basketball'];
+            applyFilters();
+        }
+
+        // ✅ ОТРИСОВКА ТАБЛИЦЫ (С ИСПРАВЛЕНИЕМ ТИПОВ)
+        function renderTable() {
+            const tableContainer = document.getElementById('tableContainer');
+
+            if (currentAnomalies.length === 0) {
+                tableContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <p>Аномалий не найдено</p>
+                        <p style="font-size: 12px; margin-top: 8px;">Попробуйте изменить параметры фильтрации</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Market ID</th>
+                            <th>Sport</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Volume ↑</th>
+                            <th>Odds ↓</th>
+                            <th>Price</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            currentAnomalies.forEach(anom => {
+                const severityBadgeClass = `badge badge-${anom.severity.toLowerCase()}`;
+                const timeStr = new Date(anom.timestamp).toLocaleString('ru-RU');
+
+                // ✅ ИСПРАВЛЕНИЕ: Преобразуем в числа перед toFixed()
+                const volumeChange = parseFloat(anom.volume_change_pct || 0);
+                const priceChange = parseFloat(anom.price_change_pct || 0);
+                const priceBefore = parseFloat(anom.price_before || 0);
+                const priceCurrent = parseFloat(anom.price_current || 0);
+
+                html += `
+                    <tr>
+                        <td><code>${anom.market_id || 'N/A'}</code></td>
+                        <td>${anom.sport || 'N/A'}</td>
+                        <td>${anom.anomaly_type || 'N/A'}</td>
+                        <td><span class="${severityBadgeClass}">${anom.severity || 'N/A'}</span></td>
+                        <td><span class="badge badge-positive">+${volumeChange.toFixed(1)}%</span></td>
+                        <td><span class="badge badge-negative">${priceChange.toFixed(1)}%</span></td>
+                        <td>${priceBefore.toFixed(2)} → ${priceCurrent.toFixed(2)}</td>
+                        <td>${timeStr}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            tableContainer.innerHTML = html;
+        }
+
+        // ✅ ЗАГРУЖАЕМ ДАННЫЕ ПРИ ОТКРЫТИИ СТРАНИЦЫ
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, fetching initial data...');
+            applyFilters();
+        });
+    </script>
+</body>
+</html>
