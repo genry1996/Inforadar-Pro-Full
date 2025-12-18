@@ -12,6 +12,7 @@ DB_USER = "root"
 DB_PASSWORD = "ryban8991!"
 DB_NAME = "inforadar"
 
+
 def get_connection():
     """Подключение к MySQL через pymysql"""
     try:
@@ -30,6 +31,7 @@ def get_connection():
         print(f"❌ DB Connection Error: {e}")
         return None
 
+
 # ====== JINJA FILTER ======
 @app.template_filter("timeago")
 def timeago(value):
@@ -40,9 +42,11 @@ def timeago(value):
             value = datetime.fromisoformat(value)
         except Exception:
             return value
+
     now = datetime.utcnow()
     diff = now - value
     seconds = diff.total_seconds()
+
     if seconds < 60:
         return "только что"
     if seconds < 3600:
@@ -53,53 +57,107 @@ def timeago(value):
         return f"{int(seconds // 86400)} дн назад"
     return value.strftime("%Y-%m-%d %H:%M")
 
+
+# ===========================================================
+# ✅ ADVANCED MONITOR - ГЛАВНЫЙ ИНТЕРФЕЙС
+# ===========================================================
+@app.route("/advanced")
+def advanced_monitor():
+    """Продвинутый мониторинг с вкладками"""
+    return render_template("advanced_monitor.html")
+
+
+# ===========================================================
+# ✅ EXCHANGE DASHBOARD - ДЛЯ PLAYWRIGHT ПАРСЕРА
+# ===========================================================
+@app.route('/exchange')
+def exchange_dashboard():
+    """Exchange Dashboard для Playwright парсера"""
+    return render_template('dashboard_filter.html')
+
+
+@app.route('/api/exchange/anomalies')
+def api_exchange_anomalies():
+    """API для Exchange аномалий - возвращает JSON данные"""
+    conn = get_connection()
+    if not conn:
+        return jsonify({'error': 'DB connection failed'}), 500
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    market_id,
+                    selection_id,
+                    event_name,
+                    sport,
+                    anomaly_type,
+                    severity,
+                    volume_before,
+                    volume_current,
+                    volume_change_pct,
+                    price_before,
+                    price_current,
+                    price_change_pct,
+                    details,
+                    detected_at
+                FROM exchange_anomalies
+                ORDER BY detected_at DESC
+                LIMIT 100
+            """)
+            rows = cursor.fetchall()
+            print(f"✅ Loaded {len(rows)} exchange anomalies")
+
+    except Exception as e:
+        print(f"❌ Error in api_exchange_anomalies: {e}")
+        # Если таблица не существует, вернём пустой массив
+        return jsonify([])
+    finally:
+        conn.close()
+
+    # Преобразуем в нужный формат
+    anomalies = []
+    for row in rows:
+        anomalies.append({
+            'id': row['id'],
+            'market_id': row.get('market_id'),
+            'selection_id': row.get('selection_id'),
+            'event_name': row.get('event_name', 'Unknown Event'),
+            'sport': row.get('sport', 'Unknown'),
+            'anomaly_type': row.get('anomaly_type', 'UNKNOWN'),
+            'severity': row.get('severity', 'medium'),
+            'volume_before': float(row['volume_before']) if row.get('volume_before') else 0,
+            'volume_current': float(row['volume_current']) if row.get('volume_current') else 0,
+            'volume_change_pct': float(row['volume_change_pct']) if row.get('volume_change_pct') else 0,
+            'price_before': float(row['price_before']) if row.get('price_before') else 0,
+            'price_current': float(row['price_current']) if row.get('price_current') else 0,
+            'price_change_pct': float(row['price_change_pct']) if row.get('price_change_pct') else 0,
+            'details': row.get('details', ''),
+            'timestamp': row['detected_at'].isoformat() if row.get('detected_at') else None
+        })
+
+    return jsonify(anomalies)
+
+
 # ===========================================================
 # 22BET ANOMALIES - ГЛАВНЫЙ ДАШБОРД
 # ===========================================================
-
 @app.route("/anomalies_22bet")
 def anomalies_22bet_page():
     """Страница аномалий 22bet"""
     conn = get_connection()
-    
     if not conn:
         return render_template_string("""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Ошибка подключения</title>
-                <style>
-                    body { font-family: Arial; padding: 40px; background: #f5f5f5; }
-                    .error { background: white; padding: 30px; border-radius: 8px; 
-                             border-left: 4px solid #dc2626; max-width: 600px; margin: 0 auto; }
-                    h1 { color: #dc2626; margin-top: 0; }
-                </style>
-            </head>
-            <body>
-                <div class="error">
-                    <h1>❌ Ошибка подключения к MySQL</h1>
-                    <p>Проверьте что Docker контейнер mysql_inforadar запущен.</p>
-                </div>
-            </body>
-            </html>
+<html><body style="background:#1a1a2e; color:#eee; font-family:Arial">
+<h1 style="color:#e94560">❌ Ошибка подключения к MySQL</h1>
+<p>Проверьте что Docker контейнер mysql_inforadar запущен.</p>
+<code>docker ps | grep mysql_inforadar</code>
+</body></html>
         """)
-    
+
     try:
         with conn.cursor() as cursor:
-            # Проверяем есть ли таблица
-            cursor.execute("SHOW TABLES LIKE 'anomalies_22bet'")
-            if not cursor.fetchone():
-                return render_template_string("""
-                    <!DOCTYPE html>
-                    <html>
-                    <head><title>Таблица не найдена</title></head>
-                    <body style="font-family: Arial; padding: 40px;">
-                        <h1>⚠️ Таблица anomalies_22bet не существует</h1>
-                        <p>Используйте Playwright для добавления данных.</p>
-                    </body>
-                    </html>
-                """)
-            
             cursor.execute("""
                 SELECT
                     id,
@@ -120,7 +178,7 @@ def anomalies_22bet_page():
             """)
             rows = cursor.fetchall()
             print(f"✅ Loaded {len(rows)} anomalies from anomalies_22bet")
-            
+
     except Exception as e:
         print(f"❌ Error in anomalies_22bet: {e}")
         import traceback
@@ -149,10 +207,10 @@ def anomalies_22bet_page():
 
     return render_template("anomalies_22bet.html", anomalies=anomalies)
 
+
 # ===========================================================
 # ОСТАЛЬНЫЕ МАРШРУТЫ
 # ===========================================================
-
 @app.route("/anomalies")
 def anomalies_page():
     """Страница общих аномалий"""
@@ -160,7 +218,7 @@ def anomalies_page():
     conn = get_connection()
     if not conn:
         return "Ошибка подключения к MySQL"
-    
+
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -225,9 +283,11 @@ def anomalies_page():
         page=1,
     )
 
+
 @app.route("/anomaly")
 def anomalies_single_alias():
     return anomalies_page()
+
 
 @app.route('/api/anomalies/test', methods=['GET'])
 def api_anomalies_test():
@@ -251,13 +311,14 @@ def api_anomalies_test():
     ]
     return jsonify(test_data)
 
+
 @app.route("/oddsapi/epl")
 def oddsapi_epl():
     """The Odds API - EPL данные"""
     conn = get_connection()
     if not conn:
         return "Ошибка подключения к MySQL"
-    
+
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
@@ -274,12 +335,13 @@ def oddsapi_epl():
                 ORDER BY e.commence_time ASC
             """)
             rows_events = cursor.fetchall()
-            
+
             if not rows_events:
                 return render_template("oddsapi_epl.html", events=[])
 
             event_ids = [row["event_id"] for row in rows_events]
             placeholders = ", ".join(["%s"] * len(event_ids))
+
             sql_odds = f"""
                 SELECT
                     o.event_id,
@@ -290,12 +352,12 @@ def oddsapi_epl():
                     o.last_update
                 FROM oddsapi_odds o
                 WHERE o.event_id IN ({placeholders})
-                  AND o.market_key = 'h2h'
+                AND o.market_key = 'h2h'
                 ORDER BY o.event_id, o.bookmaker_title, o.outcome_name
             """
             cursor.execute(sql_odds, event_ids)
             rows_odds = cursor.fetchall()
-            
+
     except Exception as e:
         print(f"❌ Error in /oddsapi/epl: {e}")
         return "Ошибка при получении данных The Odds API"
@@ -315,6 +377,7 @@ def oddsapi_epl():
             commence_str = commence.strftime("%Y-%m-%d %H:%M")
         else:
             commence_str = str(commence)
+
         events.append({
             "event_id": ev_id,
             "sport_key": ev["sport_key"],
@@ -328,19 +391,25 @@ def oddsapi_epl():
 
     return render_template("oddsapi_epl.html", events=events)
 
+
 @app.route("/")
 def index():
     """Главная страница"""
     return render_template("index.html")
+
 
 @app.route("/metrics")
 def metrics_stub():
     """Health check endpoint"""
     return "ok\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
+
 if __name__ == "__main__":
     print("🚀 Starting Inforadar Pro Flask Server...")
     print(f"🔗 MySQL: {DB_HOST}:{DB_PORT}/{DB_NAME}")
     print(f"📈 22bet Dashboard: http://localhost:5000/anomalies_22bet")
+    print(f"📊 Advanced Monitor: http://localhost:5000/advanced")
+    print(f"📊 Exchange Dashboard: http://localhost:5000/exchange")
+    print(f"📊 Exchange API: http://localhost:5000/api/exchange/anomalies")
     print(f"📊 All Anomalies: http://localhost:5000/anomalies")
     app.run(host="0.0.0.0", port=5000, debug=True)

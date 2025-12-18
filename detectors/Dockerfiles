@@ -1,0 +1,13 @@
+@"
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Установка необходимых пакетов
+RUN pip install --no-cache-dir pymysql requests python-telegram-bot
+
+# Копирование файлов детектора
+COPY . /app/
+
+CMD ["python", "odds_analyzer.py"]
+"@ | Out-File -FilePath ".\detectors\Dockerfile" -Encoding utf8

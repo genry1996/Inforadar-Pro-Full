@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inforadar Pro - Advanced Monitoring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f1419;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+            padding: 20px;
+            border-bottom: 2px solid #e94560;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e94560;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2d3748;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: #1a1f2e;
+            color: #999;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            background: #2d3748;
+            color: #e0e0e0;
+        }
+
+        .tab-btn.active {
+            color: #e94560;
+            border-bottom-color: #e94560;
+            background: #0f1419;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            background: #1a1f2e;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e94560;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '■';
+            font-size: 12px;
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-item label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .filter-item select,
+        .filter-item input {
+            background: #0f1419;
+            border: 1px solid #2d3748;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .filter-item select:hover,
+        .filter-item input:hover {
+            border-color: #e94560;
+        }
+
+        .filter-item select:focus,
+        .filter-item input:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 8px rgba(233, 69, 96, 0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #d63852;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
+        }
+
+        .btn-secondary {
+            background: #2d3748;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #3a4556;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            background: #0f1419;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: #2d3748;
+            position: sticky;
+            top: 0;
+        }
+
+        th {
+            padding: 12px 15px;
+            text-align: left;
+            color: #e0e0e0;
+            font-weight: 600;
+            border-bottom: 2px solid #3a4556;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        tbody tr:hover {
+            background: #1a1f2e;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.green {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge.red {
+            background: #ef4444;
+            color: white;
+        }
+
+        .badge.yellow {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .badge.blue {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .value {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        .time-badge {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #0f1419;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e94560;
+        }
+
+        .time-picker {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .param-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .param-item label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .param-item input {
+            background: #0f1419;
+            border: 1px solid #2d3748;
+            color: #e0e0e0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .progress-bar {
+            background: #2d3748;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #e94560, #f97316);
+            height: 100%;
+            width: 45%;
+            animation: progress 2s ease;
+        }
+
+        @keyframes progress {
+            from {
+                width: 0;
+            }
+            to {
+                width: 45%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                📊 Inforadar Pro
+            </div>
+            <div class="status-badge">● Мониторинг активен</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- ВКЛАДКИ -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(0)">
+                📍 Источники и рынок
+            </button>
+            <button class="tab-btn" onclick="switchTab(1)">
+                📋 Таблица аномалий
+            </button>
+            <button class="tab-btn" onclick="switchTab(2)">
+                ⚙️ Параметры и время
+            </button>
+        </div>
+
+        <!-- ТАБ 1: ИСТОЧНИКИ И РЫНОК -->
+        <div class="tab-content active">
+            <div class="section">
+                <div class="section-title">Выбор букмекера</div>
+                <div class="filter-group">
+                    <div class="filter-item">
+                        <label>Букмекер</label>
+                        <select id="bookmaker">
+                            <option value="all">Все</option>
+                            <option value="22bet">22bet</option>
+                            <option value="pinnacle">Pinnacle</option>
+                            <option value="betfair">Betfair</option>
+                            <option value="bet365">Bet365</option>
+                            <option value="winnline">Winline</option>
+                            <option value="fonbet">Fonbet</option>
+                            <option value="marathonbet">Marathonbet</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Спорт</label>
+                        <select id="sport">
+                            <option value="all">Все виды спорта</option>
+                            <option value="football">Футбол</option>
+                            <option value="basketball">Баскетбол</option>
+                            <option value="tennis">Теннис</option>
+                            <option value="hockey">Хоккей</option>
+                            <option value="volleyball">Волейбол</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Лига</label>
+                        <select id="league">
+                            <option value="all">Все лиги</option>
+                            <option value="epl">Premier League</option>
+                            <option value="la-liga">La Liga</option>
+                            <option value="bundesliga">Bundesliga</option>
+                            <option value="serie-a">Serie A</option>
+                            <option value="ligue1">Ligue 1</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Типы аномалий для отслеживания</div>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="odds_drop" checked>
+                        <label for="odds_drop">Падение коэфф.</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="odds_spike" checked>
+                        <label for="odds_spike">Скачок коэфф.</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="volume_spike" checked>
+                        <label for="volume_spike">Всплеск ставок</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="live_change" checked>
+                        <label for="live_change">Live изменения</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="arb_opportunity" checked>
+                        <label for="arb_opportunity">Арб. возможность</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="sharp_action" checked>
+                        <label for="sharp_action">Sharp действие</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Объекты для скиданирования</div>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="22bet" checked>
+                        <label for="22bet">22bet</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="betfair" checked>
+                        <label for="betfair">Betfair</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="laitu" checked>
+                        <label for="laitu">Letou</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="goaloo" checked>
+                        <label for="goaloo">Goaloo</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="pinnacle" checked>
+                        <label for="pinnacle">Pinnacle</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="betfair2" checked>
+                        <label for="betfair2">Betfair 2</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="applyFilters()">Применить фильтры</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Сброс</button>
+            </div>
+        </div>
+
+        <!-- ТАБ 2: ТАБЛИЦА АНОМАЛИЙ -->
+        <div class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Всего аномалий</div>
+                    <div class="stat-value">245</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Активных</div>
+                    <div class="stat-value" style="color: #10b981;">127</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Разрешено</div>
+                    <div class="stat-value" style="color: #3b82f6;">118</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Высокий приоритет</div>
+                    <div class="stat-value" style="color: #ef4444;">43</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Фильтр аномалий</div>
+                <div class="filter-group">
+                    <div class="filter-item">
+                        <label>Тип аномалии</label>
+                        <select>
+                            <option>Все типы</option>
+                            <option>ODDS_DROP</option>
+                            <option>ODDS_SPIKE</option>
+                            <option>VOLUME_SPIKE</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Статус</label>
+                        <select>
+                            <option>Все</option>
+                            <option>Active</option>
+                            <option>Resolved</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Сортировка</label>
+                        <select>
+                            <option>По времени</option>
+                            <option>По% изменения</option>
+                            <option>По объему</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>События</th>
+                            <th>Лига</th>
+                            <th>Тип аномалии</th>
+                            <th>Коэфф.</th>
+                            <th>Старый</th>
+                            <th>Новый</th>
+                            <th>Изменение</th>
+                            <th>Время</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Arsenal vs. Tottenham</strong></td>
+                            <td>Premier League</td>
+                            <td><span class="badge red">ODDS_DROP</span></td>
+                            <td>1X2</td>
+                            <td class="value">2.8 – 1.85</td>
+                            <td class="value">1000 – 100.00</td>
+                            <td><span class="negative">-24%</span></td>
+                            <td class="time-badge">10:21</td>
+                            <td><span class="badge green">АКТИВНЫЙ</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Arsenal — Manchester City</strong></td>
+                            <td>Premier League</td>
+                            <td><span class="badge blue">ODDS_SPIKE</span></td>
+                            <td>Over/Under 2.5</td>
+                            <td class="value">1000.00 – 100.00</td>
+                            <td class="value">2.1</td>
+                            <td><span class="positive">+7.7%</span></td>
+                            <td class="time-badge">09:31</td>
+                            <td><span class="badge green">АКТИВНЫЙ</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Barcelona — Real Madrid</strong></td>
+                            <td>La Liga</td>
+                            <td><span class="badge yellow">VOLUME_SPIKE</span></td>
+                            <td>1X2</td>
+                            <td class="value">2.0</td>
+                            <td class="value">1.9</td>
+                            <td><span class="negative">-5.0%</span></td>
+                            <td class="time-badge">08:21</td>
+                            <td><span class="badge green">АКТИВНЫЙ</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ТАБ 3: ПАРАМЕТРЫ И ВРЕМЯ -->
+        <div class="tab-content">
+            <div class="section">
+                <div class="section-title">Минимальный прирост для уведомлений</div>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label>% Минимально минут до матча</label>
+                        <input type="number" value="5" min="0">
+                    </div>
+                    <div class="param-item">
+                        <label>% Минимально минут до матча</label>
+                        <input type="number" value="5" min="0">
+                    </div>
+                    <div class="param-item">
+                        <label>До матча по minute</label>
+                        <input type="number" value="60" min="0">
+                    </div>
+                    <div class="param-item">
+                        <label>Data время</label>
+                        <input type="time" value="00:00">
+                    </div>
+                    <div class="param-item">
+                        <label>Статус</label>
+                        <select>
+                            <option>Вкл</option>
+                            <option>Выкл</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Время расписания</div>
+                <div class="time-picker">
+                    <div class="param-item">
+                        <label>Время начало (HH:MM:YYYY)</label>
+                        <input type="datetime-local" value="2025-12-18T00:00">
+                    </div>
+                    <div class="param-item">
+                        <label>Время конца (HH:MM:YYYY)</label>
+                        <input type="datetime-local" value="2025-12-18T23:59">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Общая конфигурация</div>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label>Максимальная прирост %</label>
+                        <input type="number" value="15" min="0" max="100">
+                    </div>
+                    <div class="param-item">
+                        <label>Минимальная прирост %</label>
+                        <input type="number" value="2" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveSettings()">Сохранить параметры</button>
+                <button class="btn btn-secondary" onclick="resetSettings()">Сброс к умолчаниям</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(index) {
+            // Скрыть все вкладки
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Убрать активный класс со всех кнопок
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // Показать нужную вкладку
+            tabs[index].classList.add('active');
+            buttons[index].classList.add('active');
+        }
+
+        function applyFilters() {
+            alert('Фильтры применены!');
+        }
+
+        function resetFilters() {
+            document.querySelectorAll('select, input[type="checkbox"]').forEach(el => {
+                if (el.type === 'checkbox') el.checked = true;
+                else if (el.tagName === 'SELECT') el.value = 'all';
+            });
+        }
+
+        function saveSettings() {
+            alert('Параметры сохранены!');
+        }
+
+        function resetSettings() {
+            document.querySelectorAll('input[type="number"]').forEach(el => {
+                el.value = el.placeholder || '0';
+            });
+        }
+    </script>
+</body>
+</html>
