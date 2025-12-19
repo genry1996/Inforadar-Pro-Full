@@ -3,14 +3,17 @@ import pymysql
 from datetime import datetime, timedelta
 from collections import defaultdict
 
+
 app = Flask(__name__)
 
+
 # ====== DB SETTINGS ======
-DB_HOST = "mysql_inforadar"  # ✅ Docker имя сервиса
+DB_HOST = "mysql_inforadar"
 DB_PORT = 3306
 DB_USER = "root"
 DB_PASSWORD = "ryban8991!"
 DB_NAME = "inforadar"
+
 
 def get_connection():
     """Подключение к MySQL через pymysql"""
@@ -29,6 +32,7 @@ def get_connection():
     except Exception as e:
         print(f"❌ DB Connection Error: {e}")
         return None
+
 
 # ====== JINJA FILTER ======
 @app.template_filter("timeago")
@@ -53,23 +57,25 @@ def timeago(value):
         return f"{int(seconds // 86400)} дн назад"
     return value.strftime("%Y-%m-%d %H:%M")
 
+
 # ===========================================================
 # 🆕 BETWATCH DASHBOARD
 # ===========================================================
+
 
 @app.route('/betwatch')
 def betwatch_dashboard():
     """Betwatch Advanced Detector Dashboard"""
     return render_template('betwatch.html')
 
+
 @app.route('/api/betwatch/signals')
 def api_betwatch_signals():
     """API: Получить сигналы Betwatch с фильтрами"""
     
-    # Параметры фильтрации
     signal_type = request.args.get('type', 'all')
     hours = int(request.args.get('hours', 24))
-    limit = int(request.args.get('limit', 50))
+    limit = int(request.args.get('limit', 100))
     
     conn = get_connection()
     if not conn:
@@ -77,32 +83,18 @@ def api_betwatch_signals():
     
     try:
         with conn.cursor() as cursor:
-            # Базовый запрос
             query = """
                 SELECT 
-                    id,
-                    signal_type,
-                    event_name,
-                    league,
-                    market_type,
-                    betfair_odd,
-                    bookmaker_odd,
-                    bookmaker_name,
-                    money_volume,
-                    total_market_volume,
-                    flow_percent,
-                    old_odd,
-                    new_odd,
-                    odd_drop_percent,
-                    is_live,
-                    match_time,
-                    detected_at
+                    id, signal_type, event_id, event_name, league, sport,
+                    market_type, betfair_odd, bookmaker_odd, bookmaker_name,
+                    money_volume, total_market_volume, flow_percent,
+                    old_odd, new_odd, odd_drop_percent,
+                    is_live, match_time, detected_at
                 FROM betwatch_signals
                 WHERE detected_at >= NOW() - INTERVAL %s HOUR
             """
             params = [hours]
             
-            # Фильтр по типу
             if signal_type != 'all':
                 query += " AND signal_type = %s"
                 params.append(signal_type)
@@ -113,7 +105,6 @@ def api_betwatch_signals():
             cursor.execute(query, params)
             signals = cursor.fetchall()
             
-            # Форматируем даты
             for signal in signals:
                 if signal['detected_at']:
                     signal['detected_at'] = signal['detected_at'].strftime('%Y-%m-%d %H:%M:%S')
@@ -130,6 +121,7 @@ def api_betwatch_signals():
     finally:
         conn.close()
 
+
 @app.route('/api/betwatch/stats')
 def api_betwatch_stats():
     """API: Статистика сигналов Betwatch"""
@@ -142,7 +134,6 @@ def api_betwatch_stats():
     
     try:
         with conn.cursor() as cursor:
-            # Общее количество сигналов
             cursor.execute("""
                 SELECT COUNT(*) as total
                 FROM betwatch_signals
@@ -150,22 +141,16 @@ def api_betwatch_stats():
             """, (hours,))
             total = cursor.fetchone()['total']
             
-            # По типам
             cursor.execute("""
-                SELECT 
-                    signal_type,
-                    COUNT(*) as count
+                SELECT signal_type, COUNT(*) as count
                 FROM betwatch_signals
                 WHERE detected_at >= NOW() - INTERVAL %s HOUR
                 GROUP BY signal_type
             """, (hours,))
             by_type = cursor.fetchall()
             
-            # Топ событий
             cursor.execute("""
-                SELECT 
-                    event_name,
-                    COUNT(*) as count
+                SELECT event_name, COUNT(*) as count
                 FROM betwatch_signals
                 WHERE detected_at >= NOW() - INTERVAL %s HOUR
                 GROUP BY event_name
@@ -174,7 +159,6 @@ def api_betwatch_stats():
             """, (hours,))
             top_events = cursor.fetchall()
             
-            # Средний перекос
             cursor.execute("""
                 SELECT AVG(flow_percent) as avg_flow
                 FROM betwatch_signals
@@ -198,25 +182,105 @@ def api_betwatch_stats():
     finally:
         conn.close()
 
+
+@app.route('/api/betwatch/signal/<int:signal_id>')
+def api_betwatch_signal_details(signal_id):
+    """API: Детальная информация о сигнале"""
+    
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    id, signal_type, event_id, event_name, league, sport,
+                    is_live, match_time, market_type, 
+                    betfair_odd, bookmaker_odd, bookmaker_name,
+                    money_volume, total_market_volume, flow_percent,
+                    old_odd, new_odd, odd_drop_percent,
+                    detected_at, comment
+                FROM betwatch_signals
+                WHERE id = %s
+            """, (signal_id,))
+            signal = cursor.fetchone()
+            
+            if not signal:
+                return jsonify({"error": "Signal not found"}), 404
+            
+            cursor.execute("""
+                SELECT 
+                    signal_type, market_type, betfair_odd, money_volume,
+                    flow_percent, odd_drop_percent, detected_at
+                FROM betwatch_signals
+                WHERE event_name = %s
+                  AND detected_at >= NOW() - INTERVAL 24 HOUR
+                ORDER BY detected_at DESC
+                LIMIT 20
+            """, (signal['event_name'],))
+            history = cursor.fetchall()
+            
+            markets_22bet = None
+            if signal.get('event_name') and ' - ' in signal['event_name']:
+                teams = signal['event_name'].split(' - ')
+                if len(teams) == 2:
+                    home_team, away_team = teams[0].strip(), teams[1].strip()
+                    cursor.execute("""
+                        SELECT 
+                            e.id, e.home_team, e.away_team, e.commence_time,
+                            o.odd_1, o.odd_x, o.odd_2, o.total_over, o.total_under
+                        FROM events e
+                        LEFT JOIN odds o ON e.id = o.event_id
+                        WHERE e.home_team LIKE %s 
+                          AND e.away_team LIKE %s
+                          AND o.bookmaker = '22bet'
+                        ORDER BY o.created_at DESC
+                        LIMIT 1
+                    """, (f"%{home_team}%", f"%{away_team}%"))
+                    markets_22bet = cursor.fetchone()
+            
+            if signal['detected_at']:
+                signal['detected_at'] = signal['detected_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            for h in history:
+                if h['detected_at']:
+                    h['detected_at'] = h['detected_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            return jsonify({
+                "success": True,
+                "signal": signal,
+                "history": history,
+                "markets_22bet": markets_22bet
+            })
+    
+    except Exception as e:
+        print(f"❌ Error in api_betwatch_signal_details: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 # ===========================================================
-# ✅ ADVANCED MONITOR - ГЛАВНЫЙ ИНТЕРФЕЙС
+# ✅ ADVANCED MONITOR
 # ===========================================================
 @app.route("/advanced")
 def advanced_monitor():
-    """Продвинутый мониторинг с вкладками"""
     return render_template("advanced_monitor.html")
 
+
 # ===========================================================
-# ✅ EXCHANGE DASHBOARD - ДЛЯ PLAYWRIGHT ПАРСЕРА
+# ✅ EXCHANGE DASHBOARD
 # ===========================================================
 @app.route('/exchange')
 def exchange_dashboard():
-    """Exchange Dashboard для Playwright парсера"""
     return render_template('dashboard_filter.html')
+
 
 @app.route('/api/exchange/anomalies')
 def api_exchange_anomalies():
-    """API для Exchange аномалий - возвращает JSON данные"""
     conn = get_connection()
     if not conn:
         return jsonify({'error': 'DB connection failed'}), 500
@@ -234,14 +298,12 @@ def api_exchange_anomalies():
                 LIMIT 100
             """)
             rows = cursor.fetchall()
-            print(f"✅ Loaded {len(rows)} exchange anomalies")
     except Exception as e:
         print(f"❌ Error in api_exchange_anomalies: {e}")
         return jsonify([])
     finally:
         conn.close()
     
-    # Преобразуем в нужный формат
     anomalies = []
     for row in rows:
         anomalies.append({
@@ -264,18 +326,17 @@ def api_exchange_anomalies():
     
     return jsonify(anomalies)
 
+
 # ===========================================================
-# 22BET ANOMALIES - ГЛАВНЫЙ ДАШБОРД
+# 22BET ANOMALIES
 # ===========================================================
 @app.route("/anomalies_22bet")
 def anomalies_22bet_page():
-    """Страница аномалий 22bet"""
     conn = get_connection()
     if not conn:
         return render_template_string("""
             <h1>❌ Ошибка подключения к MySQL</h1>
             <p>Проверьте что Docker контейнер mysql_inforadar запущен.</p>
-            <code>docker ps | grep mysql_inforadar</code>
         """)
     
     try:
@@ -290,12 +351,9 @@ def anomalies_22bet_page():
                 LIMIT 200
             """)
             rows = cursor.fetchall()
-            print(f"✅ Loaded {len(rows)} anomalies from anomalies_22bet")
     except Exception as e:
         print(f"❌ Error in anomalies_22bet: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Ошибка при получении данных: {e}"
+        return f"Ошибка: {e}"
     finally:
         conn.close()
     
@@ -306,8 +364,7 @@ def anomalies_22bet_page():
             f = float(val)
         except (TypeError, ValueError):
             return str(val)
-        s = f"{f:.3f}".rstrip("0").rstrip(".")
-        return s
+        return f"{f:.3f}".rstrip("0").rstrip(".")
     
     anomalies = []
     for row in rows:
@@ -319,13 +376,12 @@ def anomalies_22bet_page():
     
     return render_template("anomalies_22bet.html", anomalies=anomalies)
 
-# ===========================================================
-# ОСТАЛЬНЫЕ МАРШРУТЫ
-# ===========================================================
 
+# ===========================================================
+# OTHER ROUTES
+# ===========================================================
 @app.route("/anomalies")
 def anomalies_page():
-    """Страница общих аномалий"""
     filter_type = request.args.get("type", "all")
     conn = get_connection()
     if not conn:
@@ -354,8 +410,7 @@ def anomalies_page():
             f = float(val)
         except (TypeError, ValueError):
             return str(val)
-        s = f"{f:.3f}".rstrip("0").rstrip(".")
-        return s
+        return f"{f:.3f}".rstrip("0").rstrip(".")
     
     anomalies = []
     for row in rows:
@@ -386,108 +441,16 @@ def anomalies_page():
         page=1,
     )
 
-@app.route("/anomaly")
-def anomalies_single_alias():
-    return anomalies_page()
-
-@app.route('/api/anomalies/test', methods=['GET'])
-def api_anomalies_test():
-    """API endpoint для Playwright тестов"""
-    test_data = [{
-        'id': 1,
-        'event_name': 'Test Match 1',
-        'sport': 'Football',
-        'league': 'Premier League',
-        'market_type': '1X2',
-        'old_odd': 2.5,
-        'new_odd': 1.8,
-        'change_percent': -28,
-        'anomaly_type': 'ODDS_DROP',
-        'severity': 'high',
-        'status': 'active',
-        'created_at': '2 mins ago',
-        'comment': 'Significant drop detected'
-    }]
-    return jsonify(test_data)
-
-@app.route("/oddsapi/epl")
-def oddsapi_epl():
-    """The Odds API - EPL данные"""
-    conn = get_connection()
-    if not conn:
-        return "Ошибка подключения к MySQL"
-    
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    e.event_id, e.sport_key, e.sport_title,
-                    e.commence_time, e.home_team, e.away_team, e.completed
-                FROM oddsapi_events e
-                WHERE e.sport_key = 'soccer_epl'
-                ORDER BY e.commence_time ASC
-            """)
-            rows_events = cursor.fetchall()
-            
-            if not rows_events:
-                return render_template("oddsapi_epl.html", events=[])
-            
-            event_ids = [row["event_id"] for row in rows_events]
-            placeholders = ", ".join(["%s"] * len(event_ids))
-            
-            sql_odds = f"""
-                SELECT
-                    o.event_id, o.bookmaker_title, o.market_key,
-                    o.outcome_name, o.outcome_price, o.last_update
-                FROM oddsapi_odds o
-                WHERE o.event_id IN ({placeholders})
-                  AND o.market_key = 'h2h'
-                ORDER BY o.event_id, o.bookmaker_title, o.outcome_name
-            """
-            cursor.execute(sql_odds, event_ids)
-            rows_odds = cursor.fetchall()
-    except Exception as e:
-        print(f"❌ Error in /oddsapi/epl: {e}")
-        return "Ошибка при получении данных The Odds API"
-    finally:
-        if conn:
-            conn.close()
-    
-    odds_by_event = defaultdict(list)
-    for row in rows_odds:
-        odds_by_event[row["event_id"]].append(row)
-    
-    events = []
-    for ev in rows_events:
-        ev_id = ev["event_id"]
-        commence = ev["commence_time"]
-        if isinstance(commence, datetime):
-            commence_str = commence.strftime("%Y-%m-%d %H:%M")
-        else:
-            commence_str = str(commence)
-        
-        events.append({
-            "event_id": ev_id,
-            "sport_key": ev["sport_key"],
-            "sport_title": ev.get("sport_title"),
-            "commence_time": commence_str,
-            "home_team": ev["home_team"],
-            "away_team": ev["away_team"],
-            "completed": ev["completed"],
-            "odds": odds_by_event.get(ev_id, []),
-        })
-    
-    return render_template("oddsapi_epl.html", events=events)
 
 @app.route("/")
 def index():
-    """Главная страница"""
     return render_template("index.html")
+
 
 @app.route("/metrics")
 def metrics_stub():
-    """Health check endpoint"""
     return "ok\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
 
 if __name__ == "__main__":
     print("🚀 Starting Inforadar Pro Flask Server...")

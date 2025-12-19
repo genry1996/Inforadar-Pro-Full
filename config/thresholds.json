@@ -1,0 +1,8 @@
+{
+  "sharp_drop_high": 25,
+  "sharp_drop_mid": 15,
+  "sharp_drop_low": 14,
+  "money_min": 3000,
+  "value_bet": 13,
+  "unbalanced_flow": 70
+}
