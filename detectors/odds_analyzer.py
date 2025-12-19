@@ -1,38 +1,55 @@
-# detectors/odds_analyzer.py
-class OddsAnalyzer:
-    def __init__(self):
-        self.conn = get_connection()
-        
-    def detect_odds_drop(self, current_odds, match_id):
-        """Определяет резкое падение коэффициента"""
-        # Получаем предыдущие значения из БД
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT home_odd, draw_odd, away_odd, timestamp
-            FROM odds_history
-            WHERE match_id = %s
-            ORDER BY timestamp DESC
-            LIMIT 10
-        """, (match_id,))
-        
-        history = cursor.fetchall()
-        if len(history) < 2:
-            return None
-            
-        prev_odd = history[1]['home_odd']
-        current_odd = current_odds['home_odd']
-        
-        change_pct = ((current_odd - prev_odd) / prev_odd) * 100
-        
-        # Аномалия: падение > 15% за 3 секунды
-        if change_pct < -15:
-            return {
-                'type': 'ODDS_DROP',
-                'severity': 'HIGH' if change_pct < -25 else 'MEDIUM',
-                'before': prev_odd,
-                'after': current_odd,
-                'change_pct': change_pct,
-                'match_info': current_odds
-            }
-        
+import pymysql
+import os
+import json
+from datetime import datetime
+import time
+
+# DB Config
+DB_CONFIG = {
+    'host': os.getenv('MYSQL_HOST', 'mysql_inforadar'),
+    'user': os.getenv('MYSQL_USER', 'root'),
+    'password': os.getenv('MYSQL_PASSWORD', 'ryban8991!'),
+    'database': os.getenv('MYSQL_DB', 'inforadar')
+}
+
+def get_connection():
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        return conn
+    except Exception as e:
+        print(f"❌ DB Connection Error: {e}")
         return None
+
+def detect_anomalies():
+    conn = get_connection()
+    if not conn:
+        print("❌ Cannot connect to database")
+        return
+    
+    print("✅ Anomaly Detector Started")
+    print("🔄 Monitoring odds changes...")
+    
+    cursor = conn.cursor()
+    
+    while True:
+        try:
+            cursor.execute("""
+                SELECT match_id, home_odd, draw_odd, away_odd, timestamp
+                FROM odds_history
+                ORDER BY timestamp DESC
+                LIMIT 100
+            """)
+            
+            results = cursor.fetchall()
+            
+            if results:
+                print(f"📊 Checking {len(results)} records...")
+            
+            time.sleep(int(os.getenv('CHECK_INTERVAL', 5)))
+            
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    detect_anomalies()

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betwatch Advanced Detector | Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/betwatch.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎯 Betwatch Advanced Detector</h1>
+            <p class="subtitle">Real-time betting anomaly detection system</p>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <h3 id="total-signals">0</h3>
+                    <p>Total Signals (24h)</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📉</div>
+                <div class="stat-content">
+                    <h3 id="sharp-drops">0</h3>
+                    <p>Sharp Drops</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💎</div>
+                <div class="stat-content">
+                    <h3 id="value-bets">0</h3>
+                    <p>Value Bets</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">⚖️</div>
+                <div class="stat-content">
+                    <h3 id="unbalanced">0</h3>
+                    <p>Unbalanced Flow</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <h2>Filters</h2>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-type="all">All Signals</button>
+                <button class="filter-btn" data-type="sharp_drop">📉 Sharp Drop</button>
+                <button class="filter-btn" data-type="value_bet">💎 Value Bet</button>
+                <button class="filter-btn" data-type="unbalanced_flow">⚖️ Unbalanced</button>
+                <button class="filter-btn" data-type="minor_league_spike">🎯 Minor League</button>
+                <button class="filter-btn" data-type="total_over_spike">📈 Total Over</button>
+                <button class="filter-btn" data-type="late_game_spike">⏰ Late Game</button>
+            </div>
+            
+            <div class="time-filters">
+                <select id="time-range">
+                    <option value="1">Last 1 hour</option>
+                    <option value="6">Last 6 hours</option>
+                    <option value="24" selected>Last 24 hours</option>
+                    <option value="168">Last 7 days</option>
+                </select>
+                
+                <button id="refresh-btn" class="refresh-btn">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <!-- Signals Table -->
+        <div class="signals-section">
+            <h2>Live Signals</h2>
+            <div class="table-container">
+                <table id="signals-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Event</th>
+                            <th>League</th>
+                            <th>Market</th>
+                            <th>BF Odd</th>
+                            <th>Drop %</th>
+                            <th>Money €</th>
+                            <th>Flow %</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="signals-body">
+                        <tr>
+                            <td colspan="9" class="loading">Loading signals...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Last updated: <span id="last-update">Never</span> | Auto-refresh: <span id="auto-refresh-status">ON</span></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/betwatch.js') }}"></script>
+</body>
+</html>
