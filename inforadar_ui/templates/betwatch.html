@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎯 Betwatch Advanced Monitor</title>
+    <title>📊 Betwatch Advanced Monitor</title>
     <style>
         * {
             margin: 0;
@@ -19,646 +19,1254 @@
         }
         
         .container {
-            max-width: 1600px;
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            padding: 30px;
         }
         
-        h1 {
+        .header {
             text-align: center;
-            color: #667eea;
+            color: white;
             margin-bottom: 30px;
+        }
+        
+        .header h1 {
             font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
         
         .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            border-radius: 10px;
-            color: white;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             text-align: center;
+            transition: transform 0.3s;
         }
         
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 5px;
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
         
-        .stat-label {
+        .stat-card h3 {
             font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .settings-panel {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .settings-panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .settings-section {
+            margin-bottom: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .section-header:hover {
+            background: #e9ecef;
+        }
+        
+        .section-header h3 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        
+        .toggle-icon {
+            font-size: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-icon.open {
+            transform: rotate(180deg);
+        }
+        
+        .section-content {
+            padding: 20px;
+            display: none;
+        }
+        
+        .section-content.open {
+            display: block;
+        }
+        
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+        
+        .checkbox-wrapper label {
+            cursor: pointer;
+            margin: 0;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+        
+        .dropdown-item {
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .dropdown-header {
+            padding: 12px 15px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .dropdown-header:hover {
+            background: #f0f3ff;
+        }
+        
+        .dropdown-header.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .dropdown-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+        
+        .dropdown-value {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .dropdown-header.active .dropdown-value {
+            color: white;
             opacity: 0.9;
         }
         
-        /* Панель настроек */
-        .settings-panel {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 25px;
+        .dropdown-content {
+            padding: 15px;
+            background: #f8f9fa;
+            display: none;
         }
         
-        .settings-panel h3 {
-            color: white;
-            margin-bottom: 20px;
-            font-size: 1.4em;
+        .dropdown-content.open {
+            display: block;
         }
         
-        .settings-grid {
+        .range-inputs {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 10px;
+            align-items: center;
             margin-bottom: 15px;
         }
         
-        .setting-item {
+        .range-inputs .input-group {
             display: flex;
             flex-direction: column;
+            gap: 5px;
         }
         
-        .setting-item label {
-            color: white;
-            margin-bottom: 8px;
-            font-size: 0.9em;
-            font-weight: 500;
-        }
-        
-        .setting-item input {
-            width: 100%;
+        .range-inputs input {
             padding: 10px;
-            border: none;
-            border-radius: 5px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
             font-size: 1em;
         }
         
-        .settings-buttons {
-            display: flex;
+        .range-inputs input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .range-inputs span {
+            color: #666;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .range-inputs label {
+            font-size: 0.85em;
+            color: #999;
+        }
+        
+        .percentage-range {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .percentage-range h4 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        .percentage-inputs {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             gap: 10px;
             align-items: center;
         }
         
-        .btn-save {
-            padding: 12px 30px;
-            background: white;
-            color: #667eea;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
+        .percentage-inputs input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
             font-size: 1em;
-            transition: all 0.3s;
         }
         
-        .btn-save:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        .percentage-inputs input:focus {
+            outline: none;
+            border-color: #667eea;
         }
         
-        .btn-reset {
-            padding: 12px 30px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 2px solid white;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1em;
-            transition: all 0.3s;
-        }
-        
-        .btn-reset:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        #saveStatus {
-            color: white;
-            font-weight: bold;
-            margin-left: 15px;
-        }
-        
-        /* Фильтры */
-        .filters {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .filter-group {
+        .setting-item {
             margin-bottom: 15px;
         }
         
-        .filter-group label {
+        .setting-item label {
             display: block;
             margin-bottom: 8px;
-            font-weight: bold;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .setting-item small {
+            display: block;
+            color: #999;
+            font-size: 0.85em;
+            margin-top: 4px;
+        }
+        
+        .setting-item input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .setting-item input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .setting-item input:disabled {
+            background: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .bookmakers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .bookmaker-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .bookmaker-checkbox:hover {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+        
+        .bookmaker-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .sub-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            border: 2px dashed #667eea;
+        }
+        
+        .sub-section h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .buttons-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        
+        .filters-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .filter-group {
+            margin-bottom: 20px;
+        }
+        
+        .filter-group h3 {
+            margin-bottom: 12px;
             color: #333;
         }
         
         .filter-buttons {
             display: flex;
-            gap: 10px;
             flex-wrap: wrap;
+            gap: 10px;
         }
         
         .filter-btn {
             padding: 10px 20px;
-            border: 2px solid #667eea;
+            border: 2px solid #e0e0e0;
             background: white;
-            color: #667eea;
-            border-radius: 5px;
+            border-radius: 25px;
             cursor: pointer;
             transition: all 0.3s;
-            font-weight: 500;
+        }
+        
+        .filter-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
         }
         
         .filter-btn.active {
             background: #667eea;
             color: white;
+            border-color: #667eea;
         }
         
-        .filter-btn:hover {
-            transform: translateY(-2px);
-        }
-        
-        /* Таблица */
         .signals-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
             background: white;
-            border-radius: 10px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             overflow: hidden;
         }
         
-        .signals-table thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .table-header {
+            background: #667eea;
             color: white;
+            padding: 20px;
         }
         
-        .signals-table th {
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
             padding: 15px;
             text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        th {
+            background: #f8f9fa;
             font-weight: 600;
+            color: #333;
         }
         
-        .signals-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .signals-table tr:hover {
+        tbody tr:hover {
             background: #f8f9fa;
         }
         
-        .badge {
+        .signal-type {
+            display: inline-block;
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 0.85em;
-            font-weight: bold;
-            display: inline-block;
+            font-weight: 600;
         }
         
-        .badge-drop { background: #ff6b6b; color: white; }
-        .badge-value { background: #4ecdc4; color: white; }
-        .badge-flow { background: #ffd93d; color: #333; }
-        .badge-total { background: #95e1d3; color: #333; }
-        .badge-late { background: #ff9ff3; color: white; }
-        .badge-minor { background: #a8e6cf; color: #333; }
-        
-        .live-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background: #ff3838;
-            border-radius: 50%;
-            margin-right: 5px;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .refresh-btn {
-            background: #667eea;
+        .type-sharp {
+            background: #ff6b6b;
             color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            float: right;
         }
         
-        .refresh-btn:hover {
-            background: #5568d3;
+        .type-value {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .type-unbalanced {
+            background: #ffe66d;
+            color: #333;
+        }
+        
+        .chart-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .chart-link:hover {
+            text-decoration: underline;
         }
         
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #667eea;
-            font-size: 1.2em;
+            padding: 50px;
+            color: #999;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            max-width: 400px;
+        }
+        
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification.success {
+            border-left: 4px solid #4caf50;
+        }
+        
+        .notification.error {
+            border-left: 4px solid #f44336;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎯 Betwatch Advanced Monitor</h1>
-        
-        <!-- Статистика -->
+        <div class="header">
+            <h1>📊 🎯 Betwatch Advanced Monitor</h1>
+        </div>
+
+        <div class="warning-box">
+            <span style="font-size: 24px;">⚠️</span>
+            <div>
+                <strong>ВНИМАНИЕ:</strong> Система анализирует только <strong>Тотал Больше (Over/ТБ)</strong>
+            </div>
+        </div>
+
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number" id="totalSignals">0</div>
-                <div class="stat-label">Всего сигналов (24ч)</div>
+                <h3>📊 Всего сигналов (24ч)</h3>
+                <div class="stat-value" id="totalSignals">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="sharpDrops">0</div>
-                <div class="stat-label">📉 Резкие падения</div>
+                <h3>📉 Резкие падения</h3>
+                <div class="stat-value" id="sharpDrops">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="valueBets">0</div>
-                <div class="stat-label">💎 Арбитражные ситуации</div>
+                <h3>💎 Арбитражные ситуации</h3>
+                <div class="stat-value" id="valueBets">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="bigFlows">0</div>
-                <div class="stat-label">⚖️ Большие заливы</div>
+                <h3>⚖️ Большие заливы</h3>
+                <div class="stat-value" id="unbalanced">0</div>
             </div>
         </div>
-        
-        <!-- Панель настроек порогов -->
+
         <div class="settings-panel">
-            <h3>⚙️ Настройки детекции</h3>
-            <div class="settings-grid">
-                <div class="setting-item">
-                    <label>📉 Sharp Drop - High odds (3.0+) %</label>
-                    <input type="number" id="sharpDropHigh" value="25" min="10" max="50">
+            <h2>⚙️ Настройки детекции</h2>
+            
+            <!-- РЕЗКОЕ ПАДЕНИЕ -->
+            <div class="settings-section">
+                <div class="section-header" onclick="toggleSection('sharpDrop')">
+                    <h3>📉 Резкое падение кэфа</h3>
+                    <span class="toggle-icon" id="sharpDropIcon">▼</span>
                 </div>
-                <div class="setting-item">
-                    <label>📉 Sharp Drop - Mid odds (2.0-3.0) %</label>
-                    <input type="number" id="sharpDropMid" value="15" min="10" max="40">
-                </div>
-                <div class="setting-item">
-                    <label>📉 Sharp Drop - Low odds (<2.0) %</label>
-                    <input type="number" id="sharpDropLow" value="14" min="10" max="35">
-                </div>
-                <div class="setting-item">
-                    <label>💰 Минимальный залив (EUR)</label>
-                    <input type="number" id="moneyMin" value="3000" min="1000" step="500">
-                </div>
-                <div class="setting-item">
-                    <label>💎 Value Bet порог (%)</label>
-                    <input type="number" id="valueBet" value="13" min="5" max="30">
-                </div>
-                <div class="setting-item">
-                    <label>⚖️ Перекос потока (%)</label>
-                    <input type="number" id="unbalancedFlow" value="70" min="50" max="95">
+                <div class="section-content" id="sharpDropContent">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="enableSharpDrop" checked onchange="updateDropdownStates()">
+                        <label for="enableSharpDrop">Включить детекцию резких падений</label>
+                    </div>
+                    
+                    <!-- ВЫСОКИЕ КЭФЫ 10-5 -->
+                    <div class="dropdown-item">
+                        <div class="dropdown-header" onclick="toggleDropdown('highOdds')">
+                            <div class="dropdown-label">
+                                <span>🔥</span>
+                                <span>Высокие кэфы (10.0 - 5.0)</span>
+                            </div>
+                            <div class="dropdown-value" id="highOddsDisplay">10.0 → 5.0 | Падение 20-35%</div>
+                        </div>
+                        <div class="dropdown-content" id="highOddsContent">
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>От кэфа</label>
+                                    <input type="number" id="highOddFrom" value="10.0" min="5" max="50" step="0.5" onchange="updateDisplay('highOdds')">
+                                </div>
+                                <span>→</span>
+                                <div class="input-group">
+                                    <label>До кэфа</label>
+                                    <input type="number" id="highOddTo" value="5.0" min="2" max="10" step="0.5" onchange="updateDisplay('highOdds')">
+                                </div>
+                            </div>
+                            
+                            <div class="percentage-range">
+                                <h4>% падения кэфа (диапазон)</h4>
+                                <div class="percentage-inputs">
+                                    <div class="input-group">
+                                        <label>Минимум %</label>
+                                        <input type="number" id="sharpDropHighMin" value="20" min="0" max="100" step="1" onchange="updateDisplay('highOdds')">
+                                    </div>
+                                    <span>—</span>
+                                    <div class="input-group">
+                                        <label>Максимум %</label>
+                                        <input type="number" id="sharpDropHighMax" value="35" min="0" max="100" step="1" onchange="updateDisplay('highOdds')">
+                                    </div>
+                                </div>
+                                <small style="display: block; margin-top: 10px; color: #999;">
+                                    Пример: 10.0 → 5.0 = 50% падение, сигнал если падение от 20% до 35%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- СРЕДНИЕ КЭФЫ 5-2 -->
+                    <div class="dropdown-item">
+                        <div class="dropdown-header" onclick="toggleDropdown('midOdds')">
+                            <div class="dropdown-label">
+                                <span>📊</span>
+                                <span>Средние кэфы (5.0 - 2.0)</span>
+                            </div>
+                            <div class="dropdown-value" id="midOddsDisplay">5.0 → 2.0 | Падение 12-25%</div>
+                        </div>
+                        <div class="dropdown-content" id="midOddsContent">
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>От кэфа</label>
+                                    <input type="number" id="midOddFrom" value="5.0" min="2" max="10" step="0.1" onchange="updateDisplay('midOdds')">
+                                </div>
+                                <span>→</span>
+                                <div class="input-group">
+                                    <label>До кэфа</label>
+                                    <input type="number" id="midOddTo" value="2.0" min="1.5" max="5" step="0.1" onchange="updateDisplay('midOdds')">
+                                </div>
+                            </div>
+                            
+                            <div class="percentage-range">
+                                <h4>% падения кэфа (диапазон)</h4>
+                                <div class="percentage-inputs">
+                                    <div class="input-group">
+                                        <label>Минимум %</label>
+                                        <input type="number" id="sharpDropMidMin" value="12" min="0" max="100" step="1" onchange="updateDisplay('midOdds')">
+                                    </div>
+                                    <span>—</span>
+                                    <div class="input-group">
+                                        <label>Максимум %</label>
+                                        <input type="number" id="sharpDropMidMax" value="25" min="0" max="100" step="1" onchange="updateDisplay('midOdds')">
+                                    </div>
+                                </div>
+                                <small style="display: block; margin-top: 10px; color: #999;">
+                                    Пример: 5.0 → 2.0 = 60% падение, сигнал если падение от 12% до 25%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- НИЗКИЕ КЭФЫ 2-1.1 -->
+                    <div class="dropdown-item">
+                        <div class="dropdown-header" onclick="toggleDropdown('lowOdds')">
+                            <div class="dropdown-label">
+                                <span>📉</span>
+                                <span>Низкие кэфы (2.0 - 1.1)</span>
+                            </div>
+                            <div class="dropdown-value" id="lowOddsDisplay">2.0 → 1.1 | Падение 10-20%</div>
+                        </div>
+                        <div class="dropdown-content" id="lowOddsContent">
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>От кэфа</label>
+                                    <input type="number" id="lowOddFrom" value="2.0" min="1.1" max="5" step="0.1" onchange="updateDisplay('lowOdds')">
+                                </div>
+                                <span>→</span>
+                                <div class="input-group">
+                                    <label>До кэфа</label>
+                                    <input type="number" id="lowOddTo" value="1.1" min="1.01" max="2" step="0.01" onchange="updateDisplay('lowOdds')">
+                                </div>
+                            </div>
+                            
+                            <div class="percentage-range">
+                                <h4>% падения кэфа (диапазон)</h4>
+                                <div class="percentage-inputs">
+                                    <div class="input-group">
+                                        <label>Минимум %</label>
+                                        <input type="number" id="sharpDropLowMin" value="10" min="0" max="100" step="1" onchange="updateDisplay('lowOdds')">
+                                    </div>
+                                    <span>—</span>
+                                    <div class="input-group">
+                                        <label>Максимум %</label>
+                                        <input type="number" id="sharpDropLowMax" value="20" min="0" max="100" step="1" onchange="updateDisplay('lowOdds')">
+                                    </div>
+                                </div>
+                                <small style="display: block; margin-top: 10px; color: #999;">
+                                    Пример: 2.0 → 1.1 = 45% падение, сигнал если падение от 10% до 20%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="settings-buttons">
-                <button class="btn-save" onclick="saveThresholds()">💾 Сохранить настройки</button>
-                <button class="btn-reset" onclick="resetThresholds()">🔄 Сбросить</button>
-                <span id="saveStatus"></span>
+
+            <!-- АРБИТРАЖ -->
+            <div class="settings-section">
+                <div class="section-header" onclick="toggleSection('valueBet')">
+                    <h3>💎 Арбитражные ситуации (Value Bets)</h3>
+                    <span class="toggle-icon" id="valueBetIcon">▼</span>
+                </div>
+                <div class="section-content" id="valueBetContent">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="enableValueBet" checked onchange="toggleValueBet()">
+                        <label for="enableValueBet">Включить детекцию арбитража</label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>Разница между БК и Betfair (диапазон %)</label>
+                        <small>Пример: Фонбет 2.45 vs Betfair 1.45 = 69% разница</small>
+                        <div class="percentage-inputs" style="margin-top: 10px;">
+                            <div class="input-group">
+                                <label>Минимум %</label>
+                                <input type="number" id="valueBetMin" value="3" min="0" max="100" step="0.1">
+                            </div>
+                            <span>—</span>
+                            <div class="input-group">
+                                <label>Максимум %</label>
+                                <input type="number" id="valueBetMax" value="15" min="0" max="100" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>Коридор различия между БК (%)</label>
+                        <small>Допустимое отклонение между разными букмекерами</small>
+                        <input type="number" id="arbitrageCorridorPercent" value="5" min="0" max="50" step="0.5">
+                    </div>
+                    
+                    <!-- ПОДВКЛАДКА: ВРЕМЯ ЖИЗНИ ВИЛКИ -->
+                    <div class="sub-section">
+                        <h4>⏱️ Время жизни вилки</h4>
+                        <div class="setting-item" style="margin-bottom: 0;">
+                            <label>Минимальное время жизни (минуты)</label>
+                            <small>Игнорировать вилки которые существуют меньше указанного времени</small>
+                            <input type="number" id="forkLifetimeMinutes" value="5" min="1" max="60" step="1">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>Букмекеры для сравнения</label>
+                        <div class="bookmakers-grid">
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_fonbet" value="fonbet" checked>
+                                <label for="bk_fonbet">Fonbet</label>
+                            </div>
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_22bet" value="22bet" checked>
+                                <label for="bk_22bet">22bet</label>
+                            </div>
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_pinnacle" value="pinnacle">
+                                <label for="bk_pinnacle">Pinnacle</label>
+                            </div>
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_bet365" value="bet365">
+                                <label for="bk_bet365">Bet365</label>
+                            </div>
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_marathon" value="marathon">
+                                <label for="bk_marathon">Marathon</label>
+                            </div>
+                            <div class="bookmaker-checkbox">
+                                <input type="checkbox" id="bk_1xbet" value="1xbet">
+                                <label for="bk_1xbet">1xBet</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- БОЛЬШИЕ ЗАЛИВЫ -->
+            <div class="settings-section">
+                <div class="section-header" onclick="toggleSection('unbalanced')">
+                    <h3>⚖️ Большие заливы и перекосы</h3>
+                    <span class="toggle-icon" id="unbalancedIcon">▼</span>
+                </div>
+                <div class="section-content" id="unbalancedContent">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="enableUnbalanced" checked onchange="toggleUnbalanced()">
+                        <label for="enableUnbalanced">Включить детекцию больших заливов</label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>💰 Минимальный залив (EUR)
+                            <small>Игнорировать сигналы с заливом меньше этой суммы</small>
+                        </label>
+                        <input type="number" id="minMoney" value="5000" min="0" step="100">
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>📊 Перекос потока (%)
+                            <small>Когда 70%+ денег на один исход</small>
+                        </label>
+                        <input type="number" id="flowThreshold" value="70" min="50" max="100" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ПОСЛЕ 80 МИНУТЫ -->
+            <div class="settings-section">
+                <div class="section-header" onclick="toggleSection('after80')">
+                    <h3>⏰ Сигналы после 80 минуты</h3>
+                    <span class="toggle-icon" id="after80Icon">▼</span>
+                </div>
+                <div class="section-content" id="after80Content">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="enableAfter80" checked onchange="toggleAfter80()">
+                        <label for="enableAfter80">Включить специальную метку для сигналов после 80'</label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label>Минимальная минута
+                            <small>Сигналы после этой минуты будут помечены как "После 80'"</small>
+                        </label>
+                        <input type="number" id="after80Minute" value="80" min="70" max="90" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="buttons-row">
+                <button class="btn btn-primary" onclick="saveSettings()">💾 Сохранить настройки</button>
+                <button class="btn btn-secondary" onclick="resetSettings()">🔄 Сбросить по умолчанию</button>
             </div>
         </div>
-        
-        <!-- Фильтры -->
-        <div class="filters">
+
+        <div class="filters-section">
             <div class="filter-group">
-                <label>Тип сигнала:</label>
+                <h3>Тип сигнала:</h3>
                 <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">Все сигналы</button>
-                    <button class="filter-btn" data-filter="sharp_drop">📉 Резкое падение</button>
-                    <button class="filter-btn" data-filter="value_bet">💎 Арбитраж</button>
-                    <button class="filter-btn" data-filter="unbalanced_flow">⚖️ Большие заливы</button>
-                    <button class="filter-btn" data-filter="total_over_spike">📈 Тоталы</button>
-                    <button class="filter-btn" data-filter="late_game_spike">⏰ После 80'</button>
+                    <button class="filter-btn active" data-filter-type="all" onclick="setFilter('type', 'all')">Все сигналы</button>
+                    <button class="filter-btn" data-filter-type="sharp_drop" onclick="setFilter('type', 'sharp_drop')">📉 Резкое падение</button>
+                    <button class="filter-btn" data-filter-type="value_bet" onclick="setFilter('type', 'value_bet')">💎 Арбитраж</button>
+                    <button class="filter-btn" data-filter-type="unbalanced_flow" onclick="setFilter('type', 'unbalanced_flow')">⚖️ Большие заливы</button>
+                    <button class="filter-btn" data-filter-type="after80" onclick="setFilter('type', 'after80')">⏰ После 80'</button>
                 </div>
             </div>
-            
+
             <div class="filter-group">
-                <label>Статус:</label>
+                <h3>Статус:</h3>
                 <div class="filter-buttons">
-                    <button class="filter-btn active" data-status="all">🔴 Все</button>
-                    <button class="filter-btn" data-status="live">🟢 Live</button>
-                    <button class="filter-btn" data-status="prematch">📅 Прематч</button>
+                    <button class="filter-btn active" data-filter-status="all" onclick="setFilter('status', 'all')">🔴 Все</button>
+                    <button class="filter-btn" data-filter-status="live" onclick="setFilter('status', 'live')">📺 Live</button>
+                    <button class="filter-btn" data-filter-status="prematch" onclick="setFilter('status', 'prematch')">📋 Prematch</button>
+                    <button class="filter-btn" data-filter-status="break" onclick="setFilter('status', 'break')">☕ Перерыв</button>
+                    <button class="filter-btn" data-filter-status="first_half" onclick="setFilter('status', 'first_half')">1️⃣ 1 Тайм</button>
+                    <button class="filter-btn" data-filter-status="second_half" onclick="setFilter('status', 'second_half')">2️⃣ 2 Тайм</button>
                 </div>
             </div>
-            
-            <div class="filter-group">
-                <label>Период:</label>
-                <div class="filter-buttons">
-                    <button class="filter-btn active" data-time="1">Последний 1 час</button>
-                    <button class="filter-btn" data-time="6">Последние 6 часов</button>
-                    <button class="filter-btn" data-time="24">Последние 24 часа</button>
-                    <button class="filter-btn" data-time="168">Последние 7 дней</button>
-                </div>
-            </div>
-            
-            <button class="refresh-btn" onclick="loadSignals()">🔄 Обновить</button>
-            <div style="clear:both;"></div>
+
+            <button class="btn btn-primary" onclick="loadSignals()">🔄 Обновить данные</button>
         </div>
-        
-        <!-- Таблица сигналов -->
-        <h2>🚨 Живые сигналы</h2>
-        <table class="signals-table">
-            <thead>
-                <tr>
-                    <th>Время</th>
-                    <th>Лига</th>
-                    <th>Матч</th>
-                    <th>Счёт</th>
-                    <th>Рынок</th>
-                    <th>Тип</th>
-                    <th>Кэф BF</th>
-                    <th>Кэф БК</th>
-                    <th>Залив €</th>
-                    <th>Перекос %</th>
-                    <th>Падение %</th>
-                </tr>
-            </thead>
-            <tbody id="signalsBody">
-                <tr>
-                    <td colspan="11" class="loading">Загрузка сигналов...</td>
-                </tr>
-            </tbody>
-        </table>
+
+        <div class="signals-table">
+            <div class="table-header">
+                <h2>🚨 Живые сигналы</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Время</th>
+                        <th>Матч</th>
+                        <th>Рынок</th>
+                        <th>Тип</th>
+                        <th>Кэф BF</th>
+                        <th>Кэф БК</th>
+                        <th>Залив €</th>
+                        <th>Падение %</th>
+                        <th>График</th>
+                    </tr>
+                </thead>
+                <tbody id="signalsTable">
+                    <tr>
+                        <td colspan="9" class="loading">Ожидание данных от парсера...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-    
-    <!-- JavaScript -->
+
+    <div class="notification" id="notification">
+        <p id="notificationMessage"></p>
+    </div>
+
     <script>
         let currentFilters = {
             type: 'all',
             status: 'all',
-            time: 1
+            hours: '24'
         };
-        
-        let previousSignalCount = 0;
-        
-        // ============ ЗВУКОВЫЕ АЛЕРТЫ ============
-        function playAlertSound() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+
+        // ПЕРЕКЛЮЧЕНИЕ СЕКЦИЙ
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + 'Content');
+            const icon = document.getElementById(sectionId + 'Icon');
             
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-            
-            oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.2);
-            
-            // Второй beep через 250ms
-            setTimeout(() => {
-                const osc2 = audioContext.createOscillator();
-                const gain2 = audioContext.createGain();
-                osc2.connect(gain2);
-                gain2.connect(audioContext.destination);
-                osc2.frequency.value = 800;
-                osc2.type = 'sine';
-                gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-                osc2.start();
-                osc2.stop(audioContext.currentTime + 0.2);
-            }, 250);
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
         }
-        
-        function checkForNewSignals(currentCount) {
-            if (currentCount > previousSignalCount && previousSignalCount > 0) {
-                const newSignals = currentCount - previousSignalCount;
-                
-                // 🔊 Звук
-                playAlertSound();
-                
-                // 🔔 Browser notification
-                if (Notification.permission === "granted") {
-                    new Notification("🚨 Новый сигнал Betwatch!", {
-                        body: `Обнаружено ${newSignals} новых аномалий`,
-                        icon: '/static/favicon.ico'
-                    });
-                }
-                
-                // Мигание заголовка
-                flashTitle(newSignals);
+
+        // ПЕРЕКЛЮЧЕНИЕ DROPDOWN
+        function toggleDropdown(dropdownId) {
+            const content = document.getElementById(dropdownId + 'Content');
+            const header = content.previousElementSibling;
+            
+            content.classList.toggle('open');
+            header.classList.toggle('active');
+        }
+
+        // ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ
+        function updateDisplay(type) {
+            let from, to, minPercent, maxPercent, displayId;
+            
+            if (type === 'highOdds') {
+                from = document.getElementById('highOddFrom').value;
+                to = document.getElementById('highOddTo').value;
+                minPercent = document.getElementById('sharpDropHighMin').value;
+                maxPercent = document.getElementById('sharpDropHighMax').value;
+                displayId = 'highOddsDisplay';
+            } else if (type === 'midOdds') {
+                from = document.getElementById('midOddFrom').value;
+                to = document.getElementById('midOddTo').value;
+                minPercent = document.getElementById('sharpDropMidMin').value;
+                maxPercent = document.getElementById('sharpDropMidMax').value;
+                displayId = 'midOddsDisplay';
+            } else if (type === 'lowOdds') {
+                from = document.getElementById('lowOddFrom').value;
+                to = document.getElementById('lowOddTo').value;
+                minPercent = document.getElementById('sharpDropLowMin').value;
+                maxPercent = document.getElementById('sharpDropLowMax').value;
+                displayId = 'lowOddsDisplay';
             }
             
-            previousSignalCount = currentCount;
+            document.getElementById(displayId).textContent = `${from} → ${to} | Падение ${minPercent}-${maxPercent}%`;
         }
-        
-        function flashTitle(count) {
-            const originalTitle = document.title;
-            let flashCount = 0;
-            
-            const interval = setInterval(() => {
-                document.title = flashCount % 2 === 0 
-                    ? `🔴 ${count} новых!` 
-                    : originalTitle;
-                
-                flashCount++;
-                if (flashCount >= 10) {
-                    clearInterval(interval);
-                    document.title = originalTitle;
+
+        function updateDropdownStates() {
+            const enabled = document.getElementById('enableSharpDrop').checked;
+            document.querySelectorAll('#sharpDropContent input').forEach(input => {
+                if (input.id !== 'enableSharpDrop') {
+                    input.disabled = !enabled;
                 }
-            }, 500);
+            });
         }
-        
-        // ============ УПРАВЛЕНИЕ НАСТРОЙКАМИ ============
-        function saveThresholds() {
-            const thresholds = {
-                sharp_drop_high: parseInt(document.getElementById('sharpDropHigh').value),
-                sharp_drop_mid: parseInt(document.getElementById('sharpDropMid').value),
-                sharp_drop_low: parseInt(document.getElementById('sharpDropLow').value),
-                money_min: parseInt(document.getElementById('moneyMin').value),
-                value_bet: parseInt(document.getElementById('valueBet').value),
-                unbalanced_flow: parseInt(document.getElementById('unbalancedFlow').value)
+
+        function toggleValueBet() {
+            const enabled = document.getElementById('enableValueBet').checked;
+            document.querySelectorAll('#valueBetContent input').forEach(input => {
+                if (input.id !== 'enableValueBet') {
+                    input.disabled = !enabled;
+                }
+            });
+        }
+
+        function toggleUnbalanced() {
+            const enabled = document.getElementById('enableUnbalanced').checked;
+            document.querySelectorAll('#unbalancedContent input').forEach(input => {
+                if (input.id !== 'enableUnbalanced') {
+                    input.disabled = !enabled;
+                }
+            });
+        }
+
+        function toggleAfter80() {
+            const enabled = document.getElementById('enableAfter80').checked;
+            document.getElementById('after80Minute').disabled = !enabled;
+        }
+
+        function loadSettings() {
+            fetch('/api/betwatch/settings')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const settings = data.settings;
+                        
+                        // Резкое падение
+                        document.getElementById('enableSharpDrop').checked = settings.enable_sharp_drop !== false;
+                        document.getElementById('highOddFrom').value = settings.high_odd_from || 10.0;
+                        document.getElementById('highOddTo').value = settings.high_odd_to || 5.0;
+                        document.getElementById('sharpDropHighMin').value = settings.sharp_drop_high_min || 20;
+                        document.getElementById('sharpDropHighMax').value = settings.sharp_drop_high_max || 35;
+                        
+                        document.getElementById('midOddFrom').value = settings.mid_odd_from || 5.0;
+                        document.getElementById('midOddTo').value = settings.mid_odd_to || 2.0;
+                        document.getElementById('sharpDropMidMin').value = settings.sharp_drop_mid_min || 12;
+                        document.getElementById('sharpDropMidMax').value = settings.sharp_drop_mid_max || 25;
+                        
+                        document.getElementById('lowOddFrom').value = settings.low_odd_from || 2.0;
+                        document.getElementById('lowOddTo').value = settings.low_odd_to || 1.1;
+                        document.getElementById('sharpDropLowMin').value = settings.sharp_drop_low_min || 10;
+                        document.getElementById('sharpDropLowMax').value = settings.sharp_drop_low_max || 20;
+                        
+                        // Арбитраж
+                        document.getElementById('enableValueBet').checked = settings.enable_value_bet !== false;
+                        document.getElementById('valueBetMin').value = settings.value_bet_min || 3;
+                        document.getElementById('valueBetMax').value = settings.value_bet_max || 15;
+                        document.getElementById('arbitrageCorridorPercent').value = settings.arbitrage_corridor_percent || 5;
+                        document.getElementById('forkLifetimeMinutes').value = settings.fork_lifetime_minutes || 5;
+                        
+                        // Большие заливы
+                        document.getElementById('enableUnbalanced').checked = settings.enable_unbalanced !== false;
+                        document.getElementById('minMoney').value = settings.money_min || 5000;
+                        document.getElementById('flowThreshold').value = settings.flow_bet || 70;
+                        
+                        // После 80
+                        document.getElementById('enableAfter80').checked = settings.enable_after_80 !== false;
+                        document.getElementById('after80Minute').value = settings.after_80_minute || 80;
+                        
+                        // Букмекеры
+                        if (settings.bookmakers) {
+                            document.querySelectorAll('.bookmaker-checkbox input').forEach(cb => {
+                                cb.checked = settings.bookmakers.includes(cb.value);
+                            });
+                        }
+                        
+                        updateDisplay('highOdds');
+                        updateDisplay('midOdds');
+                        updateDisplay('lowOdds');
+                        updateDropdownStates();
+                        toggleValueBet();
+                        toggleUnbalanced();
+                        toggleAfter80();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading settings:', error);
+                });
+        }
+
+        function saveSettings() {
+            const settings = {
+                enable_sharp_drop: document.getElementById('enableSharpDrop').checked,
+                high_odd_from: parseFloat(document.getElementById('highOddFrom').value),
+                high_odd_to: parseFloat(document.getElementById('highOddTo').value),
+                sharp_drop_high_min: parseFloat(document.getElementById('sharpDropHighMin').value),
+                sharp_drop_high_max: parseFloat(document.getElementById('sharpDropHighMax').value),
+                
+                mid_odd_from: parseFloat(document.getElementById('midOddFrom').value),
+                mid_odd_to: parseFloat(document.getElementById('midOddTo').value),
+                sharp_drop_mid_min: parseFloat(document.getElementById('sharpDropMidMin').value),
+                sharp_drop_mid_max: parseFloat(document.getElementById('sharpDropMidMax').value),
+                
+                low_odd_from: parseFloat(document.getElementById('lowOddFrom').value),
+                low_odd_to: parseFloat(document.getElementById('lowOddTo').value),
+                sharp_drop_low_min: parseFloat(document.getElementById('sharpDropLowMin').value),
+                sharp_drop_low_max: parseFloat(document.getElementById('sharpDropLowMax').value),
+                
+                enable_value_bet: document.getElementById('enableValueBet').checked,
+                value_bet_min: parseFloat(document.getElementById('valueBetMin').value),
+                value_bet_max: parseFloat(document.getElementById('valueBetMax').value),
+                arbitrage_corridor_percent: parseFloat(document.getElementById('arbitrageCorridorPercent').value),
+                fork_lifetime_minutes: parseInt(document.getElementById('forkLifetimeMinutes').value),
+                
+                enable_unbalanced: document.getElementById('enableUnbalanced').checked,
+                money_min: parseFloat(document.getElementById('minMoney').value),
+                flow_bet: parseFloat(document.getElementById('flowThreshold').value),
+                
+                enable_after_80: document.getElementById('enableAfter80').checked,
+                after_80_minute: parseInt(document.getElementById('after80Minute').value),
+                
+                bookmakers: []
             };
-            
-            // Сохраняем в localStorage
-            localStorage.setItem('betwatch_thresholds', JSON.stringify(thresholds));
-            
-            // Сохраняем в JSON файл (через API если есть)
-            saveThresholdsToFile(thresholds);
-            
-            document.getElementById('saveStatus').innerHTML = '✅ Сохранено! Перезапусти парсер.';
-            setTimeout(() => {
-                document.getElementById('saveStatus').innerHTML = '';
-            }, 5000);
+
+            document.querySelectorAll('.bookmaker-checkbox input:checked').forEach(cb => {
+                settings.bookmakers.push(cb.value);
+            });
+
+            fetch('/api/betwatch/save-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('✅ ' + data.message, 'success');
+                } else {
+                    showNotification('❌ Ошибка: ' + (data.error || data.message), 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('❌ Ошибка сохранения: ' + error.message, 'error');
+            });
         }
-        
-        function saveThresholdsToFile(thresholds) {
-            // Создаём JSON для сохранения
-            const jsonStr = JSON.stringify(thresholds, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'thresholds.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-        
-        function resetThresholds() {
-            document.getElementById('sharpDropHigh').value = 25;
-            document.getElementById('sharpDropMid').value = 15;
-            document.getElementById('sharpDropLow').value = 14;
-            document.getElementById('moneyMin').value = 3000;
-            document.getElementById('valueBet').value = 13;
-            document.getElementById('unbalancedFlow').value = 70;
-            
-            localStorage.removeItem('betwatch_thresholds');
-            document.getElementById('saveStatus').innerHTML = '🔄 Сброшено к дефолту';
-            setTimeout(() => {
-                document.getElementById('saveStatus').innerHTML = '';
-            }, 3000);
-        }
-        
-        function loadThresholds() {
-            const saved = localStorage.getItem('betwatch_thresholds');
-            if (saved) {
-                const thresholds = JSON.parse(saved);
-                document.getElementById('sharpDropHigh').value = thresholds.sharp_drop_high || 25;
-                document.getElementById('sharpDropMid').value = thresholds.sharp_drop_mid || 15;
-                document.getElementById('sharpDropLow').value = thresholds.sharp_drop_low || 14;
-                document.getElementById('moneyMin').value = thresholds.money_min || 3000;
-                document.getElementById('valueBet').value = thresholds.value_bet || 13;
-                document.getElementById('unbalancedFlow').value = thresholds.unbalanced_flow || 70;
+
+        function resetSettings() {
+            if (confirm('Сбросить все настройки на значения по умолчанию?')) {
+                location.reload();
             }
         }
-        
-        // ============ ЗАГРУЗКА ДАННЫХ ============
+
+        function setFilter(filterType, value) {
+            currentFilters[filterType] = value;
+            
+            // Обновляем активные кнопки
+            if (filterType === 'type') {
+                document.querySelectorAll(`[data-filter-type]`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-filter-type="${value}"]`)?.classList.add('active');
+            } else if (filterType === 'status') {
+                document.querySelectorAll(`[data-filter-status]`).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-filter-status="${value}"]`)?.classList.add('active');
+            }
+            
+            loadSignals();
+        }
+
         async function loadSignals() {
             try {
-                const params = new URLSearchParams({
-                    type: currentFilters.type,
-                    status: currentFilters.status,
-                    hours: currentFilters.time
-                });
-                
-                const response = await fetch(`/api/betwatch/signals?${params}`);
+                const response = await fetch(`/api/betwatch/signals?type=${currentFilters.type}&hours=${currentFilters.hours}&limit=100`);
                 const data = await response.json();
                 
-                // Проверка новых сигналов
-                checkForNewSignals(data.total || 0);
-                
-                updateStats(data);
-                displaySignals(data.signals || []);
-                
+                if (data.success) {
+                    displaySignals(data.signals);
+                    loadStats();
+                }
             } catch (error) {
                 console.error('Error loading signals:', error);
-                document.getElementById('signalsBody').innerHTML = 
-                    '<tr><td colspan="11" class="loading">❌ Ошибка загрузки данных</td></tr>';
             }
         }
-        
-        function updateStats(data) {
-            document.getElementById('totalSignals').textContent = data.total || 0;
-            document.getElementById('sharpDrops').textContent = data.sharp_drops || 0;
-            document.getElementById('valueBets').textContent = data.value_bets || 0;
-            document.getElementById('bigFlows').textContent = data.big_flows || 0;
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`/api/betwatch/stats?hours=${currentFilters.hours}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('totalSignals').textContent = data.total || 0;
+                    
+                    const byType = {};
+                    data.by_type.forEach(item => {
+                        byType[item.signal_type] = item.count;
+                    });
+                    
+                    document.getElementById('sharpDrops').textContent = byType['sharp_drop'] || 0;
+                    document.getElementById('valueBets').textContent = byType['value_bet'] || 0;
+                    document.getElementById('unbalanced').textContent = byType['unbalanced_flow'] || 0;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
         }
-        
+
         function displaySignals(signals) {
-            const tbody = document.getElementById('signalsBody');
+            const tbody = document.getElementById('signalsTable');
             
-            if (signals.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="loading">Нет сигналов</td></tr>';
+            if (!signals || signals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="loading">Нет сигналов за выбранный период</td></tr>';
                 return;
             }
-            
-            tbody.innerHTML = signals.map(signal => `
-                <tr>
-                    <td>${formatTime(signal.detected_at)}</td>
-                    <td>${signal.league}</td>
-                    <td>
-                        ${signal.is_live ? '<span class="live-indicator"></span>' : ''}
-                        ${signal.event_name}
-                    </td>
-                    <td>${signal.match_time ? signal.match_time + "'" : '-'}</td>
-                    <td>${signal.market_type}</td>
-                    <td>${getBadge(signal.signal_type)}</td>
-                    <td>${signal.betfair_odd ? signal.betfair_odd.toFixed(2) : '-'}</td>
-                    <td>${signal.bookmaker_odd ? signal.bookmaker_odd.toFixed(2) : '-'}</td>
-                    <td>€${formatMoney(signal.money_volume)}</td>
-                    <td>${signal.flow_percent ? signal.flow_percent.toFixed(1) + '%' : '-'}</td>
-                    <td>${signal.odd_drop_percent ? Math.abs(signal.odd_drop_percent).toFixed(1) + '%' : '-'}</td>
-                </tr>
-            `).join('');
-        }
-        
-        function getBadge(type) {
-            const badges = {
-                'sharp_drop': '<span class="badge badge-drop">📉 DROP</span>',
-                'value_bet': '<span class="badge badge-value">💎 VALUE</span>',
-                'unbalanced_flow': '<span class="badge badge-flow">⚖️ FLOW</span>',
-                'total_over_spike': '<span class="badge badge-total">📈 TOTAL</span>',
-                'late_game_spike': '<span class="badge badge-late">⏰ LATE</span>',
-                'minor_league_spike': '<span class="badge badge-minor">🎯 MINOR</span>'
-            };
-            return badges[type] || type;
-        }
-        
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        }
-        
-        function formatMoney(amount) {
-            return new Intl.NumberFormat('ru-RU').format(Math.round(amount));
-        }
-        
-        // ============ ФИЛЬТРЫ ============
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const filter = this.dataset.filter;
-                const status = this.dataset.status;
-                const time = this.dataset.time;
-                
-                // Убираем active у соседних кнопок в группе
-                const siblings = this.parentElement.querySelectorAll('.filter-btn');
-                siblings.forEach(s => s.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Обновляем фильтры
-                if (filter) currentFilters.type = filter;
-                if (status) currentFilters.status = status;
-                if (time) currentFilters.time = parseInt(time);
-                
-                loadSignals();
-            });
-        });
-        
-        // ============ ИНИЦИАЛИЗАЦИЯ ============
-        document.addEventListener('DOMContentLoaded', () => {
-            // Запрос разрешения на уведомления
-            if (Notification.permission === "default") {
-                Notification.requestPermission();
+
+            // Фильтрация по статусу
+            let filtered = signals;
+            if (currentFilters.status !== 'all') {
+                filtered = signals.filter(signal => {
+                    const matchTime = signal.match_time || '';
+                    const isLive = signal.is_live;
+                    
+                    switch(currentFilters.status) {
+                        case 'live':
+                            return isLive === 1 || isLive === true;
+                        case 'prematch':
+                            return isLive === 0 || isLive === false;
+                        case 'break':
+                            return matchTime.includes('HT') || matchTime.includes('Перерыв');
+                        case 'first_half':
+                            return matchTime.includes('1H') || (parseInt(matchTime) > 0 && parseInt(matchTime) <= 45);
+                        case 'second_half':
+                            return matchTime.includes('2H') || (parseInt(matchTime) > 45 && parseInt(matchTime) <= 90);
+                        default:
+                            return true;
+                    }
+                });
             }
+
+            tbody.innerHTML = filtered.map(signal => {
+                const betwatchUrl = `https://betwatch.fr/${signal.event_id || ''}`;
+                const signalTypeClass = signal.signal_type?.includes('sharp') ? 'type-sharp' : 
+                                       signal.signal_type?.includes('value') ? 'type-value' : 'type-unbalanced';
+                const signalTypeText = signal.signal_type?.replace('_', ' ').toUpperCase() || 'N/A';
+                
+                return `
+                    <tr>
+                        <td>${new Date(signal.detected_at).toLocaleTimeString('ru-RU')}</td>
+                        <td><strong>${signal.event_name || 'N/A'}</strong></td>
+                        <td>${signal.market_type || 'N/A'}</td>
+                        <td><span class="signal-type ${signalTypeClass}">${signalTypeText}</span></td>
+                        <td>${signal.betfair_odd || 'N/A'}</td>
+                        <td>${signal.bookmaker_odd || 'N/A'} <small>(${signal.bookmaker_name || ''})</small></td>
+                        <td>€${(signal.money_volume || 0).toLocaleString()}</td>
+                        <td>${(signal.odd_drop_percent || 0).toFixed(1)}%</td>
+                        <td><a href="${betwatchUrl}" target="_blank" class="chart-link">📊 График</a></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notificationMessage');
             
-            // Загрузка настроек
-            loadThresholds();
+            messageEl.textContent = message;
+            notification.className = `notification ${type} show`;
             
-            // Первая загрузка данных
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
             loadSignals();
+            loadStats();
             
-            // Автообновление каждые 30 секунд
-            setInterval(loadSignals, 30000);
+            // Автообновление каждые 10 секунд
+            setInterval(() => {
+                loadSignals();
+                loadStats();
+            }, 10000);
         });
     </script>
 </body>

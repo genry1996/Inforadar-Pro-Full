@@ -1,36 +1,4 @@
-# Web Framework
-Flask==3.0.0
-gunicorn==21.2.0
-
-# Database
-PyMySQL==1.1.0
-SQLAlchemy==2.0.0
-cryptography==42.0.8
-
-# Web Scraping & Parser
 requests==2.31.0
-beautifulsoup4==4.12.0
-selenium==4.15.0
+mysql-connector-python==8.2.0
 playwright==1.40.0
-
-# Async & Parallelization
-aiohttp==3.9.0
-asyncio==3.4.3
-
-# Telegram Bot
-aiogram==3.2.0
-python-telegram-bot==21.0
-
-# Monitoring & Metrics
-prometheus-client==0.19.0
-
-# Config & Logging
-python-dotenv==1.0.0
-
-# Testing
-pytest==7.4.0
-pytest-asyncio==0.21.0
-
-# Utilities
-pandas==2.0.0
-python-dateutil==2.8.2
+flask==3.0.0

@@ -1,8 +1,23 @@
 {
-  "sharp_drop_high": 25,
-  "sharp_drop_mid": 15,
-  "sharp_drop_low": 14,
-  "money_min": 3000,
-  "value_bet": 13,
-  "unbalanced_flow": 70
+    "enable_sharp_drop": true,
+    "high_odd_from": 10,
+    "high_odd_to": 5,
+    "sharp_drop_high": 25,
+    "mid_odd_from": 5,
+    "mid_odd_to": 2,
+    "sharp_drop_mid": 17,
+    "low_odd_from": 2,
+    "low_odd_to": 1.1,
+    "sharp_drop_low": 15,
+    "enable_value_bet": true,
+    "value_bet": 5,
+    "enable_unbalanced": true,
+    "money_min": 5000,
+    "flow_bet": 70,
+    "enable_after_80": true,
+    "after_80_minute": 80,
+    "bookmakers": [
+        "fonbet",
+        "22bet"
+    ]
 }
