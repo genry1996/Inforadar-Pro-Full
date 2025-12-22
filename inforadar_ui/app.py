@@ -17,6 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(message)s'
 )
+
 logger = logging.getLogger(__name__)
 
 # ====== DB SETTINGS ======
@@ -41,7 +42,6 @@ PRODUCTION_SETTINGS = {
     "min_money_absolute": 1000,
 }
 
-
 def get_connection():
     """MySQL connection with pymysql"""
     try:
@@ -60,7 +60,6 @@ def get_connection():
     except Exception as e:
         logger.error(f"❌ DB Connection Error: {e}")
         return None
-
 
 # ====== JINJA FILTER ======
 @app.template_filter("timeago")
@@ -85,10 +84,29 @@ def timeago(value):
         return f"{int(seconds/86400)}d"
     return value.strftime("%Y-%m-%d %H:%M")
 
+# ===========================================================
+# MAIN ROUTES
+# ===========================================================
+
+@app.route("/")
+def index():
+    """Main page - shows LIVE matches only"""
+    return render_template("anomalies_22bet.html")
+
+@app.route("/live")
+def live_page():
+    """LIVE matches only (minute > 0)"""
+    return render_template("anomalies_22bet.html")
+
+@app.route("/prematch")
+def prematch_page():
+    """PREMATCH matches only (within 12 hours before start, minute = 0 or NULL)"""
+    return render_template("anomalies_22bet.html")
 
 # ===========================================================
 # BETWATCH ROUTES
 # ===========================================================
+
 @app.route("/betwatch")
 def betwatch_dashboard():
     try:
@@ -96,7 +114,6 @@ def betwatch_dashboard():
     except Exception as e:
         logger.error(f"❌ Error rendering betwatch.html: {e}")
         return ("Ошибка загрузки betwatch.html", 500)
-
 
 @app.route("/api/betwatch/signals")
 def api_betwatch_signals():
@@ -114,13 +131,14 @@ def api_betwatch_signals():
         try:
             with conn.cursor() as cursor:
                 query = """
-                    SELECT
-                        id, signal_type, event_id, event_name, league,
-                        market_type, betfair_odd, money_volume, total_market_volume,
-                        old_odd, new_odd, odd_drop_percent, is_live, match_time, detected_at
-                    FROM betwatch_signals
-                    WHERE detected_at >= NOW() - INTERVAL %s HOUR
+                SELECT
+                    id, signal_type, event_id, event_name, league,
+                    market_type, betfair_odd, money_volume, total_market_volume,
+                    old_odd, new_odd, odd_drop_percent, is_live, match_time, detected_at
+                FROM betwatch_signals
+                WHERE detected_at >= NOW() - INTERVAL %s HOUR
                 """
+
                 params = [hours]
 
                 if signal_type != "all":
@@ -145,17 +163,14 @@ def api_betwatch_signals():
                         signal["detected_at"] = signal["detected_at"].strftime("%Y-%m-%d %H:%M:%S")
 
                 return jsonify({"success": True, "count": len(signals), "signals": signals})
-
         except Exception as e:
             logger.error(f"❌ Error in api_betwatch_signals: {e}")
             return jsonify({"success": False, "error": str(e)}), 500
         finally:
             conn.close()
-
     except Exception as e:
         logger.error(f"❌ Outer error in api_betwatch_signals: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 @app.route("/api/betwatch/stats")
 def api_betwatch_stats():
@@ -183,17 +198,14 @@ def api_betwatch_stats():
                 sharp_count = sum(row["count"] for row in by_type if "sharp" in row["signal_type"].lower())
 
                 return jsonify({"success": True, "total": total, "by_type": by_type, "sharp_drop_count": sharp_count})
-
         except Exception as e:
             logger.error(f"❌ Error in api_betwatch_stats: {e}")
             return jsonify({"success": False, "error": str(e)}), 500
         finally:
             conn.close()
-
     except Exception as e:
         logger.error(f"❌ Outer error in api_betwatch_stats: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 @app.route("/api/betwatch/settings", methods=["GET"])
 def api_betwatch_get_settings():
@@ -204,11 +216,11 @@ def api_betwatch_get_settings():
                 settings = json.load(f)
         else:
             settings = PRODUCTION_SETTINGS
+
         return jsonify({"success": True, "settings": settings})
     except Exception as e:
         logger.error(f"❌ Error loading settings: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 @app.route("/api/betwatch/save-settings", methods=["POST"])
 def api_betwatch_save_settings():
@@ -229,18 +241,17 @@ def api_betwatch_save_settings():
 
         logger.info(f"✅ Settings saved to {THRESHOLDS_FILE}")
         return jsonify({"success": True, "message": "✅ Настройки сохранены!"})
-
     except Exception as e:
         logger.error(f"❌ Error saving settings: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-
 # ===========================================================
 # 22BET ANOMALIES ROUTES
 # ===========================================================
+
 @app.route("/api/anomalies_22bet")
 def api_anomalies_22bet():
-    """API endpoint for 22bet anomalies data"""
+    """API endpoint for 22bet anomalies data - OLD (all matches)"""
     try:
         min_pct = float(request.args.get('min_pct', 2.0))
         anomaly_type = request.args.get('type')
@@ -253,17 +264,17 @@ def api_anomalies_22bet():
         cursor = conn.cursor()
 
         query = f"""
-            SELECT id, event_name, sport, league, anomaly_type, before_value, after_value, 
-                   diff_pct, status, comment, detected_at,
-                   CASE
-                       WHEN ABS(diff_pct) >= 10 THEN 'critical'
-                       WHEN ABS(diff_pct) >= 5 THEN 'important'
-                       WHEN ABS(diff_pct) >= 2 THEN 'moderate'
-                       ELSE 'low'
-                   END as severity
-            FROM anomalies_22bet
-            WHERE detected_at >= DATE_SUB(NOW(), INTERVAL {hours} HOUR)
-            AND ABS(diff_pct) >= {min_pct}
+        SELECT id, event_name, sport, league, anomaly_type, before_value, after_value,
+        diff_pct, status, comment, detected_at,
+        CASE
+            WHEN ABS(diff_pct) >= 10 THEN 'critical'
+            WHEN ABS(diff_pct) >= 5 THEN 'important'
+            WHEN ABS(diff_pct) >= 2 THEN 'moderate'
+            ELSE 'low'
+        END as severity
+        FROM anomalies_22bet
+        WHERE detected_at >= DATE_SUB(NOW(), INTERVAL {hours} HOUR)
+        AND ABS(diff_pct) >= {min_pct}
         """
 
         if anomaly_type == 'drop':
@@ -297,21 +308,126 @@ def api_anomalies_22bet():
         conn.close()
 
         return jsonify({'success': True, 'count': len(data), 'data': data})
-
     except Exception as e:
         logger.error(f"❌ Error in api_anomalies_22bet: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route("/api/anomalies_filtered")
+def api_anomalies_filtered():
+    """API: Get anomalies filtered by match status (live/prematch/all)"""
+    try:
+        match_status = request.args.get('status', 'all')
+        min_pct = float(request.args.get('min_pct', 2.0))
+        anomaly_type = request.args.get('type')
+        hours = int(request.args.get('hours', 48))
+
+        conn = get_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "DB connection failed"}), 500
+
+        cursor = conn.cursor()
+
+        if match_status == 'live':
+            # Only LIVE matches (in progress, minute > 0)
+            query = f"""
+            SELECT a.id, a.event_name, a.sport, a.league, a.anomaly_type, a.before_value, a.after_value,
+            a.diff_pct, a.status, a.comment, a.detected_at,
+            CASE
+                WHEN ABS(a.diff_pct) >= 10 THEN 'critical'
+                WHEN ABS(a.diff_pct) >= 5 THEN 'important'
+                WHEN ABS(a.diff_pct) >= 2 THEN 'moderate'
+                ELSE 'low'
+            END as severity
+            FROM anomalies_22bet a
+            INNER JOIN live_matches lm ON LOWER(TRIM(lm.event_name)) = LOWER(TRIM(a.event_name))
+            WHERE a.detected_at >= DATE_SUB(NOW(), INTERVAL {hours} HOUR)
+            AND ABS(a.diff_pct) >= {min_pct}
+            AND lm.minute > 0
+            AND lm.status IN ('live', 'halftime')
+            """
+
+        elif match_status == 'prematch':
+            # Only PREMATCH matches (within 12 hours before start, not started yet)
+            query = f"""
+            SELECT a.id, a.event_name, a.sport, a.league, a.anomaly_type, a.before_value, a.after_value,
+            a.diff_pct, a.status, a.comment, a.detected_at,
+            CASE
+                WHEN ABS(a.diff_pct) >= 10 THEN 'critical'
+                WHEN ABS(a.diff_pct) >= 5 THEN 'important'
+                WHEN ABS(a.diff_pct) >= 2 THEN 'moderate'
+                ELSE 'low'
+            END as severity
+            FROM anomalies_22bet a
+            INNER JOIN live_matches lm ON LOWER(TRIM(lm.event_name)) = LOWER(TRIM(a.event_name))
+            WHERE a.detected_at >= DATE_SUB(NOW(), INTERVAL {hours} HOUR)
+            AND ABS(a.diff_pct) >= {min_pct}
+            AND (lm.minute = 0 OR lm.minute IS NULL)
+            AND lm.status = 'prematch'
+            AND lm.updated_at >= DATE_SUB(NOW(), INTERVAL 12 HOUR)
+            """
+
+        else:  # 'all'
+            # All matches
+            query = f"""
+            SELECT a.id, a.event_name, a.sport, a.league, a.anomaly_type, a.before_value, a.after_value,
+            a.diff_pct, a.status, a.comment, a.detected_at,
+            CASE
+                WHEN ABS(a.diff_pct) >= 10 THEN 'critical'
+                WHEN ABS(a.diff_pct) >= 5 THEN 'important'
+                WHEN ABS(a.diff_pct) >= 2 THEN 'moderate'
+                ELSE 'low'
+            END as severity
+            FROM anomalies_22bet a
+            WHERE a.detected_at >= DATE_SUB(NOW(), INTERVAL {hours} HOUR)
+            AND ABS(a.diff_pct) >= {min_pct}
+            """
+
+        if anomaly_type == 'drop':
+            query += " AND a.anomaly_type = 'ODDS_DROP'"
+        elif anomaly_type == 'rise':
+            query += " AND a.anomaly_type = 'ODDS_RISE'"
+
+        query += " ORDER BY a.detected_at DESC LIMIT 500"
+
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        data = []
+        for row in results:
+            data.append({
+                'id': row['id'],
+                'event_name': row['event_name'],
+                'sport': row['sport'],
+                'league': row['league'],
+                'type': row['anomaly_type'],
+                'before': float(row['before_value']) if row['before_value'] else 0,
+                'after': float(row['after_value']) if row['after_value'] else 0,
+                'change_pct': float(row['diff_pct']),
+                'severity': row['severity'],
+                'status': row['status'],
+                'comment': row['comment'],
+                'time': row['detected_at'].strftime('%Y-%m-%d %H:%M:%S') if row['detected_at'] else '',
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': len(data), 'data': data})
+    except Exception as e:
+        logger.error(f"❌ Error in api_anomalies_filtered: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route("/anomalies_22bet")
 def anomalies_22bet_page():
     """Page with 22bet anomalies"""
     return render_template("anomalies_22bet.html")
 
-
 # ===========================================================
 # MATCH DETAIL PAGE & API
 # ===========================================================
+
 @app.route("/match/<path:event_name>")
 def match_detail(event_name):
     """Детальная страница матча"""
@@ -322,7 +438,6 @@ def match_detail(event_name):
     except Exception as e:
         logger.error(f"❌ Error rendering match_detail: {e}")
         return ("Ошибка загрузки страницы матча", 500)
-
 
 @app.route("/api/match/<path:event_name>/history")
 def api_match_history(event_name):
@@ -337,34 +452,38 @@ def api_match_history(event_name):
             return jsonify({"success": False, "error": "DB connection failed"}), 500
 
         cursor = conn.cursor()
+
         query = """
-            SELECT event_name, sport, market_type, market_key, odd_1, odd_x, odd_2,
-                   updated_at, created_at
-            FROM odds_22bet
-            WHERE event_name LIKE %s
-              AND updated_at >= DATE_SUB(NOW(), INTERVAL %s HOUR)
-            ORDER BY updated_at ASC
-            LIMIT 500
+        SELECT event_name, sport, market_type, market_key, odd_1, odd_x, odd_2,
+        updated_at, created_at
+        FROM odds_22bet
+        WHERE event_name LIKE %s
+        AND updated_at >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+        ORDER BY updated_at ASC
+        LIMIT 500
         """
+
         search_pattern = f"%{event_name}%"
         cursor.execute(query, (search_pattern, hours))
         odds_history = cursor.fetchall()
+
         logger.info(f"📊 Found {len(odds_history)} records for '{event_name}'")
 
         anomaly_query = """
-            SELECT id, anomaly_type, before_value, after_value, diff_pct, comment, detected_at,
-                   CASE
-                       WHEN ABS(diff_pct) >= 10 THEN 'critical'
-                       WHEN ABS(diff_pct) >= 5 THEN 'important'
-                       WHEN ABS(diff_pct) >= 2 THEN 'moderate'
-                       ELSE 'low'
-                   END as severity
-            FROM anomalies_22bet
-            WHERE event_name LIKE %s
-              AND detected_at >= DATE_SUB(NOW(), INTERVAL %s HOUR)
-            ORDER BY detected_at DESC
-            LIMIT 100
+        SELECT id, anomaly_type, before_value, after_value, diff_pct, comment, detected_at,
+        CASE
+            WHEN ABS(diff_pct) >= 10 THEN 'critical'
+            WHEN ABS(diff_pct) >= 5 THEN 'important'
+            WHEN ABS(diff_pct) >= 2 THEN 'moderate'
+            ELSE 'low'
+        END as severity
+        FROM anomalies_22bet
+        WHERE event_name LIKE %s
+        AND detected_at >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+        ORDER BY detected_at DESC
+        LIMIT 100
         """
+
         cursor.execute(anomaly_query, (search_pattern, hours))
         anomalies = cursor.fetchall()
 
@@ -407,7 +526,6 @@ def api_match_history(event_name):
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
 
-
 @app.route("/api/match/<path:event_name>/stats")
 def api_match_stats(event_name):
     """API: Статистика матча"""
@@ -420,18 +538,21 @@ def api_match_stats(event_name):
             return jsonify({"success": False, "error": "DB connection failed"}), 500
 
         cursor = conn.cursor()
+
         stats_query = """
-            SELECT MIN(odd_1) as min_odd_1, MAX(odd_1) as max_odd_1,
-                   MIN(odd_2) as min_odd_2, MAX(odd_2) as max_odd_2,
-                   MIN(odd_x) as min_odd_x, MAX(odd_x) as max_odd_x,
-                   COUNT(*) as updates_count,
-                   MIN(created_at) as first_seen, MAX(updated_at) as last_update
-            FROM odds_22bet
-            WHERE event_name LIKE %s
+        SELECT MIN(odd_1) as min_odd_1, MAX(odd_1) as max_odd_1,
+        MIN(odd_2) as min_odd_2, MAX(odd_2) as max_odd_2,
+        MIN(odd_x) as min_odd_x, MAX(odd_x) as max_odd_x,
+        COUNT(*) as updates_count,
+        MIN(created_at) as first_seen, MAX(updated_at) as last_update
+        FROM odds_22bet
+        WHERE event_name LIKE %s
         """
+
         search_pattern = f"%{event_name}%"
         cursor.execute(stats_query, (search_pattern,))
         stats = cursor.fetchone()
+
         cursor.close()
         conn.close()
 
@@ -456,12 +577,8 @@ def api_match_stats(event_name):
                     "max": float(stats["max_odd_2"]) if stats["max_odd_2"] else 0,
                 },
                 "updates_count": stats["updates_count"],
-                "first_seen": stats["first_seen"].strftime("%Y-%m-%d %H:%M:%S")
-                if stats["first_seen"]
-                else "",
-                "last_update": stats["last_update"].strftime("%Y-%m-%d %H:%M:%S")
-                if stats["last_update"]
-                else "",
+                "first_seen": stats["first_seen"].strftime("%Y-%m-%d %H:%M:%S") if stats["first_seen"] else "",
+                "last_update": stats["last_update"].strftime("%Y-%m-%d %H:%M:%S") if stats["last_update"] else "",
             },
         })
     except Exception as e:
@@ -470,10 +587,10 @@ def api_match_stats(event_name):
         logger.error(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
 
-
 # ===========================================================
 # LIVE MATCHES API
 # ===========================================================
+
 @app.route('/api/live/matches')
 def api_live_matches():
     """API: Список всех live-матчей"""
@@ -483,14 +600,16 @@ def api_live_matches():
             return jsonify({'success': False, 'error': 'DB connection failed'}), 500
 
         cursor = conn.cursor()
+
         cursor.execute("""
-            SELECT event_id, event_name, home_team, away_team,
-                   score, minute, status, sport, league, updated_at
-            FROM live_matches
-            WHERE status IN ('live', 'halftime')
-            ORDER BY updated_at DESC
-            LIMIT 100
+        SELECT event_id, event_name, home_team, away_team,
+        score, minute, status, sport, league, updated_at
+        FROM live_matches
+        WHERE status IN ('live', 'halftime')
+        ORDER BY updated_at DESC
+        LIMIT 100
         """)
+
         matches = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -499,7 +618,6 @@ def api_live_matches():
     except Exception as e:
         logger.error(f"Error in api_live_matches: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/match/<path:event_name>/full')
 def api_match_full(event_name):
@@ -518,7 +636,7 @@ def api_match_full(event_name):
         cursor.execute(
             """
             SELECT event_id, event_name, home_team, away_team,
-                   score, minute, status, sport, league, updated_at
+            score, minute, status, sport, league, updated_at
             FROM live_matches
             WHERE event_name LIKE %s
             ORDER BY updated_at DESC
@@ -526,6 +644,7 @@ def api_match_full(event_name):
             """,
             (f"%{event_name}%",),
         )
+
         match_info = cursor.fetchone()
         if not match_info:
             cursor.close()
@@ -542,22 +661,24 @@ def api_match_full(event_name):
             """,
             (match_info["event_id"],),
         )
+
         events = cursor.fetchall()
 
         # 3. История коэффициентов
         cursor.execute(
             """
             SELECT minute, score,
-                   home_odd, draw_odd, away_odd,
-                   handicap, handicap_home, handicap_away,
-                   total, `over`, `under`,
-                   timestamp
+            home_odd, draw_odd, away_odd,
+            handicap, handicap_home, handicap_away,
+            total, `over`, `under`,
+            timestamp
             FROM odds_full_history
             WHERE match_id = %s
             ORDER BY timestamp ASC
             """,
             (match_info["event_id"],),
         )
+
         odds_history = cursor.fetchall()
 
         movements_1x2 = []
@@ -566,90 +687,71 @@ def api_match_full(event_name):
 
         for row in odds_history:
             if row.get("home_odd") is not None:
-                movements_1x2.append(
-                    {
-                        "minute": row["minute"],
-                        "score": row["score"],
-                        "odd1": float(row["home_odd"]),
-                        "oddx": float(row["draw_odd"]) if row.get("draw_odd") else None,
-                        "odd2": float(row["away_odd"]) if row.get("away_odd") else None,
-                        "time": row["timestamp"].strftime("%H:%M:%S")
-                        if row.get("timestamp")
-                        else "",
-                    }
-                )
+                movements_1x2.append({
+                    "minute": row["minute"],
+                    "score": row["score"],
+                    "odd1": float(row["home_odd"]),
+                    "oddx": float(row["draw_odd"]) if row.get("draw_odd") else None,
+                    "odd2": float(row["away_odd"]) if row.get("away_odd") else None,
+                    "time": row["timestamp"].strftime("%H:%M:%S") if row.get("timestamp") else "",
+                })
 
             if row.get("handicap") is not None:
-                handicap_data.append(
-                    {
-                        "minute": row["minute"],
-                        "score": row["score"],
-                        "home": float(row["handicap_home"])
-                        if row.get("handicap_home")
-                        else None,
-                        "handicap": float(row["handicap"]),
-                        "away": float(row["handicap_away"])
-                        if row.get("handicap_away")
-                        else None,
-                        "time": row["timestamp"].strftime("%H:%M:%S")
-                        if row.get("timestamp")
-                        else "",
-                    }
-                )
+                handicap_data.append({
+                    "minute": row["minute"],
+                    "score": row["score"],
+                    "home": float(row["handicap_home"]) if row.get("handicap_home") else None,
+                    "handicap": float(row["handicap"]),
+                    "away": float(row["handicap_away"]) if row.get("handicap_away") else None,
+                    "time": row["timestamp"].strftime("%H:%M:%S") if row.get("timestamp") else "",
+                })
 
             if row.get("total") is not None:
-                total_data.append(
-                    {
-                        "minute": row["minute"],
-                        "score": row["score"],
-                        "over": float(row["over"]) if row.get("over") else None,
-                        "total": float(row["total"]),
-                        "under": float(row["under"]) if row.get("under") else None,
-                        "time": row["timestamp"].strftime("%H:%M:%S")
-                        if row.get("timestamp")
-                        else "",
-                    }
-                )
+                total_data.append({
+                    "minute": row["minute"],
+                    "score": row["score"],
+                    "over": float(row["over"]) if row.get("over") else None,
+                    "total": float(row["total"]),
+                    "under": float(row["under"]) if row.get("under") else None,
+                    "time": row["timestamp"].strftime("%H:%M:%S") if row.get("timestamp") else "",
+                })
 
         cursor.close()
         conn.close()
 
-        return jsonify(
-            {
-                "success": True,
-                "match": match_info,
-                "events": events,
-                "tables": {
-                    "movements1x2": movements_1x2,
-                    "handicap": handicap_data,
-                    "movementsou": total_data,
-                },
-                "total_anomalies": 0,
-            }
-        )
+        return jsonify({
+            "success": True,
+            "match": match_info,
+            "events": events,
+            "tables": {
+                "movements1x2": movements_1x2,
+                "handicap": handicap_data,
+                "movementsou": total_data,
+            },
+            "total_anomalies": 0,
+        })
     except Exception as e:
         logger.error(f"Error in api_match_full: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
 # ===========================================================
 # OTHER ROUTES
 # ===========================================================
-@app.route("/")
-def index():
-    return "Go to /betwatch or /anomalies_22bet"
-
 
 @app.route("/metrics")
 def metrics_stub():
     return "ok", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("anomalies_22bet.html")
 
 # ===========================================================
 # MAIN
 # ===========================================================
+
 if __name__ == "__main__":
     if not os.path.exists(THRESHOLDS_FILE):
         with open(THRESHOLDS_FILE, "w", encoding="utf-8") as f:
@@ -662,9 +764,16 @@ if __name__ == "__main__":
     print(f"📁 Config: {THRESHOLDS_FILE}")
     print(f"🗄️ MySQL: {DB_HOST}:{DB_PORT}/{DB_NAME}")
     print("")
-    print("🌐 Main: http://localhost:5000")
+    print("🌐 Main: http://localhost:5000/ (LIVE matches)")
+    print("🌐 Live: http://localhost:5000/live (LIVE matches)")
+    print("🌐 Prematch: http://localhost:5000/prematch (PREMATCH within 12h)")
     print("📊 Betwatch: http://localhost:5000/betwatch")
-    print("🎯 22BET: http://localhost:5000/anomalies_22bet")
+    print("🎯 22BET: http://localhost:5000/anomalies_22bet (all)")
+    print("=" * 70)
+    print("📡 APIs:")
+    print("   /api/anomalies_filtered?status=live (LIVE only)")
+    print("   /api/anomalies_filtered?status=prematch (PREMATCH only)")
+    print("   /api/anomalies_filtered?status=all (ALL matches)")
     print("=" * 70)
 
     test_conn = get_connection()
