@@ -1,0 +1,857 @@
+{
+  "Aston Villa vs Manchester United": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.264,
+      "X": 3.62,
+      "2": 2.98
+    }
+  },
+  "1. FSV Mainz 05 vs St. Pauli": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.92,
+      "X": 3.3,
+      "2": 4.34
+    }
+  },
+  "1. Heidenheim vs Bayern Munich": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 17.0,
+      "X": 8.8,
+      "2": 1.135
+    }
+  },
+  "Villarreal vs Barcelona": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.0,
+      "X": 4.4,
+      "2": 1.735
+    }
+  },
+  "Elche vs Rayo Vallecano": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.49,
+      "X": 3.064,
+      "2": 3.08
+    }
+  },
+  "Real Betis vs Getafe": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.784,
+      "X": 3.28,
+      "2": 5.3
+    }
+  },
+  "Fiorentina vs Udinese Calcio": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.14,
+      "X": 3.175,
+      "2": 3.68
+    }
+  },
+  "Genoa vs Atalanta": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.7,
+      "X": 3.175,
+      "2": 2.14
+    }
+  },
+  "Fortuna Sittard vs AZ Alkmaar": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.88,
+      "X": 4.12,
+      "2": 1.65
+    }
+  },
+  "Volendam vs Sparta Rotterdam": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.85,
+      "X": 3.58,
+      "2": 2.365
+    }
+  },
+  "Aves vs Nacional da Madeira": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.115,
+      "X": 3.22,
+      "2": 2.365
+    }
+  },
+  "Tondela vs Casa Pia": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.12,
+      "X": 3.2,
+      "2": 3.7
+    }
+  },
+  "Santa Clara vs Arouca": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.82,
+      "X": 3.34,
+      "2": 4.88
+    }
+  },
+  "Morocco vs Comoro Islands": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.112,
+      "X": 8.5,
+      "2": 26.0
+    }
+  },
+  "Mali vs Zambia": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.68,
+      "X": 3.38,
+      "2": 6.1
+    }
+  },
+  "1st teams vs 2nd teams": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.17,
+      "X": 8.3,
+      "2": 12.0
+    }
+  },
+  "Bassin d'Arcachon vs Hauts Lyonnais": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.58,
+      "X": 3.34,
+      "2": 2.55
+    }
+  },
+  "Le Havre vs Amiens SC": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.31,
+      "X": 4.9,
+      "2": 9.4
+    }
+  },
+  "Le Puy vs Girondins de Bordeaux": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.94,
+      "X": 3.22,
+      "2": 4.055
+    }
+  },
+  "Montreuil vs Chauvigny": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.925,
+      "X": 3.3,
+      "2": 1.94
+    }
+  },
+  "Fulham vs Nottingham Forest": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.475,
+      "X": 3.2,
+      "2": 2.96
+    }
+  },
+  "Athletic Bilbao vs Espanyol": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.82,
+      "X": 3.42,
+      "2": 4.7
+    }
+  },
+  "South Africa vs Angola": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.392,
+      "X": 2.78,
+      "2": 3.62
+    }
+  },
+  "Egypt vs Zimbabwe": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.33,
+      "X": 4.72,
+      "2": 10.5
+    }
+  },
+  "Napoli vs Bologna 1909": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.17,
+      "X": 3.18,
+      "2": 3.6
+    }
+  },
+  "Newell's Old Boys (Women) vs Belgrano (Women)": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.14,
+      "X": 3.0,
+      "2": 1.975
+    }
+  },
+  "Molynes United vs Arnett Gardens": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.92,
+      "X": 3.97,
+      "2": 1.775
+    }
+  },
+  "Colon Chivilcoy vs Argentino de Chacabuco": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.67,
+      "X": 3.44,
+      "2": 4.735
+    }
+  },
+  "Defensores Puerto Vilelas vs Resistencia Central": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.88,
+      "X": 3.05,
+      "2": 4.145
+    }
+  },
+  "Alianza San Salvador (Women) vs C.D. Municipal Limeno (Women)": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.68,
+      "X": 3.72,
+      "2": 4.22
+    }
+  },
+  "Leo Victor vs Inter Wanica": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.45,
+      "X": 4.1,
+      "2": 5.97
+    }
+  },
+  "Caledonia AIA vs Point Fortin Civic": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.75,
+      "X": 3.8,
+      "2": 3.745
+    }
+  },
+  "Scherpenheuvel vs CSD Barber": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.374,
+      "X": 4.33,
+      "2": 6.81
+    }
+  },
+  "SV Britannia vs SV Dakota": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.105,
+      "X": 4.8,
+      "2": 1.57
+    }
+  },
+  "Antigua GFC vs C.S.D. Municipal": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.41,
+      "X": 2.69,
+      "2": 3.175
+    }
+  },
+  "Lakshadweep vs Goa FT": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 10.0,
+      "X": 5.3,
+      "2": 1.23
+    }
+  },
+  "Services vs Karnataka Sports Association": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.58,
+      "X": 4.05,
+      "2": 4.515
+    }
+  },
+  "PVF-CAND U19 vs Luxury Ha Long U19": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.01,
+      "X": 25.0,
+      "2": 40.0
+    }
+  },
+  "Viettel II U19 vs TT TT II Ninh Binh U19": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.929,
+      "X": 3.6,
+      "2": 3.265
+    }
+  },
+  "Betong 26 Gia Lai U19 vs Song Lam Nghe An U19": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 12.0,
+      "X": 8.0,
+      "2": 1.143
+    }
+  },
+  "SHB Da Nang U19 vs Ho Chi Minh City U19": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.85,
+      "X": 4.4,
+      "2": 2.999
+    }
+  },
+  "Alverca vs Porto": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 9.8,
+      "X": 5.25,
+      "2": 1.315
+    }
+  },
+  "Benfica vs Famalicao": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.325,
+      "X": 5.2,
+      "2": 9.4
+    }
+  },
+  "Istanbul BFK vs Gaziantep": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.73,
+      "X": 3.94,
+      "2": 4.52
+    }
+  },
+  "Genclerbirligi vs Trabzonspor": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.42,
+      "X": 3.4,
+      "2": 2.14
+    }
+  },
+  "AFC Ajax II vs Waalwijk": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.175,
+      "X": 4.2,
+      "2": 1.68
+    }
+  },
+  "Utrecht II vs Roda JC Kerkrade": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.52,
+      "X": 3.72,
+      "2": 2.42
+    }
+  },
+  "Panserraikos vs Levadiakos": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 6.29,
+      "X": 3.92,
+      "2": 1.53
+    }
+  },
+  "Al Sharjah vs Al-Hilal Riyadh": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 5.9,
+      "X": 4.52,
+      "2": 1.51
+    }
+  },
+  "Tractor Tabriz vs Al-Duhail": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.008,
+      "X": 3.5,
+      "2": 3.7
+    }
+  },
+  "Al-Gharafa vs Al-Wahda Abu Dhabi": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.78,
+      "X": 3.82,
+      "2": 1.896
+    }
+  },
+  "Al-Shorta Baghdad vs Al-Ahli Jeddah": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.52,
+      "X": 3.94,
+      "2": 1.73
+    }
+  },
+  "Napoli vs Bologna 1909 | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.185,
+      "X": 3.1,
+      "2": 3.66
+    }
+  },
+  "Fulham vs Nottingham Forest | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.49,
+      "X": 3.28,
+      "2": 2.875
+    }
+  },
+  "Athletic Bilbao vs Espanyol | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.864,
+      "X": 3.3,
+      "2": 4.66
+    }
+  },
+  "Alverca vs Porto | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 8.6,
+      "X": 4.98,
+      "2": 1.355
+    }
+  },
+  "Benfica vs Famalicao | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.34,
+      "X": 5.15,
+      "2": 8.9
+    }
+  },
+  "Istanbul BFK vs Gaziantep | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.61,
+      "X": 4.16,
+      "2": 5.2
+    }
+  },
+  "Genclerbirligi vs Trabzonspor | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.28,
+      "X": 3.38,
+      "2": 2.2
+    }
+  },
+  "Mali vs Zambia | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.725,
+      "X": 3.3,
+      "2": 5.85
+    }
+  },
+  "South Africa vs Angola | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.73,
+      "X": 2.608,
+      "2": 3.3
+    }
+  },
+  "Egypt vs Zimbabwe | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.3,
+      "X": 4.9,
+      "2": 12.5
+    }
+  },
+  "1st teams vs 2nd teams | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.03,
+      "X": 10.0,
+      "2": 25.0
+    }
+  },
+  "AFC Ajax II vs Waalwijk | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.375,
+      "X": 3.95,
+      "2": 1.69
+    }
+  },
+  "Utrecht II vs Roda JC Kerkrade | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.49,
+      "X": 3.8,
+      "2": 2.41
+    }
+  },
+  "Panserraikos vs Levadiakos | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 5.48,
+      "X": 3.96,
+      "2": 1.575
+    }
+  },
+  "Al Sharjah vs Al-Hilal Riyadh | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 6.0,
+      "X": 4.46,
+      "2": 1.51
+    }
+  },
+  "Tractor Tabriz vs Al-Duhail | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.18,
+      "X": 3.22,
+      "2": 3.52
+    }
+  },
+  "Al-Gharafa vs Al-Wahda Abu Dhabi | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.72,
+      "X": 3.76,
+      "2": 1.925
+    }
+  },
+  "Al-Shorta Baghdad vs Al-Ahli Jeddah | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.0,
+      "X": 3.82,
+      "2": 1.845
+    }
+  },
+  "America Natal vs Treze Futebol Clube | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.82,
+      "X": 3.1,
+      "2": 4.35
+    }
+  },
+  "DR Congo vs Benin | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.71,
+      "X": 3.38,
+      "2": 5.75
+    }
+  },
+  "Cleveland Cavaliers vs Charlotte Hornets | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.286,
+      "X": 17.5,
+      "2": 4.47
+    }
+  },
+  "Boston Celtics vs Indiana Pacers | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.198,
+      "X": 19.0,
+      "2": 5.81
+    }
+  },
+  "Home (Points) vs Away (Points) | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.83,
+      "X": 1.83,
+      "2": 1.9
+    }
+  },
+  "Tampa Bay Lightning vs St. Louis Blues | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.74,
+      "X": 4.66,
+      "2": 3.78
+    }
+  },
+  "Philadelphia Flyers vs Vancouver Canucks | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.15,
+      "X": 4.3,
+      "2": 2.816
+    }
+  },
+  "Metallurg Magnitogorsk vs Neftekhimik | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.4,
+      "X": 5.4,
+      "2": 6.5
+    }
+  },
+  "Shanghai Dragons vs Spartak Moscow | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.856,
+      "X": 4.4,
+      "2": 2.104
+    }
+  },
+  "New Orleans Pelicans vs Dallas Mavericks | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.93,
+      "X": 16.5,
+      "2": 2.085
+    }
+  },
+  "Denver Nuggets vs Utah Jazz | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.125,
+      "X": 22.0,
+      "2": 7.95
+    }
+  },
+  "Indianapolis Colts vs San Francisco 49ers | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.95,
+      "X": 1.85,
+      "2": 1.9
+    }
+  },
+  "Cascavel vs Maringa Futebol Clube | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.01,
+      "X": 3.22,
+      "2": 2.18
+    }
+  },
+  "Senegal vs Botswana | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.195,
+      "X": 6.4,
+      "2": 16.0
+    }
+  },
+  "Oklahoma City Thunder vs Memphis Grizzlies | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.097,
+      "X": 23.0,
+      "2": 9.65
+    }
+  },
+  "Golden State Warriors vs Orlando Magic | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.572,
+      "X": 12.0,
+      "2": 3.085
+    }
+  },
+  "Portland Trail Blazers vs Detroit Pistons | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.295,
+      "X": 17.0,
+      "2": 1.472
+    }
+  },
+  "Anaheim Ducks vs Seattle Kraken | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.87,
+      "X": 4.66,
+      "2": 3.28
+    }
+  },
+  "Los Angeles Kings vs Columbus Blue Jackets | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.98,
+      "X": 4.42,
+      "2": 3.104
+    }
+  },
+  "Freetonians SLIFA vs Diamond Stars | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.21,
+      "X": 3.29,
+      "2": 3.085
+    }
+  },
+  "Evidence Makgopa vs Angola | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 7.65,
+      "X": 2.36,
+      "2": 1.8
+    }
+  },
+  "S.L. Benfica II vs Sporting Clube de Portugal II | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.46,
+      "X": 3.25,
+      "2": 2.74
+    }
+  },
+  "Lusitania Lourosa vs Oliveirense | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.92,
+      "X": 3.42,
+      "2": 3.845
+    }
+  },
+  "CS Universitatea Craiova vs Csikszereda Miercurea Ciuc | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.204,
+      "X": 6.1,
+      "2": 12.5
+    }
+  },
+  "Napredak Krusevac vs Radnicki 1923 | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.51,
+      "X": 3.28,
+      "2": 1.96
+    }
+  }
+}

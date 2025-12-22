@@ -1,506 +1,500 @@
 /* ===== OddlyOdds Ultimate Premium UI ===== */
+
 :root {
-  --brand: #ffd14d;
-  --brand-dark: #b67b00;
-  --bg: #fffaf1;
-  --text: #3b2500;
-  --muted: #7a3c00;
-  --surface: #fff8e2;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    --brand: #ffd14d;
+    --brand-dark: #b67b00;
+    --bg: #fffaf1;
+    --text: #3b2500;
+    --muted: #7a3c00;
+    --surface: #fff8e2;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
+
 body {
-  margin: 0;
-  font-family: "Segoe UI", Arial, sans-serif;
-  background: radial-gradient(600px at 30% 10%, rgba(255, 230, 150, 0.25), transparent 70%), var(--bg);
-  color: var(--text);
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: radial-gradient(600px at 30% 10%, rgba(255, 230, 150, 0.25), transparent 70%), var(--bg);
+    color: var(--text);
 }
 
 /* ===== HEADER ===== */
 header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  background: linear-gradient(180deg, #ffe083 0%, #ffd14d 100%);
-  box-shadow: var(--shadow);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: linear-gradient(180deg, #ffe083 0%, #ffd14d 100%);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 20;
 }
+
 header h1 {
-  font-size: 20px;
-  margin: 0;
-  font-weight: 800;
-  color: var(--muted);
+    font-size: 20px;
+    margin: 0;
+    font-weight: 800;
+    color: var(--muted);
 }
+
 header span span {
-  color: var(--brand-dark);
+    color: var(--brand-dark);
 }
+
 nav {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
 }
+
 nav button {
-  background: transparent;
-  border: 0;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.25s ease;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.25s ease;
 }
+
 nav button.active {
-  background: var(--brand);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+    background: var(--brand);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
 }
+
 nav button:hover {
-  background: #ffec9a;
+    background: #ffec9a;
 }
 
 /* ===== TELEGRAM BUTTON ===== */
 .telegram-btn {
-  background: #2aabee;
-  color: #fff;
-  text-decoration: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(42, 171, 238, 0.4);
-  transition: all 0.25s ease;
+    background: #2aabee;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(42, 171, 238, 0.4);
+    transition: all 0.25s ease;
 }
+
 .telegram-btn:hover {
-  background: #199bd7;
-  transform: translateY(-1px);
+    background: #199bd7;
+    transform: translateY(-1px);
 }
 
 /* ===== SELECT ===== */
 .lang-select,
 select {
-  background: var(--surface);
-  border: 1px solid #d5a200;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.25s ease;
+    background: var(--surface);
+    border: 1px solid #d5a200;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.25s ease;
 }
+
 select:hover {
-  background: #fff0b9;
+    background: #fff0b9;
 }
 
 /* ===== TABS ===== */
 .tabs-header {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin: 18px 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 18px 0;
 }
+
 .tab-btn {
-  background: #fff7d6;
-  border: 1px solid #e2c474;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.25s ease;
+    background: #fff7d6;
+    border: 1px solid #e2c474;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.25s ease;
 }
+
 .tab-btn:hover {
-  background: #ffeaa6;
+    background: #ffeaa6;
 }
+
 .tab-btn.active {
-  background: var(--brand-dark);
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(182, 123, 0, 0.35);
-  transform: translateY(-2px);
+    background: var(--brand-dark);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(182, 123, 0, 0.35);
+    transform: translateY(-2px);
 }
 
 /* ===== TABLE ===== */
 table {
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-  border-collapse: collapse;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: var(--shadow);
-  animation: fadeIn 0.6s ease;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    border-collapse: collapse;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: var(--shadow);
+    animation: fadeIn 0.6s ease;
 }
+
 thead {
-  background: linear-gradient(180deg, #fff5c4, #ffeb8a);
+    background: linear-gradient(180deg, #fff5c4, #ffeb8a);
 }
+
 th {
-  padding: 12px 14px;
-  text-align: left;
-  color: var(--muted);
-  border-bottom: 1px solid #f1e3b4;
-  font-size: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    color: var(--muted);
+    border-bottom: 1px solid #f1e3b4;
+    font-size: 14px;
 }
+
 td {
-  padding: 12px 14px;
-  border-bottom: 1px solid #f9f2d9;
-  transition: background 0.2s ease, transform 0.2s ease;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f9f2d9;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
+
 tr:nth-child(even) td {
-  background: #fffdf6;
+    background: #fffdf6;
 }
+
 tr:hover td {
-  background: #fff7da;
-  transform: translateY(-1px);
+    background: #fff7da;
+    transform: translateY(-1px);
 }
 
 /* Live indicator */
 .live-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff3b3b;
-  margin-right: 6px;
-  animation: pulse 1.2s infinite;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff3b3b;
+    margin-right: 6px;
+    animation: pulse 1.2s infinite;
 }
 
 /* Animations */
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.4); }
+    0%, 100% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.4); }
 }
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Footer */
 footer {
-  text-align: center;
-  padding: 20px;
-  color: var(--muted);
-  background: #fff;
-  border-top: 1px solid #eee3c0;
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    background: #fff;
+    border-top: 1px solid #eee3c0;
 }
+
 footer a {
-  color: var(--muted);
-  font-weight: 700;
+    color: var(--muted);
+    font-weight: 700;
 }
+
 footer a:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 
 /* Responsive */
 @media (max-width: 800px) {
-  th:nth-child(1),
-  td:nth-child(1),
-  th:nth-child(2),
-  td:nth-child(2) {
-    display: none;
-  }
+    th:nth-child(1),
+    td:nth-child(1),
+    th:nth-child(2),
+    td:nth-child(2) {
+        display: none;
+    }
 }
 
 .stats-panel {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  background: #fff8e1;
-  border-radius: 12px;
-  padding: 10px 20px;
-  margin: 10px auto 20px;
-  width: fit-content;
-  font-size: 15px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  transition: background 0.3s;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    background: #fff8e1;
+    border-radius: 12px;
+    padding: 10px 20px;
+    margin: 10px auto 20px;
+    width: fit-content;
+    font-size: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: background 0.3s;
 }
 
 .stats-panel.highlight {
-  background: #fff3c4;
+    background: #fff3c4;
 }
 
 .tab-btn {
-  border: none;
-  background: #f8e57a;
-  padding: 8px 20px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  margin: 0 5px;
-  transition: 0.3s;
+    border: none;
+    background: #f8e57a;
+    padding: 8px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    margin: 0 5px;
+    transition: 0.3s;
 }
 
 .tab-btn.active {
-  background: #ffb84d;
-  color: #fff;
+    background: #ffb84d;
+    color: #fff;
 }
 
 .tab-btn:hover {
-  background: #ffcc66;
+    background: #ffcc66;
 }
 
 .welcome-panel {
-  margin: 20px auto;
-  width: 70%;
-  background: #fffdf3;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  padding: 20px 30px;
-  font-size: 16px;
-  line-height: 1.6;
-  text-align: center;
-  color: #5a4b1e;
+    margin: 20px auto;
+    width: 70%;
+    background: #fffdf3;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 20px 30px;
+    font-size: 16px;
+    line-height: 1.6;
+    text-align: center;
+    color: #5a4b1e;
 }
 
 .page-title {
-  text-align: center;
-  font-weight: 700;
-  font-size: 22px;
-  margin-bottom: 15px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 22px;
+    margin-bottom: 15px;
 }
 
 .tabs {
-  text-align: center;
-  margin-bottom: 15px;
+    text-align: center;
+    margin-bottom: 15px;
 }
 
 .tab-btn {
-  border: none;
-  background: #f8e57a;
-  padding: 8px 22px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  margin: 0 6px;
-  transition: 0.3s;
+    border: none;
+    background: #f8e57a;
+    padding: 8px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    margin: 0 6px;
+    transition: 0.3s;
 }
 
 .tab-btn.active {
-  background: #ffb84d;
-  color: #fff;
+    background: #ffb84d;
+    color: #fff;
 }
 
 .tab-btn:hover {
-  background: #ffcc66;
+    background: #ffcc66;
 }
 
 .welcome-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  text-align: center;
-  animation: gradientFade 6s ease-in-out infinite alternate;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+    animation: gradientFade 6s ease-in-out infinite alternate;
 }
 
 .page-title {
-  font-size: 30px;
-  font-weight: 700;
-  margin-bottom: 15px;
-  background: linear-gradient(90deg, #ff9800, #ffb74d);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+    font-size: 30px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    background: linear-gradient(90deg, #ff9800, #ffb74d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .sports-icons {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  gap: 40px;
-  margin: 40px auto;
-  flex-wrap: wrap;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 40px;
+    margin: 40px auto;
+    flex-wrap: wrap;
 }
 
 .icon-card {
-  background: #fffdf5;
-  border-radius: 16px;
-  box-shadow: 0 6px 15px rgba(0,0,0,0.05);
-  width: 180px;
-  padding: 20px 10px;
-  transition: all 0.3s ease;
+    background: #fffdf5;
+    border-radius: 16px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+    width: 180px;
+    padding: 20px 10px;
+    transition: all 0.3s ease;
 }
 
 .icon-card img {
-  width: 70px;
-  height: 70px;
-  animation: bounce 3s infinite ease-in-out;
+    width: 70px;
+    height: 70px;
+    animation: bounce 3s infinite ease-in-out;
 }
 
 .icon-card p {
-  margin-top: 10px;
-  font-weight: 600;
-  color: #6b542b;
+    margin-top: 10px;
+    font-weight: 600;
+    color: #6b542b;
 }
 
 .icon-card:hover {
-  transform: scale(1.07);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
-  background: #fff9e6;
+    transform: scale(1.07);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+    background: #fff9e6;
 }
 
 .tabs {
-  margin-top: 20px;
-  text-align: center;
+    margin-top: 20px;
+    text-align: center;
 }
 
 .tab-btn {
-  border: none;
-  background: linear-gradient(90deg, #f8e57a, #ffe082);
-  padding: 10px 24px;
-  border-radius: 12px;
-  font-weight: 600;
-  margin: 0 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+    border: none;
+    background: linear-gradient(90deg, #f8e57a, #ffe082);
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    margin: 0 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
 .tab-btn:hover {
-  background: linear-gradient(90deg, #ffb74d, #ffd54f);
-  color: white;
-  transform: translateY(-3px);
+    background: linear-gradient(90deg, #ffb74d, #ffd54f);
+    color: white;
+    transform: translateY(-3px);
 }
 
 .welcome-panel {
-  margin: 25px auto;
-  width: 80%;
-  background: #fffef7;
-  border-radius: 14px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  padding: 25px 35px;
-  font-size: 16px;
-  line-height: 1.7;
-  text-align: center;
-  color: #5a4b1e;
+    margin: 25px auto;
+    width: 80%;
+    background: #fffef7;
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    padding: 25px 35px;
+    font-size: 16px;
+    line-height: 1.7;
+    text-align: center;
+    color: #5a4b1e;
 }
 
 .fade-in, .fade-in-delay, .fade-in-slow, .fade-in-late {
-  opacity: 0;
-  transform: translateY(15px);
-  transition: all 0.8s ease-out;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 0.8s ease-out;
 }
+
 .fade-in.visible { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
 .fade-in-delay.visible { opacity: 1; transform: translateY(0); transition-delay: 0.3s; }
 .fade-in-slow.visible { opacity: 1; transform: translateY(0); transition-delay: 0.5s; }
 .fade-in-late.visible { opacity: 1; transform: translateY(0); transition-delay: 0.7s; }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
 }
 
 @keyframes gradientFade {
-  0% { background-color: #fffaf0; }
-  100% { background-color: #fff3e0; }
+    0% { background-color: #fffaf0; }
+    100% { background-color: #fff3e0; }
 }
 
 /* ======= Глобальный Loader ======= */
 #page-loader {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #fffdf7;
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fffdf7;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
 }
 
 .shimmer {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: linear-gradient(90deg, #f7eaa7 0%, #fff5c0 50%, #f7eaa7 100%);
-  background-size: 200% 100%;
-  animation: shimmerMove 1.5s infinite linear;
-  box-shadow: 0 0 20px rgba(255, 215, 85, 0.4);
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #f7eaa7 0%, #fff5c0 50%, #f7eaa7 100%);
+    background-size: 200% 100%;
+    animation: shimmerMove 1.5s infinite linear;
+    box-shadow: 0 0 20px rgba(255, 215, 85, 0.4);
 }
 
 @keyframes shimmerMove {
-  0% { background-position: 200% 0; transform: scale(0.95); opacity: 0.9; }
-  50% { transform: scale(1.05); opacity: 1; }
-  100% { background-position: -200% 0; transform: scale(0.95); opacity: 0.9; }
+    0% { background-position: 200% 0; transform: scale(0.95); opacity: 0.9; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { background-position: -200% 0; transform: scale(0.95); opacity: 0.9; }
 }
 
 /* ===== Анимация появления контента ===== */
 main {
-  animation: fadeInPage 0.5s ease-in-out forwards;
-  opacity: 0;
+    animation: fadeInPage 0.5s ease-in-out forwards;
+    opacity: 0;
 }
+
 @keyframes fadeInPage {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ======= Глобальный Loader ======= */
-#page-loader {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #fffdf7;
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
-
-.shimmer {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: linear-gradient(90deg, #f7eaa7 0%, #fff5c0 50%, #f7eaa7 100%);
-  background-size: 200% 100%;
-  animation: shimmerMove 1.5s infinite linear;
-  box-shadow: 0 0 20px rgba(255, 215, 85, 0.4);
-}
-
-@keyframes shimmerMove {
-  0% { background-position: 200% 0; transform: scale(0.95); opacity: 0.9; }
-  50% { transform: scale(1.05); opacity: 1; }
-  100% { background-position: -200% 0; transform: scale(0.95); opacity: 0.9; }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Плавное появление контента */
 main {
-  animation: fadeInPage 0.5s ease-in-out forwards;
-  opacity: 0;
+    animation: fadeInPage 0.5s ease-in-out forwards;
+    opacity: 0;
 }
+
 @keyframes fadeInPage {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== Shimmer-эффект для таблицы ===== */
 .table-shimmer {
-  display: none;
-  margin: 30px auto;
-  width: 85%;
-  max-width: 900px;
+    display: none;
+    margin: 30px auto;
+    width: 85%;
+    max-width: 900px;
 }
 
 .shimmer-row {
-  height: 32px;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  background: linear-gradient(
-    90deg,
-    #f7eaa7 0%,
-    #fff5c0 50%,
-    #f7eaa7 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmerTable 1.4s infinite linear;
-  opacity: 0.8;
+    height: 32px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: linear-gradient(
+        90deg,
+        #f7eaa7 0%,
+        #fff5c0 50%,
+        #f7eaa7 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmerTable 1.4s infinite linear;
+    opacity: 0.8;
 }
 
 @keyframes shimmerTable {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .anom-card {
@@ -537,822 +531,1022 @@ main {
     text-decoration: none;
     color: black;
 }
+
 .filter-btn.active {
     background: #ffc107;
 }
 
 /* ====== Вкладки фильтров аномалий ====== */
 .anomaly-tabs {
-  display: inline-flex;
-  gap: 8px;
-  margin: 8px 0 16px;
+    display: inline-flex;
+    gap: 8px;
+    margin: 8px 0 16px;
 }
 
 .anomaly-tabs .tab {
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  background: #ffe9bf;
-  color: #7a4a00;
-  text-decoration: none;
-  transition: all 0.15s ease;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    background: #ffe9bf;
+    color: #7a4a00;
+    text-decoration: none;
+    transition: all 0.15s ease;
 }
 
 .anomaly-tabs .tab.active {
-  background: #ffb84d;
-  color: #402100;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.04),
-              0 4px 10px rgba(0,0,0,0.08);
+    background: #ffb84d;
+    color: #402100;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.04),
+                0 4px 10px rgba(0,0,0,0.08);
 }
 
 .anomaly-tabs .tab:hover {
-  transform: translateY(-1px);
+    transform: translateY(-1px);
 }
 
 /* ====== Список аномалий ====== */
 .anomalies-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
 }
 
 .anomaly-card {
-  position: relative;
-  border-radius: 14px;
-  background: linear-gradient(to right, #fff8ec, #fffdfa);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  padding: 10px 16px 12px 16px;
+    position: relative;
+    border-radius: 14px;
+    background: linear-gradient(to right, #fff8ec, #fffdfa);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 10px 16px 12px 16px;
 }
 
 .anomaly-left-border {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 14px 0 0 14px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
 }
 
 /* Цвета по типам */
 .anomaly-left-border.badge-drop,
 .anomaly-badge.badge-drop {
-  background: #ff6b6b;
+    background: #ff6b6b;
 }
 
 .anomaly-left-border.badge-limit,
 .anomaly-badge.badge-limit {
-  background: #9b59b6;
+    background: #9b59b6;
 }
 
 .anomaly-left-border.badge-spread,
 .anomaly-badge.badge-spread {
-  background: #3498db;
+    background: #3498db;
 }
 
 .anomaly-left-border.badge-default,
 .anomaly-badge.badge-default {
-  background: #ffa94d;
+    background: #ffa94d;
 }
 
 /* Шапка карточки */
 .anomaly-main {
-  margin-left: 6px;
+    margin-left: 6px;
 }
 
 .anomaly-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
 }
 
 .anomaly-match-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: #3c2207;
+    font-weight: 600;
+    font-size: 14px;
+    color: #3c2207;
 }
 
 .anomaly-meta {
-  margin-top: 2px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: 11px;
-  color: #8b6f47;
+    margin-top: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11px;
+    color: #8b6f47;
 }
 
 .meta-pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 215, 160, 0.9);
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 215, 160, 0.9);
 }
 
 .meta-time {
-  opacity: 0.8;
+    opacity: 0.8;
 }
 
 /* Бэйдж типа */
 .anomaly-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
 }
 
 /* Тело карточки */
 .anomaly-body {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #4f3b22;
+    margin-top: 6px;
+    font-size: 13px;
+    color: #4f3b22;
 }
 
 .anomaly-body .line {
-  margin-top: 2px;
+    margin-top: 2px;
 }
 
 .line-label {
-  font-weight: 600;
-  margin-right: 4px;
+    font-weight: 600;
+    margin-right: 4px;
 }
 
 .line-value strong {
-  font-weight: 700;
+    font-weight: 700;
 }
 
 .line-diff {
-  margin-left: 4px;
-  color: #a8432a;
+    margin-left: 4px;
+    color: #a8432a;
 }
 
 .line-comment {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #6b5a3d;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b5a3d;
 }
 
 /* Пустое состояние */
 .empty-state {
-  margin-top: 20px;
-  padding: 16px;
-  border-radius: 12px;
-  background: #fff9e8;
-  color: #7a5a2a;
-  font-size: 14px;
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #fff9e8;
+    color: #7a5a2a;
+    font-size: 14px;
 }
 
 /* ===============================
    АНОМАЛИИ — НОВЫЙ ВИД КАРТОЧЕК
-   =============================== */
-
+=============================== */
 .page-section.anomalies {
-  padding: 24px 24px 40px;
+    padding: 24px 24px 40px;
 }
 
 /* Список карточек */
 .anomalies-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
 }
 
 /* Основной контейнер карточки */
 .anomaly-card {
-  position: relative;
-  display: flex;
-  border-radius: 12px;
-  background: #ffffff;                   /* белый фон вместо жёлтого */
-  border: 1px solid #f3ddaa;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
+    position: relative;
+    display: flex;
+    border-radius: 12px;
+    background: #ffffff; /* белый фон вместо жёлтого */
+    border: 1px solid #f3ddaa;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
 }
 
 /* Цветная полоска слева по типу аномалии */
 .anomaly-left-border {
-  width: 4px;
-  flex-shrink: 0;
+    width: 4px;
+    flex-shrink: 0;
 }
 
-.anomaly-left-border.badge-drop   { background: #ff5b5b; }   /* падение кэфа */
-.anomaly-left-border.badge-limit  { background: #9b59b6; }   /* порезка лимита */
-.anomaly-left-border.badge-spread { background: #3498db; }   /* разброс */
+.anomaly-left-border.badge-drop { background: #ff5b5b; } /* падение кэфа */
+.anomaly-left-border.badge-limit { background: #9b59b6; } /* порезка лимита */
+.anomaly-left-border.badge-spread { background: #3498db; } /* разброс */
 .anomaly-left-border.badge-default{ background: #95a5a6; }
 
 /* Внутренняя часть карточки */
 .anomaly-main {
-  padding: 12px 16px 10px;
-  width: 100%;
+    padding: 12px 16px 10px;
+    width: 100%;
 }
 
 /* Шапка карточки */
 .anomaly-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
 }
 
 .anomaly-match-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: #3b2a00;
-  margin-bottom: 2px;
+    font-weight: 600;
+    font-size: 15px;
+    color: #3b2a00;
+    margin-bottom: 2px;
 }
 
 /* Метаданные: спорт, лига, время */
 .anomaly-meta {
-  font-size: 12px;
-  color: #8d7f5c;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+    font-size: 12px;
+    color: #8d7f5c;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .meta-pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid #f3ddaa;
-  background: #fff8e4;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid #f3ddaa;
+    background: #fff8e4;
 }
 
 .meta-time {
-  opacity: 0.75;
+    opacity: 0.75;
 }
 
 /* Бейдж типа аномалии */
 .anomaly-type .anomaly-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 .anomaly-badge.badge-drop {
-  background: #ffe3e3;
-  color: #c0392b;
+    background: #ffe3e3;
+    color: #c0392b;
 }
 
 .anomaly-badge.badge-limit {
-  background: #f3e5ff;
-  color: #7d3c98;
+    background: #f3e5ff;
+    color: #7d3c98;
 }
 
 .anomaly-badge.badge-spread {
-  background: #e6f3ff;
-  color: #1b73c9;
+    background: #e6f3ff;
+    color: #1b73c9;
 }
 
 .anomaly-badge.badge-default {
-  background: #ecf0f1;
-  color: #2c3e50;
+    background: #ecf0f1;
+    color: #2c3e50;
 }
 
 /* Тело карточки: строка с коэффициентами и комментами */
 .anomaly-body .line {
-  font-size: 14px;
-  margin-top: 4px;
-  color: #4e3c10;
+    font-size: 14px;
+    margin-top: 4px;
+    color: #4e3c10;
 }
 
 .line-label {
-  font-weight: 600;
-  margin-right: 6px;
+    font-weight: 600;
+    margin-right: 6px;
 }
 
 .line-value strong {
-  font-weight: 700;
+    font-weight: 700;
 }
 
 .line-diff {
-  margin-left: 6px;
-  font-weight: 600;
-  color: #c0392b;          /* красный для отрицательных изменений */
+    margin-left: 6px;
+    font-weight: 600;
+    color: #c0392b; /* красный для отрицательных изменений */
 }
 
 .line-comment {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #6a5830;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #6a5830;
 }
 
 /* Форсируем белый фон для карточек аномалий */
 .anomaly-card {
-  background: #ffffff !important;      /* вместо жёлтого градиента */
+    background: #ffffff !important; /* вместо жёлтого градиента */
 }
 
 /* На случай, если градиент висит на внутренних контейнерах */
 .anomaly-card-main,
 .anomaly-card-inner,
 .anomaly-main {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* ====== OVERRIDE: карточки аномалий под стиль Inforadar ====== */
-
 /* Вся карточка — белая, с синей полосой слева */
 body .anomaly-card {
-  background: #ffffff !important;
-  border-radius: 16px;
-  border-left: 4px solid #2f80ed;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
-  padding: 14px 20px 16px;
-  margin-bottom: 16px;
-  position: relative;
+    background: #ffffff !important;
+    border-radius: 16px;
+    border-left: 4px solid #2f80ed;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+    padding: 14px 20px 16px;
+    margin-bottom: 16px;
+    position: relative;
 }
 
 /* Убираем любые старые градиенты у внутренних контейнеров */
 body .anomaly-card *,
 body .anomaly-card-main,
 body .anomaly-card-inner {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* Шапка карточки (Матч ID + время) — лёгкий градиент */
 body .anomaly-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  background: linear-gradient(90deg, #fff7d7, #ffe7a0) !important;
-  border-radius: 12px;
-  padding: 6px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #fff7d7, #ffe7a0) !important;
+    border-radius: 12px;
+    padding: 6px 10px;
 }
 
 /* Текст в шапке */
 body .anomaly-card-header .match-id {
-  font-weight: 600;
-  color: #5b3b00;
+    font-weight: 600;
+    color: #5b3b00;
 }
 
 body .anomaly-card-header .timeago {
-  font-size: 12px;
-  color: #9a7b3a;
+    font-size: 12px;
+    color: #9a7b3a;
 }
 
 /* Основная строка с коэффициентами */
 body .anomaly-main-line {
-  margin-top: 4px;
-  font-size: 14px;
-  color: #333;
+    margin-top: 4px;
+    font-size: 14px;
+    color: #333;
 }
 
 body .anomaly-main-line .anomaly-label {
-  font-weight: 600;
-  margin-right: 6px;
-  color: #4b4b4b;
+    font-weight: 600;
+    margin-right: 6px;
+    color: #4b4b4b;
 }
 
 body .anomaly-main-line .anomaly-before,
 body .anomaly-main-line .anomaly-after {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 body .anomaly-main-line .anomaly-arrow {
-  margin: 0 4px;
-  opacity: 0.7;
+    margin: 0 4px;
+    opacity: 0.7;
 }
 
 body .anomaly-main-line .anomaly-pct {
-  margin-left: 6px;
-  color: #c0392b;
-  font-weight: 600;
+    margin-left: 6px;
+    color: #c0392b;
+    font-weight: 600;
 }
 
 /* Комментарий — серый подзаголовок */
 body .anomaly-comment {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #777;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #777;
 }
 
 /* Кнопка справа «Разброс коэффициентов» пусть остаётся как есть */
 
 /* === АНОМАЛИИ: лига + команды в шапке карточки === */
-
 .anomaly-card {
-  margin-bottom: 16px;
-  border-radius: 14px;
-  background: linear-gradient(90deg, #ffe9a8 0%, #fff7dc 40%, #ffffff 100%);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(255, 204, 102, 0.6);
+    margin-bottom: 16px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #ffe9a8 0%, #fff7dc 40%, #ffffff 100%);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 204, 102, 0.6);
 }
 
 .anomaly-card-inner {
-  padding: 14px 18px 16px;
+    padding: 14px 18px 16px;
 }
 
 .anomaly-card-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 8px;
 }
 
 .anomaly-card-header-left {
-  min-width: 0;
+    min-width: 0;
 }
 
 .anomaly-league-line {
-  font-size: 13px;
-  color: #9a7a30;
-  margin-bottom: 2px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+    font-size: 13px;
+    color: #9a7a30;
+    margin-bottom: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .anomaly-league-line .dot {
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 .anomaly-teams-line {
-  font-size: 15px;
-  font-weight: 600;
-  color: #3b2a16;
+    font-size: 15px;
+    font-weight: 600;
+    color: #3b2a16;
 }
 
 .anomaly-teams-line .teams-separator {
-  margin: 0 4px;
-  opacity: 0.7;
+    margin: 0 4px;
+    opacity: 0.7;
 }
 
 .anomaly-card-header-right {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
-  white-space: nowrap;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    white-space: nowrap;
 }
 
 .anomaly-type-pill {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #edf4ff;
-  color: #2859c9;
-  font-weight: 600;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #edf4ff;
+    color: #2859c9;
+    font-weight: 600;
 }
 
 .anomaly-time {
-  font-size: 11px;
-  color: #8f8f8f;
+    font-size: 11px;
+    color: #8f8f8f;
 }
 
 /* движение кэфа + комментарий оставляем аккуратными */
-
 .anomaly-card-body {
-  margin-top: 6px;
+    margin-top: 6px;
 }
 
 .anomaly-odds-row {
-  font-size: 14px;
-  color: #3b2a16;
-  margin-bottom: 4px;
+    font-size: 14px;
+    color: #3b2a16;
+    margin-bottom: 4px;
 }
 
 .anomaly-odds-label {
-  font-weight: 600;
-  margin-right: 6px;
+    font-weight: 600;
+    margin-right: 6px;
 }
 
 .anomaly-odds-from,
 .anomaly-odds-to {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .anomaly-odds-arrow {
-  margin: 0 4px;
-  opacity: 0.7;
+    margin: 0 4px;
+    opacity: 0.7;
 }
 
 .anomaly-odds-diff {
-  margin-left: 6px;
-  font-size: 13px;
-  font-weight: 600;
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .anomaly-odds-diff.negative {
-  color: #c0392b;
+    color: #c0392b;
 }
 
 .anomaly-odds-diff.positive {
-  color: #0b8a2a;
+    color: #0b8a2a;
 }
 
 .anomaly-comment {
-  font-size: 13px;
-  color: #5c4c2b;
-  margin-top: 2px;
+    font-size: 13px;
+    color: #5c4c2b;
+    margin-top: 2px;
 }
 
 /* футер карточки для разброса */
-
 .anomaly-card-footer {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .anomaly-spread-btn {
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: none;
-  background: #2f80ed;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(47, 128, 237, 0.35);
-  transition: all 0.2s ease;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #2f80ed;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(47, 128, 237, 0.35);
+    transition: all 0.2s ease;
 }
 
 .anomaly-spread-btn:hover {
-  background: #1c6fe0;
-  transform: translateY(-1px);
+    background: #1c6fe0;
+    transform: translateY(-1px);
 }
 
 /* === Цвета карточек по типам аномалий === */
-
 /* базовый вид, если тип неизвестен */
 .anomaly-card.type-default {
-  border-left: 4px solid #ffb84d !important;
+    border-left: 4px solid #ffb84d !important;
 }
 
 /* Разброс коэффициентов (ODDS_SPREAD) — синий */
 .anomaly-card.type-spread {
-  border-left: 4px solid #2f88ff !important;
+    border-left: 4px solid #2f88ff !important;
 }
 
 .anomaly-card.type-spread .anomaly-type-pill {
-  background: #e5f0ff;
-  color: #1c5fd1;
+    background: #e5f0ff;
+    color: #1c5fd1;
 }
 
 /* Падение коэффициента (ODDS_DROP) — красный */
 .anomaly-card.type-drop {
-  border-left: 4px solid #ff4d4f !important;
+    border-left: 4px solid #ff4d4f !important;
 }
 
 .anomaly-card.type-drop .anomaly-type-pill {
-  background: #ffe5e5;
-  color: #c32626;
+    background: #ffe5e5;
+    color: #c32626;
 }
 
 /* Порезка лимита (LIMIT_CUT) — фиолетовый */
 .anomaly-card.type-limit {
-  border-left: 4px solid #9b59b6 !important;
+    border-left: 4px solid #9b59b6 !important;
 }
 
 .anomaly-card.type-limit .anomaly-type-pill {
-  background: #f3e6ff;
-  color: #8e44ad;
+    background: #f3e6ff;
+    color: #8e44ad;
 }
 
 /* =========================================
    FINAL OVERRIDE — карточки аномалий
    (только для секции .page-section.anomalies)
-   ========================================= */
-
+========================================= */
 .page-section.anomalies {
-  padding: 24px 24px 40px;
+    padding: 24px 24px 40px;
 }
 
 .page-section.anomalies .anomalies-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
 }
 
 /* Внешний вид карточки — белая, со светлой тенью и цветной полосой слева */
 .page-section.anomalies .anomaly-card {
-  position: relative;
-  border-radius: 14px;
-  background: #ffffff;
-  border-left: 4px solid #ffb84d;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
+    position: relative;
+    border-radius: 14px;
+    background: #ffffff;
+    border-left: 4px solid #ffb84d;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
 }
 
 /* Внутренняя обёртка */
 .page-section.anomalies .anomaly-card-inner {
-  padding: 14px 18px 14px;
+    padding: 14px 18px 14px;
 }
 
 /* Шапка: лига + команды слева, тип + время справа */
 .page-section.anomalies .anomaly-card-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 6px;
 }
 
 .page-section.anomalies .anomaly-card-header-left {
-  min-width: 0;
+    min-width: 0;
 }
 
 .page-section.anomalies .anomaly-league-line {
-  font-size: 13px;
-  color: #9a7a30;
-  margin-bottom: 2px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+    font-size: 13px;
+    color: #9a7a30;
+    margin-bottom: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .page-section.anomalies .anomaly-league-line .dot {
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 .page-section.anomalies .anomaly-teams-line {
-  font-size: 15px;
-  font-weight: 600;
-  color: #3b2a16;
+    font-size: 15px;
+    font-weight: 600;
+    color: #3b2a16;
 }
 
 .page-section.anomalies .anomaly-teams-line .teams-separator {
-  margin: 0 4px;
-  opacity: 0.7;
+    margin: 0 4px;
+    opacity: 0.7;
 }
 
 .page-section.anomalies .anomaly-card-header-right {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
-  white-space: nowrap;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    white-space: nowrap;
 }
 
 .page-section.anomalies .anomaly-type-pill {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 600;
-  background: #edf4ff;
-  color: #2859c9;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: #edf4ff;
+    color: #2859c9;
 }
 
 .page-section.anomalies .anomaly-time {
-  font-size: 11px;
-  color: #8f8f8f;
+    font-size: 11px;
+    color: #8f8f8f;
 }
 
 /* Тело карточки: движение коэффициента */
-
 .page-section.anomalies .anomaly-card-body {
-  margin-top: 6px;
+    margin-top: 6px;
 }
 
 .page-section.anomalies .anomaly-odds-row {
-  font-size: 14px;
-  color: #3b2a16;
-  margin-bottom: 4px;
+    font-size: 14px;
+    color: #3b2a16;
+    margin-bottom: 4px;
 }
 
 .page-section.anomalies .anomaly-odds-label {
-  font-weight: 600;
-  margin-right: 6px;
+    font-weight: 600;
+    margin-right: 6px;
 }
 
 .page-section.anomalies .anomaly-odds-from,
 .page-section.anomalies .anomaly-odds-to {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .page-section.anomalies .anomaly-odds-arrow {
-  margin: 0 4px;
-  opacity: 0.7;
+    margin: 0 4px;
+    opacity: 0.7;
 }
 
 .page-section.anomalies .anomaly-odds-diff {
-  margin-left: 6px;
-  font-size: 13px;
-  font-weight: 600;
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .page-section.anomalies .anomaly-odds-diff.negative {
-  color: #c0392b;
+    color: #c0392b;
 }
 
 .page-section.anomalies .anomaly-odds-diff.positive {
-  color: #0b8a2a;
+    color: #0b8a2a;
 }
 
 /* Комментарий */
 .page-section.anomalies .anomaly-comment {
-  font-size: 13px;
-  color: #5c4c2b;
-  margin-top: 2px;
+    font-size: 13px;
+    color: #5c4c2b;
+    margin-top: 2px;
 }
 
 /* Низ карточки — под кнопку, если нужно */
 .page-section.anomalies .anomaly-card-footer {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 /* Цвета по типам аномалий (классы type-*) */
-
 .page-section.anomalies .anomaly-card.type-default {
-  border-left-color: #ffb84d;
+    border-left-color: #ffb84d;
 }
 
 .page-section.anomalies .anomaly-card.type-spread {
-  border-left-color: #2f88ff;
+    border-left-color: #2f88ff;
 }
 
 .page-section.anomalies .anomaly-card.type-spread .anomaly-type-pill {
-  background: #e5f0ff;
-  color: #1c5fd1;
+    background: #e5f0ff;
+    color: #1c5fd1;
 }
 
 .page-section.anomalies .anomaly-card.type-drop {
-  border-left-color: #ff4d4f;
+    border-left-color: #ff4d4f;
 }
 
 .page-section.anomalies .anomaly-card.type-drop .anomaly-type-pill {
-  background: #ffe5e5;
-  color: #c32626;
+    background: #ffe5e5;
+    color: #c32626;
 }
 
 .page-section.anomalies .anomaly-card.type-limit {
-  border-left-color: #9b59b6;
+    border-left-color: #9b59b6;
 }
 
 .page-section.anomalies .anomaly-card.type-limit .anomaly-type-pill {
-  background: #f3e6ff;
-  color: #8e44ad;
+    background: #f3e6ff;
+    color: #8e44ad;
 }
 
-/* Кнопка "Разброс коэффициентов" внутри карточки */
+/* Кнопка \"Разброс коэффициентов\" внутри карточки */
 .anomaly-card-footer {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .anomaly-spread-btn {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #2f88ff;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(47, 136, 255, 0.35);
-  transition: all 0.2s ease;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: none;
+    background: #2f88ff;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(47, 136, 255, 0.35);
+    transition: all 0.2s ease;
 }
 
 .anomaly-spread-btn:hover {
-  background: #1c6fe0;
-  transform: translateY(-1px);
+    background: #1c6fe0;
+    transform: translateY(-1px);
 }
 
 /* === ФИНАЛЬНЫЙ ОВЕРРАЙД КАРТОЧЕК АНОМАЛИЙ === */
 .anomaly-card {
-  background: #ffffff !important;          /* убираем жёлтый градиент */
-  border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-left: 4px solid #ffb84d;          /* базовый цвет, если тип не определён */
-  padding: 14px 18px 16px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+    background: #ffffff !important; /* убираем жёлтый градиент */
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-left: 4px solid #ffb84d; /* базовый цвет, если тип не определён */
+    padding: 14px 18px 16px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
 }
 
 /* заголовок внутри карточки */
 .anomaly-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
 }
 
 /* «Матч ID 1» */
 .anomaly-card-header .match-id {
-  font-weight: 600;
-  color: #5b3b00;
+    font-weight: 600;
+    color: #5b3b00;
 }
 
 /* текст «10 ч назад» */
 .anomaly-card-header .timeago {
-  font-size: 12px;
-  color: #9a7b3a;
+    font-size: 12px;
+    color: #9a7b3a;
 }
 
 /* Временное скрытие нижней "капсулы" в карточке аномалии */
 .anomaly-card-footer {
-  display: none;
+    display: none;
+}
+
+/* ===============================
+   22BET ANOMALIES - НОВЫЕ СТИЛИ
+=============================== */
+
+/* Панель фильтров */
+.controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    background: #fff8e2;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin: 20px auto;
+    max-width: 1200px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.filter-group select,
+.filter-group input {
+    background: var(--surface);
+    border: 1px solid #d5a200;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-size: 14px;
+}
+
+.filter-group select:hover,
+.filter-group input:hover {
+    background: #fff0b9;
+}
+
+.refresh-btn {
+    background: var(--brand);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.25s ease;
+    font-size: 14px;
+}
+
+.refresh-btn:hover {
+    background: var(--brand-dark);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.auto-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.auto-refresh input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+/* Таблица аномалий */
+.anomalies-table {
+    width: 100%;
+    max-width: 1400px;
+    margin: 20px auto;
+    border-collapse: collapse;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.anomalies-table thead {
+    background: linear-gradient(180deg, #fff5c4, #ffeb8a);
+}
+
+.anomalies-table th {
+    padding: 14px 16px;
+    text-align: left;
+    color: var(--muted);
+    border-bottom: 2px solid #f1e3b4;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.anomalies-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f9f2d9;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.anomalies-table tr:nth-child(even) td {
+    background: #fffdf6;
+}
+
+.anomalies-table tr:hover td {
+    background: #fff7da;
+}
+
+/* Severity badges */
+.anomalies-table tr.critical {
+    border-left: 4px solid #e74c3c;
+}
+
+.anomalies-table tr.important {
+    border-left: 4px solid #f39c12;
+}
+
+.anomalies-table tr.moderate {
+    border-left: 4px solid #3498db;
+}
+
+.anomalies-table .negative {
+    color: #c0392b;
+    font-weight: 600;
+}
+
+.anomalies-table .positive {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+/* Market и Outcome badges */
+.market-badge {
+    background: #2d3748;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #60a5fa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.outcome-badge {
+    background: #1e293b;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fbbf24;
+    display: inline-block;
+    min-width: 30px;
+    text-align: center;
+}
+
+/* Severity badges в таблице */
+.severity-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.severity-badge.critical {
+    background: #fee;
+    color: #c53030;
+}
+
+.severity-badge.important {
+    background: #fef3cd;
+    color: #d97706;
+}
+
+.severity-badge.moderate {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.severity-badge.low {
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+/* Пустое состояние */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 16px;
 }
