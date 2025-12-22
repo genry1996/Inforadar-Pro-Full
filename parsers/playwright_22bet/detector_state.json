@@ -507,8 +507,8 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.34,
-      "X": 5.15,
+      "1": 1.33,
+      "X": 5.2,
       "2": 8.9
     }
   },
@@ -633,36 +633,36 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.82,
-      "X": 3.1,
-      "2": 4.35
+      "1": 1.84,
+      "X": 2.98,
+      "2": 4.505
     }
   },
   "DR Congo vs Benin | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.71,
-      "X": 3.38,
-      "2": 5.75
+      "1": 1.73,
+      "X": 3.34,
+      "2": 5.7
     }
   },
   "Cleveland Cavaliers vs Charlotte Hornets | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.286,
-      "X": 17.5,
-      "2": 4.47
+      "1": 1.297,
+      "X": 17.0,
+      "2": 4.36
     }
   },
   "Boston Celtics vs Indiana Pacers | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.198,
-      "X": 19.0,
-      "2": 5.81
+      "1": 1.165,
+      "X": 20.0,
+      "2": 6.57
     }
   },
   "Home (Points) vs Away (Points) | 1x2": {
@@ -678,18 +678,18 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.74,
-      "X": 4.66,
-      "2": 3.78
+      "1": 1.69,
+      "X": 4.7,
+      "2": 4.02
     }
   },
   "Philadelphia Flyers vs Vancouver Canucks | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 2.15,
-      "X": 4.3,
-      "2": 2.816
+      "1": 2.18,
+      "X": 4.28,
+      "2": 2.775
     }
   },
   "Metallurg Magnitogorsk vs Neftekhimik | 1x2": {
@@ -714,26 +714,26 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.93,
-      "X": 16.5,
-      "2": 2.085
+      "1": 2.087,
+      "X": 12.0,
+      "2": 2.087
     }
   },
   "Denver Nuggets vs Utah Jazz | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.125,
-      "X": 22.0,
-      "2": 7.95
+      "1": 1.146,
+      "X": 21.0,
+      "2": 7.18
     }
   },
   "Indianapolis Colts vs San Francisco 49ers | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.95,
-      "X": 1.85,
+      "1": 1.94,
+      "X": 1.86,
       "2": 1.9
     }
   },
@@ -750,54 +750,54 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.195,
-      "X": 6.4,
-      "2": 16.0
+      "1": 1.192,
+      "X": 6.35,
+      "2": 17.0
     }
   },
   "Oklahoma City Thunder vs Memphis Grizzlies | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.097,
+      "1": 1.098,
       "X": 23.0,
-      "2": 9.65
+      "2": 9.55
     }
   },
   "Golden State Warriors vs Orlando Magic | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.572,
-      "X": 12.0,
-      "2": 3.085
+      "1": 1.477,
+      "X": 15.5,
+      "2": 3.15
     }
   },
   "Portland Trail Blazers vs Detroit Pistons | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 3.295,
-      "X": 17.0,
-      "2": 1.472
+      "1": 3.465,
+      "X": 15.0,
+      "2": 1.422
     }
   },
   "Anaheim Ducks vs Seattle Kraken | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.87,
-      "X": 4.66,
-      "2": 3.28
+      "1": 1.96,
+      "X": 4.62,
+      "2": 3.06
     }
   },
   "Los Angeles Kings vs Columbus Blue Jackets | 1x2": {
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.98,
-      "X": 4.42,
-      "2": 3.104
+      "1": 2.016,
+      "X": 4.46,
+      "2": 3.0
     }
   },
   "Freetonians SLIFA vs Diamond Stars | 1x2": {
@@ -831,9 +831,9 @@
     "sport": "Football",
     "status": "active",
     "odds": {
-      "1": 1.92,
-      "X": 3.42,
-      "2": 3.845
+      "1": 1.984,
+      "X": 3.34,
+      "2": 3.76
     }
   },
   "CS Universitatea Craiova vs Csikszereda Miercurea Ciuc | 1x2": {
@@ -852,6 +852,150 @@
       "1": 3.51,
       "X": 3.28,
       "2": 1.96
+    }
+  },
+  "Nigeria vs Tanzania | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.496,
+      "X": 3.8,
+      "2": 8.1
+    }
+  },
+  "Tunisia vs Uganda | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.69,
+      "X": 3.4,
+      "2": 5.95
+    }
+  },
+  "Melbourne City vs Macarthur Sydney | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.67,
+      "X": 3.9,
+      "2": 5.0
+    }
+  },
+  "Arsenal vs Crystal Palace | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.52,
+      "X": 4.2,
+      "2": 6.3
+    }
+  },
+  "Bolivar vs Nacional Potosi | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.23,
+      "X": 5.45,
+      "2": 9.5
+    }
+  },
+  "Niigata University of Management (Women) vs Nihon University (Women) | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 9.6,
+      "X": 5.05,
+      "2": 1.25
+    }
+  },
+  "Meiji University of Integrative Medicine (Women) vs Shunan University (Women) | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.02,
+      "X": 3.3,
+      "2": 3.44
+    }
+  },
+  "Jatrabari Krira Chakra vs Qasituly SKP | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.49,
+      "X": 3.86,
+      "2": 5.54
+    }
+  },
+  "Friends Social Welfare vs Nobabpur Krira Chakra | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.41,
+      "X": 4.04,
+      "2": 6.47
+    }
+  },
+  "Nofel Sporting Club vs Bangladesh Boys Club | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 3.9,
+      "X": 3.35,
+      "2": 1.8
+    }
+  },
+  "Bihar vs Delhi FA | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 59.0,
+      "X": 25.0,
+      "2": 1.005
+    }
+  },
+  "Haryana vs Uttarakhand USFA | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 4.07,
+      "X": 3.74,
+      "2": 1.7
+    }
+  },
+  "Chandigarh vs Uttar Pradesh | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 2.47,
+      "X": 3.1,
+      "2": 2.6
+    }
+  },
+  "Jharkhand vs Indian Railways | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 40.0,
+      "X": 14.5,
+      "2": 1.04
+    }
+  },
+  "Arunachal Pradesh vs Meghalaya | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 13.2,
+      "X": 5.4,
+      "2": 1.19
+    }
+  },
+  "Melbourne City (Women) vs Melbourne Victory (Women) | 1x2": {
+    "sport": "Football",
+    "status": "active",
+    "odds": {
+      "1": 1.83,
+      "X": 3.58,
+      "2": 3.645
     }
   }
 }
