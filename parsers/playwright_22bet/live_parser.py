@@ -2,6 +2,8 @@
 """
 22bet Live Parser with Anti-Detection + Proxy
 D:\Inforadar_Pro\parsers\playwright_22bet\live_parser.py
+
+БЕЗ ДУБЛИКАТОВ - парсим только реальные матчи
 """
 import asyncio
 import os
@@ -34,6 +36,7 @@ BOOKMAKER = '22bet'
 class LiveMatchParser:
     def __init__(self):
         self.conn = None
+        self.last_saved = {}  # Кэш для избежания дубликатов
 
     def connect_db(self):
         try:
@@ -43,6 +46,11 @@ class LiveMatchParser:
         except Exception as e:
             print(f"❌ DB Connection Error: {e}")
             return False
+
+    def generate_unique_key(self, home_team, away_team, minute, score):
+        """Генерируем уникальный ключ из реальных данных матча"""
+        key_str = f"{home_team}#{away_team}#{minute}#{score}".lower()
+        return hashlib.md5(key_str.encode()).hexdigest()[:12]
 
     async def parse_match_status(self, match):
         """Парсинг минуты, счета и статуса"""
@@ -120,56 +128,8 @@ class LiveMatchParser:
 
         return events
 
-    async def parse_handicap(self, match):
-        """Парсинг фор (handicap)"""
-        try:
-            handicap_section = await match.query_selector('[data-market-type="handicap"]')
-            if not handicap_section:
-                return None
-
-            line_elem = await handicap_section.query_selector('.handicap-line')
-            line = float(await line_elem.text_content()) if line_elem else 0.0
-
-            home_odd_elem = await handicap_section.query_selector('.handicap-home')
-            home_odd = float(await home_odd_elem.text_content()) if home_odd_elem else None
-
-            away_odd_elem = await handicap_section.query_selector('.handicap-away')
-            away_odd = float(await away_odd_elem.text_content()) if away_odd_elem else None
-
-            return {
-                'line': line,
-                'home': home_odd,
-                'away': away_odd
-            }
-        except:
-            return None
-
-    async def parse_totals(self, match):
-        """Парсинг тоталов (over/under)"""
-        try:
-            total_section = await match.query_selector('[data-market-type="total"]')
-            if not total_section:
-                return None
-
-            line_elem = await total_section.query_selector('.total-line')
-            line = float(await line_elem.text_content()) if line_elem else 2.5
-
-            over_elem = await total_section.query_selector('.total-over')
-            over_odd = float(await over_elem.text_content()) if over_elem else None
-
-            under_elem = await total_section.query_selector('.total-under')
-            under_odd = float(await under_elem.text_content()) if under_elem else None
-
-            return {
-                'line': line,
-                'over': over_odd,
-                'under': under_odd
-            }
-        except:
-            return None
-
     async def parse_live_matches(self, page):
-        """Полный парсинг live-матчей"""
+        """Полный парсинг live-матчей БЕЗ ДУБЛИКАТОВ"""
         try:
             await page.wait_for_selector('.c-events__item', timeout=10000)
             matches = await page.query_selector_all('.c-events__item')
@@ -178,46 +138,39 @@ class LiveMatchParser:
                 print(f"⚠️ No matches found")
                 return []
 
-            print(f"📊 Found {len(matches)} live matches")
+            print(f"📊 Found {len(matches)} matches (parsing...)")
 
             matches_data = []
-            # 🔥 ИСПРАВЛЕНО: убрал [:10], теперь парсим ВСЕ матчи
             for idx, match in enumerate(matches, 1):
                 try:
-                    # Парсинг match_id с fallback
-                    match_id = await match.get_attribute('data-event-id')
-                    
-                    # Если нет data-event-id, пробуем другие атрибуты
-                    if not match_id:
-                        match_id = await match.get_attribute('id')
-                    
-                    if not match_id:
-                        match_id = await match.get_attribute('data-id')
-                    
                     # Парсинг команд
                     teams = await match.query_selector('.c-events__teams')
                     teams_text = await teams.text_content() if teams else "Unknown vs Unknown"
                     
                     # Убираем лишние пробелы и разбиваем
                     teams_text = ' '.join(teams_text.split())
-                    teams_split = teams_text.split(' - ')
                     
-                    if len(teams_split) != 2:
+                    if ' - ' in teams_text:
+                        teams_split = teams_text.split(' - ')
+                    elif ' vs ' in teams_text:
                         teams_split = teams_text.split(' vs ')
+                    else:
+                        teams_split = teams_text.split()
                     
                     home_team = teams_split[0].strip() if len(teams_split) > 0 else "Unknown"
                     away_team = teams_split[1].strip() if len(teams_split) > 1 else "Unknown"
                     
-                    # Если всё равно None - генерируем ID из команд
-                    if not match_id:
-                        team_hash = hashlib.md5(f"{home_team}{away_team}".encode()).hexdigest()[:8]
-                        match_id = f"22bet_{team_hash}"
-                        print(f"⚠️ Generated fallback match_id: {match_id}")
-                    
+                    # 🔥 ФИЛЬТР: пропускаем матчи с "Unknown" командами
+                    if home_team == "Unknown" or away_team == "Unknown":
+                        continue
+
                     event_name = f"{home_team} vs {away_team}"
 
                     # Статус матча
                     minute, score, status = await self.parse_match_status(match)
+
+                    # 🔥 Генерируем уникальный ключ БЕЗ session_id
+                    unique_key = self.generate_unique_key(home_team, away_team, minute, score)
 
                     # Парсинг коэффициентов 1X2
                     odds_elements = await match.query_selector_all('.c-bets__bet')
@@ -249,14 +202,24 @@ class LiveMatchParser:
                     # События
                     events = await self.parse_events(match)
 
-                    # Форы
-                    handicap = await self.parse_handicap(match)
+                    # 🔥 ДОПОЛНИТЕЛЬНЫЙ ФИЛЬТР: если у нас уже есть этот матч с теми же кэффициентами - пропускаем
+                    if unique_key in self.last_saved:
+                        cached = self.last_saved[unique_key]
+                        if (cached['home_odd'] == home_odd and 
+                            cached['draw_odd'] == draw_odd and 
+                            cached['away_odd'] == away_odd):
+                            # Точный дубликат - не добавляем
+                            continue
 
-                    # Тоталы
-                    totals = await self.parse_totals(match)
+                    # Кэшируем для следующей итерации
+                    self.last_saved[unique_key] = {
+                        'home_odd': home_odd,
+                        'draw_odd': draw_odd,
+                        'away_odd': away_odd
+                    }
 
                     matches_data.append({
-                        'match_id': match_id,
+                        'match_id': unique_key,
                         'event_name': event_name,
                         'home_team': home_team,
                         'away_team': away_team,
@@ -267,8 +230,6 @@ class LiveMatchParser:
                         'draw_odd': draw_odd,
                         'away_odd': away_odd,
                         'events': events,
-                        'handicap': handicap,
-                        'totals': totals,
                         'sport': 'Football',
                         'league': 'Unknown'
                     })
@@ -277,7 +238,7 @@ class LiveMatchParser:
                     print(f"⚠️ Error parsing match #{idx}: {e}")
                     continue
 
-            print(f"✅ Successfully parsed {len(matches_data)}/{len(matches)} matches")
+            print(f"✅ Successfully parsed {len(matches_data)} unique live matches")
             return matches_data
 
         except Exception as e:
@@ -293,52 +254,42 @@ class LiveMatchParser:
             cursor = self.conn.cursor()
             for match in matches_data:
                 try:
-                    # 1. Сохраняем/обновляем live_matches
+                    # Сохраняем/обновляем в odds_22bet
                     cursor.execute("""
-                        INSERT INTO live_matches
-                        (event_id, event_name, home_team, away_team, score, minute, status, sport, league, bookmaker)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO odds_22bet
+                        (event_name, home_team, away_team, sport, league, status,
+                         odd_1, odd_x, odd_2, minute, score, bookmaker, match_time)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                         ON DUPLICATE KEY UPDATE
-                            score = VALUES(score),
+                            odd_1 = VALUES(odd_1),
+                            odd_x = VALUES(odd_x),
+                            odd_2 = VALUES(odd_2),
                             minute = VALUES(minute),
+                            score = VALUES(score),
                             status = VALUES(status),
                             updated_at = NOW()
                     """, (
-                        match['match_id'],
                         match['event_name'],
                         match['home_team'],
                         match['away_team'],
-                        match['score'],
-                        match['minute'],
-                        match['status'],
                         match['sport'],
                         match['league'],
+                        match['status'],
+                        match['home_odd'],
+                        match['draw_odd'],
+                        match['away_odd'],
+                        match['minute'],
+                        match['score'],
                         BOOKMAKER
                     ))
 
-                    # 2. Сохраняем события
-                    for event in match['events']:
-                        cursor.execute("""
-                            INSERT INTO match_events
-                            (event_id, event_type, minute, team, player)
-                            VALUES (%s, %s, %s, %s, %s)
-                            ON DUPLICATE KEY UPDATE minute = VALUES(minute)
-                        """, (
-                            match['match_id'],
-                            event['type'],
-                            event['minute'],
-                            event['team'],
-                            event['player']
-                        ))
-
-                    # 3. Сохраняем коэффициенты (расширенные)
+                    # Сохраняем в odds_full_history (история)
                     cursor.execute("""
                         INSERT INTO odds_full_history
                         (bookmaker, match_id, home_team, away_team, sport, league,
                          home_odd, draw_odd, away_odd, minute, score, status,
-                         handicap, handicap_home, handicap_away,
-                         total, `over`, `under`, is_live, timestamp)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                         is_live, timestamp)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                     """, (
                         BOOKMAKER,
                         match['match_id'],
@@ -352,12 +303,6 @@ class LiveMatchParser:
                         match['minute'],
                         match['score'],
                         match['status'],
-                        match['handicap']['line'] if match['handicap'] else None,
-                        match['handicap']['home'] if match['handicap'] else None,
-                        match['handicap']['away'] if match['handicap'] else None,
-                        match['totals']['line'] if match['totals'] else None,
-                        match['totals']['over'] if match['totals'] else None,
-                        match['totals']['under'] if match['totals'] else None,
                         True
                     ))
 
@@ -373,7 +318,7 @@ class LiveMatchParser:
 
     async def run(self):
         """Главный цикл парсера"""
-        print(f"🚀 Starting 22bet LIVE parser (FULL + ANTI-DETECT + PROXY)")
+        print(f"🚀 Starting 22bet LIVE parser (CLEAN - NO DUPLICATES)")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']} (Sweden)")
         print(f"🔄 Update interval: {UPDATE_INTERVAL} seconds")
 
@@ -384,7 +329,7 @@ class LiveMatchParser:
         async with async_playwright() as p:
             # Запуск браузера с прокси
             browser = await p.chromium.launch(
-                headless=False,
+                headless=True,
                 proxy=PROXY_CONFIG,
                 args=[
                     '--disable-blink-features=AutomationControlled',
@@ -397,7 +342,7 @@ class LiveMatchParser:
 
             print(f"✅ Browser launched with proxy: {PROXY_CONFIG['server']}")
 
-            # Контекст без прокси
+            # Контекст
             context = await browser.new_context(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                 viewport={'width': 1920, 'height': 1080},
@@ -418,6 +363,7 @@ class LiveMatchParser:
             try:
                 print(f"🔄 Loading https://22bet.com/live/football via proxy...")
                 await page.goto('https://22bet.com/live/football', timeout=30000, wait_until='domcontentloaded')
+                await asyncio.sleep(2)
                 print("✅ Loaded 22bet live page")
 
                 consecutive_errors = 0
@@ -431,11 +377,13 @@ class LiveMatchParser:
                             self.save_to_database(matches_data)
                             consecutive_errors = 0
                         else:
+                            print("⚠️ No matches parsed")
                             consecutive_errors += 1
 
                         print(f"⏳ Waiting {UPDATE_INTERVAL} seconds...")
                         await asyncio.sleep(UPDATE_INTERVAL)
                         await page.reload(wait_until='domcontentloaded')
+                        await asyncio.sleep(1)
 
                     except Exception as e:
                         print(f"❌ Error in main loop: {e}")
