@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-22bet PREMATCH Parser - Live Page with Prematch Filter
+22bet PREMATCH Parser - Live Page with Prematch Filter + DEBUG
 D:\Inforadar_Pro\parsers\playwright_22bet\prematch_parser.py
 
-Парсим с Live страницы, но фильтруем только prematch матчи
-(по наличию времени старта вместо счёта)
-Интервал: 60 сек
+ДЕБАГ ВЕРСИЯ - показываем что именно парсим
 """
 import asyncio
 import os
@@ -32,13 +30,15 @@ PROXY_CONFIG = {
 
 UPDATE_INTERVAL = 60
 BOOKMAKER = '22bet'
-HOURS_AHEAD = 12  # 12 часов вперёд
+HOURS_AHEAD = 12
+DEBUG_MODE = True  # 🔍 ДЕБАГ
 
 
 class PrematchParser:
     def __init__(self):
         self.conn = None
         self.last_saved = {}
+        self.debug_samples = 0
 
     def connect_db(self):
         try:
@@ -54,19 +54,13 @@ class PrematchParser:
         return hashlib.md5(key_str.encode()).hexdigest()[:12]
 
     def parse_time_string(self, time_str):
-        """
-        Парсим время:
-        - "14:30" -> prematch (время начала)
-        - "45'" -> live (минуты игры)
-        - "HT" -> перерыв
-        """
         time_str = time_str.strip()
         
-        # Live матч - есть минуты
+        # Live матч
         if "'" in time_str or 'HT' in time_str.upper():
             return None, 'live'
         
-        # Prematch - время в формате HH:MM
+        # Prematch
         time_match = re.search(r'(\d{1,2}):(\d{2})', time_str)
         if time_match:
             try:
@@ -75,7 +69,6 @@ class PrematchParser:
                 now = datetime.now()
                 match_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 
-                # Если время уже прошло - это завтра
                 if match_time < now:
                     match_time = match_time + timedelta(days=1)
                 
@@ -86,16 +79,12 @@ class PrematchParser:
         return None, 'unknown'
 
     async def parse_prematch_matches(self, page):
-        """
-        Парсим Live страницу, но фильтруем prematch
-        """
         try:
             if len(self.last_saved) > 10000:
                 self.last_saved = {}
 
-            # Ждём загрузки
             await page.wait_for_selector('.c-events__item', timeout=15000)
-            await asyncio.sleep(2)  # Доп. время на JS
+            await asyncio.sleep(2)
             
             matches = await page.query_selector_all('.c-events__item')
             
@@ -109,9 +98,30 @@ class PrematchParser:
             now = datetime.now()
             cutoff_time = now + timedelta(hours=HOURS_AHEAD)
 
+            # 🔍 ДЕБАГ: показываем первые 5 матчей
+            if DEBUG_MODE and self.debug_samples < 3:
+                print("\n🔍 DEBUG: Showing first 5 matches...")
+                for idx in range(min(5, len(matches))):
+                    match = matches[idx]
+                    try:
+                        teams = await match.query_selector('.c-events__teams')
+                        teams_text = await teams.text_content() if teams else "N/A"
+                        teams_text = ' '.join(teams_text.split())
+                        
+                        time_elem = await match.query_selector('.c-events__time')
+                        time_str = await time_elem.text_content() if time_elem else "N/A"
+                        time_str = time_str.strip()
+                        
+                        match_time, status = self.parse_time_string(time_str)
+                        
+                        print(f"  [{idx+1}] {teams_text[:40]:<40} | Time: '{time_str}' -> {status}")
+                    except:
+                        pass
+                print()
+                self.debug_samples += 1
+
             for idx, match in enumerate(matches, 1):
                 try:
-                    # Команды
                     teams = await match.query_selector('.c-events__teams')
                     teams_text = await teams.text_content() if teams else ""
                     teams_text = ' '.join(teams_text.split())
@@ -129,29 +139,25 @@ class PrematchParser:
                     if not home_team or not away_team:
                         continue
 
-                    # ВРЕМЯ - ключевой момент!
                     time_elem = await match.query_selector('.c-events__time')
                     time_str = await time_elem.text_content() if time_elem else ""
                     time_str = time_str.strip()
 
                     match_time, status = self.parse_time_string(time_str)
 
-                    # 🔥 ФИЛЬТР: только prematch!
+                    # Фильтр
                     if status != 'prematch' or not match_time:
                         continue
 
-                    # Фильтр по временному окну
                     if match_time > cutoff_time:
                         continue
                     if match_time < now - timedelta(minutes=5):
                         continue
 
-                    # Лига
                     league_elem = await match.query_selector('.c-events__league')
                     league = await league_elem.text_content() if league_elem else "Unknown"
                     league = league.strip()
 
-                    # Коэффициенты
                     odds_elements = await match.query_selector_all('.c-bets__bet')
                     home_odd = draw_odd = away_odd = None
 
@@ -179,7 +185,6 @@ class PrematchParser:
                     event_name = f"{home_team} vs {away_team}"
                     unique_key = self.generate_unique_key(home_team, away_team)
 
-                    # Проверяем дубликаты
                     if unique_key in self.last_saved:
                         if (self.last_saved[unique_key].get('home_odd') == home_odd and
                             self.last_saved[unique_key].get('draw_odd') == draw_odd and
@@ -265,7 +270,7 @@ class PrematchParser:
             print(f"❌ Error saving to DB: {e}")
 
     async def run(self):
-        print(f"\n🚀 Starting 22bet PREMATCH Parser")
+        print(f"\n🚀 Starting 22bet PREMATCH Parser (DEBUG MODE)")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']}")
         print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds")
         print(f"📅 Time window: NEXT {HOURS_AHEAD} hours")
