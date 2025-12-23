@@ -37,8 +37,10 @@ BOOKMAKER = '22bet'
 class PrematchParser:
     def __init__(self):
         self.conn = None
+        self.last_saved = {}  # Кэш для избежания дубликатов
 
     def connect_db(self):
+        """Подключение к MySQL"""
         try:
             self.conn = pymysql.connect(**DB_CONFIG)
             print(f"✅ Connected to MySQL: {DB_CONFIG['host']}")
@@ -47,13 +49,18 @@ class PrematchParser:
             print(f"❌ DB Connection Error: {e}")
             return False
 
+    def generate_unique_key(self, home_team, away_team, match_time):
+        """Генерируем уникальный ключ"""
+        key_str = f"{home_team}#{away_team}#{match_time}".lower()
+        return hashlib.md5(key_str.encode()).hexdigest()[:12]
+
     async def parse_prematch_matches(self, page):
         """
-        Парсинг prematch матчей за 12 часов вперёд
-        Использует аналогичные селекторы как Live
+        Парсинг prematch матчей с страницы футбола
+        Почти те же селекторы как для Live
         """
         try:
-            # Ждём загрузки событий (более длительный таймаут)
+            # Ждём загрузки элементов (15 сек ограничение)
             await page.wait_for_selector('.c-events__item', timeout=15000)
             matches = await page.query_selector_all('.c-events__item')
 
@@ -61,40 +68,38 @@ class PrematchParser:
                 print(f"⚠️ No prematch matches found")
                 return []
 
-            print(f"📅 Found {len(matches)} prematch matches (next 12 hours)")
+            print(f"📅 Found {len(matches)} upcoming matches")
 
             matches_data = []
             for idx, match in enumerate(matches, 1):
                 try:
-                    # Парсинг match_id
-                    match_id = await match.get_attribute('data-event-id')
-                    if not match_id:
-                        match_id = await match.get_attribute('id')
-                    if not match_id:
-                        match_id = await match.get_attribute('data-id')
-
-                    # Парсинг команд
+                    # ===== ПАРСИНГ КОМАНД =====
                     teams = await match.query_selector('.c-events__teams')
                     teams_text = await teams.text_content() if teams else "Unknown vs Unknown"
                     teams_text = ' '.join(teams_text.split())
-                    teams_split = teams_text.split(' - ') if ' - ' in teams_text else teams_text.split(' vs ')
-
+                    
+                    if ' - ' in teams_text:
+                        teams_split = teams_text.split(' - ')
+                    elif ' vs ' in teams_text:
+                        teams_split = teams_text.split(' vs ')
+                    else:
+                        teams_split = teams_text.split()
+                    
                     home_team = teams_split[0].strip() if len(teams_split) > 0 else "Unknown"
                     away_team = teams_split[1].strip() if len(teams_split) > 1 else "Unknown"
 
-                    # Генерируем ID если нужно
-                    if not match_id:
-                        team_hash = hashlib.md5(f"{home_team}{away_team}".encode()).hexdigest()[:8]
-                        match_id = f"22bet_{team_hash}"
+                    # 🔥 ФИЛЬТР: пропускаем плохие данные
+                    if home_team == "Unknown" or away_team == "Unknown":
+                        continue
 
                     event_name = f"{home_team} vs {away_team}"
 
-                    # Время матча (может быть в разных форматах)
+                    # ===== ПАРСИНГ ВРЕМЕНИ МАТЧА =====
                     time_elem = await match.query_selector('.c-events__time')
                     match_time = await time_elem.text_content() if time_elem else "N/A"
                     match_time = match_time.strip()
 
-                    # Парсинг коэффициентов 1X2
+                    # ===== ПАРСИНГ КОЭФФИЦИЕНТОВ 1X2 =====
                     odds_elements = await match.query_selector_all('.c-bets__bet')
                     home_odd = draw_odd = away_odd = None
 
@@ -121,13 +126,31 @@ class PrematchParser:
                         except:
                             away_odd = None
 
-                    # Лига (парсим из контекста)
+                    # ===== ПАРСИНГ ЛИГИ =====
                     league_elem = await match.query_selector('.c-events__league')
                     league = await league_elem.text_content() if league_elem else "Unknown League"
                     league = league.strip()
 
+                    # ===== УНИКАЛьНЫЙ КЛЮЧ =====
+                    unique_key = self.generate_unique_key(home_team, away_team, match_time)
+
+                    # Не добавляем дубликаты
+                    if unique_key in self.last_saved:
+                        cached = self.last_saved[unique_key]
+                        if (cached['home_odd'] == home_odd and 
+                            cached['draw_odd'] == draw_odd and 
+                            cached['away_odd'] == away_odd):
+                            continue
+
+                    # Кэшируем
+                    self.last_saved[unique_key] = {
+                        'home_odd': home_odd,
+                        'draw_odd': draw_odd,
+                        'away_odd': away_odd
+                    }
+
                     matches_data.append({
-                        'match_id': match_id,
+                        'match_id': unique_key,
                         'event_name': event_name,
                         'home_team': home_team,
                         'away_team': away_team,
@@ -146,7 +169,7 @@ class PrematchParser:
                     print(f"⚠️ Error parsing match #{idx}: {e}")
                     continue
 
-            print(f"✅ Successfully parsed {len(matches_data)}/{len(matches)} prematch matches")
+            print(f"✅ Successfully parsed {len(matches_data)} unique prematch matches")
             return matches_data
 
         except Exception as e:
@@ -162,7 +185,7 @@ class PrematchParser:
             cursor = self.conn.cursor()
             for match in matches_data:
                 try:
-                    # Сохраняем в odds_22bet (для prematch)
+                    # Сохраняем в odds_22bet
                     cursor.execute("""
                         INSERT INTO odds_22bet
                         (event_name, home_team, away_team, sport, league, status,
@@ -188,7 +211,7 @@ class PrematchParser:
                         BOOKMAKER
                     ))
 
-                    # Также сохраняем в odds_full_history для истории
+                    # Также сохраняем в odds_full_history
                     cursor.execute("""
                         INSERT INTO odds_full_history
                         (bookmaker, match_id, home_team, away_team, sport, league,
@@ -223,10 +246,10 @@ class PrematchParser:
 
     async def run(self):
         """Главный цикл парсера"""
-        print(f"🚀 Starting 22bet PREMATCH parser (Football only)")
+        print(f"🚀 Starting 22bet PREMATCH parser")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']} (Sweden)")
-        print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds (safe)")
-        print(f"📅 Parsing upcoming matches (next 12 hours)")
+        print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds (SAFE)")
+        print(f"📅 Parsing upcoming matches (Football)")
 
         if not self.connect_db():
             print("❌ Cannot start without DB connection")
@@ -267,12 +290,10 @@ class PrematchParser:
             """)
 
             try:
-                print(f"🔄 Loading https://22bet.com/football (prematch) via proxy...")
-                # Загружаем основную страницу футбола
+                print(f"🔄 Loading https://22bet.com/football via proxy...")
+                # Загружаем страницу футбола (бес live)
                 await page.goto('https://22bet.com/football', timeout=30000, wait_until='domcontentloaded')
-                
-                # Даём странице время на загрузку элементов
-                await asyncio.sleep(3)
+                await asyncio.sleep(3)  # Даём время на загрузку
                 
                 print("✅ Loaded 22bet football page")
 
@@ -295,7 +316,7 @@ class PrematchParser:
                         
                         # Перезагружаем страницу
                         await page.reload(wait_until='domcontentloaded')
-                        await asyncio.sleep(2)  # Даём время на загрузку
+                        await asyncio.sleep(2)
 
                     except Exception as e:
                         print(f"❌ Error in main loop: {e}")
