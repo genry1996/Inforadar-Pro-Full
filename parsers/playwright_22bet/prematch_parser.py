@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-22bet PREMATCH Parser - Upcoming Matches from Live Page
+22bet PREMATCH Parser - Calendar & Upcoming Matches
 D:\Inforadar_Pro\parsers\playwright_22bet\prematch_parser.py
 
-Парсит ПОЧТИ ПНЕВ матчи со страницы Live
-Фильтруем по минуте = 0 (не начались ещё)
+Парсит предстоящие матчи из календаря 22bet
+Время: 1 час ПЕРЕД матчем (test), потом переключим на 12 часов
 Интервал: 60 сек
 """
 import asyncio
 import os
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from playwright.async_api import async_playwright
 import pymysql
 import re
@@ -30,8 +30,9 @@ PROXY_CONFIG = {
     'password': '5d234f6517'
 }
 
-UPDATE_INTERVAL = 60  # 🔥 60 сек КОНЕЧНО!
+UPDATE_INTERVAL = 60  # 🔥 60 сек
 BOOKMAKER = '22bet'
+HOURS_AHEAD = 1  # ТЕСТОВАЯ СТОИМОСТЬ: 1 час, потом переключим на 12
 
 
 class PrematchParser:
@@ -54,62 +55,89 @@ class PrematchParser:
 
     async def parse_prematch_matches(self, page):
         """
-        Парсим Live page, но берем только матчи с минутой 0
-        (т.e. еще не начинались)
+        Парсим матчи из календаря на главной странице
+        Берём матчи которые начнутся в течение HOURS_AHEAD
         """
         try:
-            # Очистим старые данные
-            if len(self.last_saved) > 5000:
+            if len(self.last_saved) > 10000:
                 self.last_saved = {}
 
-            # Ждём загрузки матчей
-            await page.wait_for_selector('.c-events__item', timeout=10000)
-            matches = await page.query_selector_all('.c-events__item')
+            # Ищем элементы с временем матча
+            matches = await page.query_selector_all('[data-tournament-id]')
 
             if not matches:
-                print(f"⚠️ No matches found")
-                return []
+                print(f"⚠️ No matches found with [data-tournament-id]")
+                # Попробуем другой селектор
+                matches = await page.query_selector_all('.c-events__item')
+                if not matches:
+                    print(f"⚠️ Also no matches with .c-events__item")
+                    return []
 
-            print(f"📊 Found {len(matches)} total matches, filtering prematch...")
+            print(f"📊 Found {len(matches)} total matches")
 
             matches_data = []
+            now = datetime.now()
+            cutoff_time = now + timedelta(hours=HOURS_AHEAD)
+
             for idx, match in enumerate(matches, 1):
                 try:
-                    # Парсим команд
+                    # Парсим команды
                     teams = await match.query_selector('.c-events__teams')
                     teams_text = await teams.text_content() if teams else "Unknown vs Unknown"
                     teams_text = ' '.join(teams_text.split())
-                    
+
                     if ' - ' in teams_text:
                         teams_split = teams_text.split(' - ')
                     elif ' vs ' in teams_text:
                         teams_split = teams_text.split(' vs ')
                     else:
                         continue
-                    
+
                     home_team = teams_split[0].strip() if len(teams_split) > 0 else None
                     away_team = teams_split[1].strip() if len(teams_split) > 1 else None
 
-                    # ФИЛЬТР: ПРОПУСКАЕМ Unknown
                     if not home_team or not away_team or home_team == "Unknown" or away_team == "Unknown":
                         continue
 
-                    # ГлАВНОЕ: ПАРСИМ МИНУТЫ
+                    # ключевой момент: парсим время матча
                     time_elem = await match.query_selector('.c-events__time')
-                    time_str = await time_elem.text_content() if time_elem else "0'"
+                    time_str = await time_elem.text_content() if time_elem else None
+
+                    if not time_str:
+                        continue
+
                     time_str = time_str.strip()
 
-                    # Извлекаем минуту: "45+2'" -> 45, "0'" -> 0
-                    minute_match = re.search(r'(\d+)', time_str)
-                    minute = int(minute_match.group(1)) if minute_match else -1
+                    # Парсим время в формате "HH:MM" или "14:30"
+                    time_match = re.search(r'(\d{1,2}):(\d{2})', time_str)
+                    if not time_match:
+                        continue
 
-                    # 🔥 ФИЛЬТР: ТОЛЬКО прематч (минута = 0 или -1)
-                    if minute not in [0, -1]:
-                        continue  # Это Live матч, не prematch
+                    try:
+                        match_hour = int(time_match.group(1))
+                        match_min = int(time_match.group(2))
+                        # Предполагаем сегодняшний день или завтра
+                        match_time = now.replace(hour=match_hour, minute=match_min, second=0, microsecond=0)
 
-                    event_name = f"{home_team} vs {away_team}"
+                        # Если время прошло, считаем что это завтра
+                        if match_time < now:
+                            match_time = match_time + timedelta(days=1)
 
-                    # Парсим коэффициенты
+                        # 🔥 ФИЛЬТР: матч должен быть в течение HOURS_AHEAD
+                        if match_time > cutoff_time:
+                            continue  # Матч слишком далеко в будущем
+                        if match_time < now - timedelta(minutes=5):
+                            continue  # Матч уже прошел
+
+                    except:
+                        continue
+
+                    # Лига
+                    league_elem = await match.query_selector('.c-events__league')
+                    league = await league_elem.text_content() if league_elem else "Unknown"
+                    league = league.strip()
+
+                    # Коэффициенты
                     odds_elements = await match.query_selector_all('.c-bets__bet')
                     home_odd = draw_odd = away_odd = None
 
@@ -136,18 +164,13 @@ class PrematchParser:
                         except:
                             away_odd = None
 
-                    # Лига
-                    league_elem = await match.query_selector('.c-events__league')
-                    league = await league_elem.text_content() if league_elem else "Unknown"
-                    league = league.strip()
-
                     # Уникальный ключ
                     unique_key = self.generate_unique_key(home_team, away_team)
 
                     # Проверяем дубликаты
                     if unique_key in self.last_saved:
-                        if (self.last_saved[unique_key]['home_odd'] == home_odd and 
-                            self.last_saved[unique_key]['draw_odd'] == draw_odd and 
+                        if (self.last_saved[unique_key]['home_odd'] == home_odd and
+                            self.last_saved[unique_key]['draw_odd'] == draw_odd and
                             self.last_saved[unique_key]['away_odd'] == away_odd):
                             continue
 
@@ -156,6 +179,8 @@ class PrematchParser:
                         'draw_odd': draw_odd,
                         'away_odd': away_odd
                     }
+
+                    event_name = f"{home_team} vs {away_team}"
 
                     matches_data.append({
                         'match_id': unique_key,
@@ -169,14 +194,13 @@ class PrematchParser:
                         'away_odd': away_odd,
                         'sport': 'Football',
                         'league': league,
-                        'minute': 0,
-                        'score': "0:0"
+                        'match_datetime': match_time.isoformat()
                     })
 
                 except Exception as e:
                     continue
 
-            print(f"✅ Successfully parsed {len(matches_data)} prematch matches")
+            print(f"✅ Filtered to {len(matches_data)} PREMATCH matches (next {HOURS_AHEAD} hour)")
             return matches_data
 
         except Exception as e:
@@ -194,8 +218,9 @@ class PrematchParser:
                     cursor.execute("""
                         INSERT INTO odds_22bet
                         (event_name, home_team, away_team, sport, league, status,
-                         odd_1, odd_x, odd_2, match_time, bookmaker)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         odd_1, odd_x, odd_2, match_time, bookmaker, market_type,
+                         updated_at, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON DUPLICATE KEY UPDATE
                             odd_1 = VALUES(odd_1),
                             odd_x = VALUES(odd_x),
@@ -213,15 +238,16 @@ class PrematchParser:
                         match['draw_odd'],
                         match['away_odd'],
                         match['match_time'],
-                        BOOKMAKER
+                        BOOKMAKER,
+                        '1X2'
                     ))
 
                     cursor.execute("""
                         INSERT INTO odds_full_history
                         (bookmaker, match_id, home_team, away_team, sport, league,
                          home_odd, draw_odd, away_odd, minute, score, status,
-                         is_live, timestamp)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                         is_live, timestamp, notes)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
                     """, (
                         BOOKMAKER,
                         match['match_id'],
@@ -234,24 +260,30 @@ class PrematchParser:
                         match['away_odd'],
                         0,
                         "0:0",
-                        match['status'],
-                        False
+                        'prematch',
+                        False,
+                        f"Prematch - {match['match_time']}"
                     ))
 
+                except pymysql.IntegrityError:
+                    # Дубликат - пропускаем
+                    pass
                 except Exception as e:
+                    print(f"⚠️ Error inserting match: {e}")
                     continue
 
             self.conn.commit()
-            print(f"✅ Saved {len(matches_data)} prematch matches to DB")
+            print(f"✅ Saved {len(matches_data)} PREMATCH matches to DB")
 
         except Exception as e:
             print(f"❌ Error saving to DB: {e}")
 
     async def run(self):
-        print(f"🚀 Starting 22bet PREMATCH parser (from Live page)")
+        print(f"\n🚀 Starting 22bet PREMATCH Parser (Calendar)")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']}")
         print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds")
-        print(f"📅 Filtering: minute = 0 (not started yet)\n")
+        print(f"📅 Time window: NEXT {HOURS_AHEAD} hour from now")
+        print(f"📊 Parsing from: https://22bet.com/football\n")
 
         if not self.connect_db():
             return
@@ -285,10 +317,10 @@ class PrematchParser:
             """)
 
             try:
-                print(f"🔄 Loading https://22bet.com/live/football...")
-                await page.goto('https://22bet.com/live/football', timeout=30000, wait_until='domcontentloaded')
-                await asyncio.sleep(2)
-                
+                print(f"🔄 Loading https://22bet.com/football...")
+                await page.goto('https://22bet.com/football', timeout=30000, wait_until='domcontentloaded')
+                await asyncio.sleep(3)  # Даём время на загрузку JS
+
                 print("✅ Page loaded\n")
 
                 consecutive_errors = 0
@@ -304,15 +336,19 @@ class PrematchParser:
                         else:
                             consecutive_errors += 1
                             if consecutive_errors >= max_errors:
-                                print(f"❌ Too many consecutive errors")
-                                break
+                                print(f"❌ Too many consecutive errors, reloading page...")
+                                await page.reload(wait_until='domcontentloaded')
+                                await asyncio.sleep(3)
+                                consecutive_errors = 0
+                                continue
 
                         print(f"⏳ Waiting {UPDATE_INTERVAL} seconds...\n")
                         await asyncio.sleep(UPDATE_INTERVAL)
-                        
-                        # Перезагружаем
-                        await page.reload(wait_until='domcontentloaded')
-                        await asyncio.sleep(2)
+
+                        # Периодически перезагружаем
+                        if consecutive_errors == 0:
+                            await page.reload(wait_until='domcontentloaded')
+                            await asyncio.sleep(2)
 
                     except Exception as e:
                         print(f"❌ Error in loop: {e}")
@@ -326,7 +362,7 @@ class PrematchParser:
                 await browser.close()
                 if self.conn:
                     self.conn.close()
-                    print("🔌 Database closed")
+                    print("🔐 Database closed")
 
 
 if __name__ == '__main__':
