@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-22bet PREMATCH Parser - Calendar & Upcoming Matches
+22bet PREMATCH Parser - AUTO SELECTOR DETECTION
 D:\Inforadar_Pro\parsers\playwright_22bet\prematch_parser.py
 
-Парсит предстоящие матчи из календаря 22bet
-Время: 1 час ПЕРЕД матчем (test), потом переключим на 12 часов
+Автоматический поиск селекторов на главной странице 22bet
 Интервал: 60 сек
 """
 import asyncio
@@ -30,15 +29,16 @@ PROXY_CONFIG = {
     'password': '5d234f6517'
 }
 
-UPDATE_INTERVAL = 60  # 🔥 60 сек
+UPDATE_INTERVAL = 60  # 60 сек
 BOOKMAKER = '22bet'
-HOURS_AHEAD = 1  # ТЕСТОВАЯ СТОИМОСТЬ: 1 час, потом переключим на 12
+HOURS_AHEAD = 1  # Тестовая стоимость: 1 час
 
 
 class PrematchParser:
     def __init__(self):
         self.conn = None
-        self.last_saved = {}  # Кэш для избежания дубликатов
+        self.last_saved = {}
+        self.detected_selectors = {}  # Кэш найденных селекторов
 
     def connect_db(self):
         try:
@@ -53,62 +53,126 @@ class PrematchParser:
         key_str = f"{home_team}#{away_team}".lower()
         return hashlib.md5(key_str.encode()).hexdigest()[:12]
 
+    async def detect_selectors(self, page):
+        """
+        🔍 Автоматический поиск селекторов для матчей
+        Пробует разные CSS селекторы и возвращает рабочие
+        """
+        selectors_to_try = [
+            # Основные варианты
+            '.c-events__item',
+            '[class*="event"]',
+            '[class*="match"]',
+            '.match',
+            '.event',
+            '[data-event]',
+            '[data-match]',
+            '[data-tournament]',
+            # Более специфичные
+            'div[class*="event-row"]',
+            'div[class*="match-row"]',
+            'tr[data-event-id]',
+            'tr[class*="event"]',
+            # Общие контейнеры
+            'li[class*="event"]',
+            'div[role="button"][class*="event"]',
+        ]
+
+        found_selectors = {}
+
+        for selector in selectors_to_try:
+            try:
+                elements = await page.query_selector_all(selector)
+                count = len(elements)
+                if count > 0:
+                    found_selectors[selector] = count
+                    print(f"  ✅ Found {count} elements with: {selector}")
+            except:
+                pass
+
+        return found_selectors
+
+    async def extract_match_info_from_element(self, match_elem):
+        """
+        Пытается извлечь информацию из элемента матча
+        Пробует разные способы
+        """
+        try:
+            # Способ 1: Получи весь текст элемента
+            full_text = await match_elem.text_content()
+            if not full_text:
+                return None
+
+            full_text = ' '.join(full_text.split())
+
+            # Попробуй найти команды (Team1 vs Team2 или Team1 - Team2)
+            teams_match = re.search(r'(.+?)\s+(?:vs|-|—)\s+(.+?)\s+(\d{1,2}:\d{2})', full_text)
+            if not teams_match:
+                return None
+
+            home_team = teams_match.group(1).strip()
+            away_team = teams_match.group(2).strip()
+            time_str = teams_match.group(3).strip()
+
+            # Фильтр неправильных команд
+            if len(home_team) < 2 or len(away_team) < 2:
+                return None
+            if 'unknown' in home_team.lower() or 'unknown' in away_team.lower():
+                return None
+
+            return {
+                'home_team': home_team,
+                'away_team': away_team,
+                'time_str': time_str,
+                'full_text': full_text
+            }
+
+        except Exception as e:
+            return None
+
     async def parse_prematch_matches(self, page):
         """
-        Парсим матчи из календаря на главной странице
-        Берём матчи которые начнутся в течение HOURS_AHEAD
+        Парсим матчи с автоматическим поиском селекторов
         """
         try:
             if len(self.last_saved) > 10000:
                 self.last_saved = {}
 
-            # Ищем элементы с временем матча
-            matches = await page.query_selector_all('[data-tournament-id]')
+            print("\n🔍 Detecting selectors...")
+            found_selectors = await self.detect_selectors(page)
 
-            if not matches:
-                print(f"⚠️ No matches found with [data-tournament-id]")
-                # Попробуем другой селектор
-                matches = await page.query_selector_all('.c-events__item')
-                if not matches:
-                    print(f"⚠️ Also no matches with .c-events__item")
-                    return []
+            if not found_selectors:
+                print("⚠️ No match selectors found!")
+                # Попробуем просто получить страницу HTML
+                print("📄 Dumping page structure...")
+                html = await page.content()
+                # Ищем в HTML text с похожестью на название команды
+                if 'vs' in html.lower() or '—' in html or '-' in html:
+                    print(f"   ℹ️ Page contains team indicators")
+                return []
 
-            print(f"📊 Found {len(matches)} total matches")
+            # Используем первый найденный селектор (с наибольшим количеством элементов)
+            best_selector = max(found_selectors.items(), key=lambda x: x[1])[0]
+            print(f"\n🎯 Using selector: {best_selector} ({found_selectors[best_selector]} elements)")
+
+            matches = await page.query_selector_all(best_selector)
+            print(f"📊 Found {len(matches)} total elements")
 
             matches_data = []
             now = datetime.now()
             cutoff_time = now + timedelta(hours=HOURS_AHEAD)
 
-            for idx, match in enumerate(matches, 1):
+            for idx, match in enumerate(matches[:100], 1):  # Макс 100 проверяем
                 try:
-                    # Парсим команды
-                    teams = await match.query_selector('.c-events__teams')
-                    teams_text = await teams.text_content() if teams else "Unknown vs Unknown"
-                    teams_text = ' '.join(teams_text.split())
-
-                    if ' - ' in teams_text:
-                        teams_split = teams_text.split(' - ')
-                    elif ' vs ' in teams_text:
-                        teams_split = teams_text.split(' vs ')
-                    else:
+                    match_info = await self.extract_match_info_from_element(match)
+                    if not match_info:
                         continue
 
-                    home_team = teams_split[0].strip() if len(teams_split) > 0 else None
-                    away_team = teams_split[1].strip() if len(teams_split) > 1 else None
+                    home_team = match_info['home_team']
+                    away_team = match_info['away_team']
+                    time_str = match_info['time_str']
 
-                    if not home_team or not away_team or home_team == "Unknown" or away_team == "Unknown":
-                        continue
-
-                    # ключевой момент: парсим время матча
-                    time_elem = await match.query_selector('.c-events__time')
-                    time_str = await time_elem.text_content() if time_elem else None
-
-                    if not time_str:
-                        continue
-
-                    time_str = time_str.strip()
-
-                    # Парсим время в формате "HH:MM" или "14:30"
+                    # Парсим время
                     time_match = re.search(r'(\d{1,2}):(\d{2})', time_str)
                     if not time_match:
                         continue
@@ -116,62 +180,52 @@ class PrematchParser:
                     try:
                         match_hour = int(time_match.group(1))
                         match_min = int(time_match.group(2))
-                        # Предполагаем сегодняшний день или завтра
                         match_time = now.replace(hour=match_hour, minute=match_min, second=0, microsecond=0)
 
-                        # Если время прошло, считаем что это завтра
                         if match_time < now:
                             match_time = match_time + timedelta(days=1)
 
-                        # 🔥 ФИЛЬТР: матч должен быть в течение HOURS_AHEAD
-                        if match_time > cutoff_time:
-                            continue  # Матч слишком далеко в будущем
-                        if match_time < now - timedelta(minutes=5):
-                            continue  # Матч уже прошел
+                        if match_time > cutoff_time or match_time < now - timedelta(minutes=5):
+                            continue
 
                     except:
                         continue
 
-                    # Лига
-                    league_elem = await match.query_selector('.c-events__league')
-                    league = await league_elem.text_content() if league_elem else "Unknown"
-                    league = league.strip()
-
-                    # Коэффициенты
-                    odds_elements = await match.query_selector_all('.c-bets__bet')
+                    # Пробуем получить коэффициенты из элемента
+                    odd_texts = await match.query_selector_all('text')
                     home_odd = draw_odd = away_odd = None
 
-                    if len(odds_elements) >= 3:
+                    # Ищем селекторы для коэффициентов
+                    odds_container = await match.query_selector_all('[class*="odd"], [class*="coefficient"], .c-bets__bet')
+                    if len(odds_container) >= 3:
                         try:
-                            home_text = await odds_elements[0].text_content()
-                            home_odd = float(home_text.strip()) if home_text.strip() else None
+                            home_odd = float(await odds_container[0].text_content())
                         except:
                             home_odd = None
-
                         try:
-                            draw_text = await odds_elements[1].text_content()
-                            draw_text = draw_text.strip()
-                            if draw_text.upper() == 'X' or not draw_text:
-                                draw_odd = None
-                            else:
+                            draw_text = await odds_container[1].text_content()
+                            if draw_text.strip().upper() != 'X':
                                 draw_odd = float(draw_text)
                         except:
                             draw_odd = None
-
                         try:
-                            away_text = await odds_elements[2].text_content()
-                            away_odd = float(away_text.strip()) if away_text.strip() else None
+                            away_odd = float(await odds_container[2].text_content())
                         except:
                             away_odd = None
 
-                    # Уникальный ключ
+                    # Лига - попробуем найти
+                    league = "Unknown"
+                    league_elem = await match.query_selector('[class*="league"], [class*="tournament"]')
+                    if league_elem:
+                        league = await league_elem.text_content()
+                        league = league.strip() if league else "Unknown"
+
                     unique_key = self.generate_unique_key(home_team, away_team)
 
-                    # Проверяем дубликаты
                     if unique_key in self.last_saved:
-                        if (self.last_saved[unique_key]['home_odd'] == home_odd and
-                            self.last_saved[unique_key]['draw_odd'] == draw_odd and
-                            self.last_saved[unique_key]['away_odd'] == away_odd):
+                        if (self.last_saved[unique_key].get('home_odd') == home_odd and
+                            self.last_saved[unique_key].get('draw_odd') == draw_odd and
+                            self.last_saved[unique_key].get('away_odd') == away_odd):
                             continue
 
                     self.last_saved[unique_key] = {
@@ -200,11 +254,13 @@ class PrematchParser:
                 except Exception as e:
                     continue
 
-            print(f"✅ Filtered to {len(matches_data)} PREMATCH matches (next {HOURS_AHEAD} hour)")
+            print(f"✅ Parsed {len(matches_data)} PREMATCH matches")
             return matches_data
 
         except Exception as e:
             print(f"❌ Error in parse_prematch_matches: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def save_to_database(self, matches_data):
@@ -242,34 +298,9 @@ class PrematchParser:
                         '1X2'
                     ))
 
-                    cursor.execute("""
-                        INSERT INTO odds_full_history
-                        (bookmaker, match_id, home_team, away_team, sport, league,
-                         home_odd, draw_odd, away_odd, minute, score, status,
-                         is_live, timestamp, notes)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s)
-                    """, (
-                        BOOKMAKER,
-                        match['match_id'],
-                        match['home_team'],
-                        match['away_team'],
-                        match['sport'],
-                        match['league'],
-                        match['home_odd'],
-                        match['draw_odd'],
-                        match['away_odd'],
-                        0,
-                        "0:0",
-                        'prematch',
-                        False,
-                        f"Prematch - {match['match_time']}"
-                    ))
-
                 except pymysql.IntegrityError:
-                    # Дубликат - пропускаем
                     pass
                 except Exception as e:
-                    print(f"⚠️ Error inserting match: {e}")
                     continue
 
             self.conn.commit()
@@ -279,7 +310,7 @@ class PrematchParser:
             print(f"❌ Error saving to DB: {e}")
 
     async def run(self):
-        print(f"\n🚀 Starting 22bet PREMATCH Parser (Calendar)")
+        print(f"\n🚀 Starting 22bet PREMATCH Parser (AUTO DETECT)")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']}")
         print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds")
         print(f"📅 Time window: NEXT {HOURS_AHEAD} hour from now")
@@ -319,9 +350,9 @@ class PrematchParser:
             try:
                 print(f"🔄 Loading https://22bet.com/football...")
                 await page.goto('https://22bet.com/football', timeout=30000, wait_until='domcontentloaded')
-                await asyncio.sleep(3)  # Даём время на загрузку JS
+                await asyncio.sleep(3)
 
-                print("✅ Page loaded\n")
+                print("✅ Page loaded")
 
                 consecutive_errors = 0
                 max_errors = 5
@@ -336,7 +367,7 @@ class PrematchParser:
                         else:
                             consecutive_errors += 1
                             if consecutive_errors >= max_errors:
-                                print(f"❌ Too many consecutive errors, reloading page...")
+                                print(f"❌ Too many errors, reloading page...")
                                 await page.reload(wait_until='domcontentloaded')
                                 await asyncio.sleep(3)
                                 consecutive_errors = 0
@@ -345,7 +376,6 @@ class PrematchParser:
                         print(f"⏳ Waiting {UPDATE_INTERVAL} seconds...\n")
                         await asyncio.sleep(UPDATE_INTERVAL)
 
-                        # Периодически перезагружаем
                         if consecutive_errors == 0:
                             await page.reload(wait_until='domcontentloaded')
                             await asyncio.sleep(2)
@@ -357,6 +387,8 @@ class PrematchParser:
 
             except Exception as e:
                 print(f"❌ Fatal error: {e}")
+                import traceback
+                traceback.print_exc()
             finally:
                 await context.close()
                 await browser.close()
