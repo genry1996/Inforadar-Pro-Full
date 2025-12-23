@@ -97,6 +97,198 @@ def match_detail_page(event_name):
     """Детальная страница матча"""
     return render_template('match_detail.html')
 
+# ==================== 22BET ODDS API ====================
+
+@app.route('/api/odds/prematch')
+def api_odds_prematch():
+    """
+    API для получения prematch коэффициентов 22bet
+    Возвращает все активные события из таблицы odds_22bet
+    """
+    try:
+        limit = int(request.args.get('limit', 100))
+        sport = request.args.get('sport', '').strip()
+        
+        conn = get_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                event_name,
+                sport,
+                league,
+                market_type,
+                odd_1,
+                odd_x,
+                odd_2,
+                updated_at
+            FROM odds_22bet
+            WHERE status = 'active'
+        """
+        params = []
+        
+        # Фильтр по спорту
+        if sport:
+            query += " AND sport = %s"
+            params.append(sport)
+        
+        query += " ORDER BY updated_at DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        odds = cursor.fetchall()
+        
+        # Форматирование результата
+        result = []
+        for row in odds:
+            result.append({
+                'event_name': row['event_name'],
+                'sport': row.get('sport', 'N/A'),
+                'league': row.get('league', 'Unknown League'),
+                'market_type': row.get('market_type', '1X2'),
+                'odd_1': float(row['odd_1']) if row['odd_1'] else None,
+                'odd_x': float(row['odd_x']) if row['odd_x'] else None,
+                'odd_2': float(row['odd_2']) if row['odd_2'] else None,
+                'updated_at': format_datetime(row.get('updated_at'))
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"✅ Returned {len(result)} prematch odds")
+        
+        return jsonify({
+            'success': True,
+            'count': len(result),
+            'data': result
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error in api_odds_prematch: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/odds/live')
+def api_odds_live():
+    """
+    API для получения live коэффициентов 22bet
+    Возвращает события, обновлённые за последние 10 минут
+    """
+    try:
+        limit = int(request.args.get('limit', 100))
+        minutes = int(request.args.get('minutes', 10))  # За сколько минут показывать
+        sport = request.args.get('sport', '').strip()
+        
+        conn = get_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                event_name,
+                sport,
+                league,
+                market_type,
+                odd_1,
+                odd_x,
+                odd_2,
+                updated_at
+            FROM odds_22bet
+            WHERE status = 'active'
+              AND updated_at >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
+        """
+        params = [minutes]
+        
+        # Фильтр по спорту
+        if sport:
+            query += " AND sport = %s"
+            params.append(sport)
+        
+        query += " ORDER BY updated_at DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        odds = cursor.fetchall()
+        
+        # Форматирование результата
+        result = []
+        for row in odds:
+            result.append({
+                'event_name': row['event_name'],
+                'sport': row.get('sport', 'N/A'),
+                'league': row.get('league', 'Unknown League'),
+                'market_type': row.get('market_type', '1X2'),
+                'odd_1': float(row['odd_1']) if row['odd_1'] else None,
+                'odd_x': float(row['odd_x']) if row['odd_x'] else None,
+                'odd_2': float(row['odd_2']) if row['odd_2'] else None,
+                'updated_at': format_datetime(row.get('updated_at'))
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"✅ Returned {len(result)} live odds (last {minutes} minutes)")
+        
+        return jsonify({
+            'success': True,
+            'count': len(result),
+            'minutes': minutes,
+            'data': result
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error in api_odds_live: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/odds/sports')
+def api_odds_sports():
+    """
+    API для получения списка доступных видов спорта в odds_22bet
+    """
+    try:
+        conn = get_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT DISTINCT sport, COUNT(*) as count
+            FROM odds_22bet
+            WHERE status = 'active'
+              AND sport IS NOT NULL
+            GROUP BY sport
+            ORDER BY count DESC
+        """)
+        
+        sports = cursor.fetchall()
+        
+        result = []
+        for row in sports:
+            result.append({
+                'name': row['sport'],
+                'count': row['count']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'count': len(result),
+            'data': result
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error in api_odds_sports: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ==================== API ЭНДПОИНТЫ ====================
 
 @app.route('/api/anomalies_filtered')
@@ -756,6 +948,9 @@ if __name__ == '__main__':
     print(f"🔍 BetWatch: http://localhost:5000/betwatch")
     print("=" * 70)
     print("📡 API Endpoints:")
+    print(f"   GET /api/odds/prematch - 22bet prematch odds")
+    print(f"   GET /api/odds/live - 22bet live odds")
+    print(f"   GET /api/odds/sports - Available sports list")
     print(f"   GET /api/anomalies_filtered?real_only=false&status=live")
     print(f"   GET /api/anomalies_22bet")
     print(f"   GET /api/match/<event_name>/full")
