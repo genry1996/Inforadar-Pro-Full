@@ -256,6 +256,9 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
         }
 
         .table-header {
@@ -265,12 +268,36 @@
             padding: 16px 20px;
             border-bottom: 1px solid #e6ebf0;
             background: #fafbfc;
+            flex-shrink: 0;
         }
 
         .table-info {
             font-size: 14px;
             color: #6b7380;
             font-weight: 500;
+        }
+
+        .table-scroll {
+            overflow-y: auto;
+            flex: 1;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .table-scroll::-webkit-scrollbar-track {
+            background: #f5f7fa;
+        }
+
+        .table-scroll::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .table-scroll::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
         }
 
         table {
@@ -281,6 +308,9 @@
         thead {
             background: #fafbfc;
             border-bottom: 2px solid #e6ebf0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         th {
@@ -329,6 +359,7 @@
         td.league-name {
             font-size: 14px;
             color: #6b7380;
+            min-width: 150px;
         }
 
         .odds-cell {
@@ -353,6 +384,52 @@
         @keyframes pulse-live {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+
+        /* ===== PAGINATION ===== */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 20px;
+            border-top: 1px solid #e6ebf0;
+            background: #fafbfc;
+            flex-shrink: 0;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            background: #f5f7fa;
+            color: #202733;
+            border: 1px solid #e6ebf0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .pagination button:hover {
+            background: #e6ebf0;
+            transform: none;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination button.active {
+            background: #ff4444;
+            color: #fff;
+            border-color: #ff4444;
+        }
+
+        .pagination-info {
+            font-size: 13px;
+            color: #6b7380;
+            white-space: nowrap;
+            margin: 0 10px;
         }
 
         .loading {
@@ -456,11 +533,11 @@
 
         <div class="controls">
             <div class="control-group">
-                <label>Limit:</label>
-                <select id="limit">
-                    <option value="50">50 events</option>
-                    <option value="100" selected>100 events</option>
-                    <option value="200">200 events</option>
+                <label>Per Page:</label>
+                <select id="per-page">
+                    <option value="10">10 per page</option>
+                    <option value="20" selected>20 per page</option>
+                    <option value="50">50 per page</option>
                 </select>
             </div>
 
@@ -503,23 +580,32 @@
 
         <div class="table-wrapper" id="table-wrapper" style="display: none;">
             <div class="table-header">
-                <div class="table-info">Showing <span id="row-count">0</span> live events</div>
+                <div class="table-info">Showing <span id="page-info">0</span> events</div>
             </div>
-            <table id="odds-table">
-                <thead>
-                    <tr>
-                        <th>League</th>
-                        <th style="width: 45%;">Event</th>
-                        <th>Market</th>
-                        <th>1 (Home)</th>
-                        <th>X (Draw)</th>
-                        <th>2 (Away)</th>
-                        <th>Updated</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body">
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table id="odds-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">League</th>
+                            <th style="width: 45%;">Event</th>
+                            <th style="width: 12%;">Market</th>
+                            <th style="width: 10%;">1 (Home)</th>
+                            <th style="width: 10%;">X (Draw)</th>
+                            <th style="width: 10%;">2 (Away)</th>
+                            <th style="width: 11%;">Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button id="prev-btn" onclick="previousPage()">← Previous</button>
+                <div class="pagination-info">
+                    Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+                </div>
+                <button id="next-btn" onclick="nextPage()">Next →</button>
+            </div>
         </div>
     </div>
 
@@ -529,8 +615,12 @@
             apiEndpoint: '/api/odds/live'
         };
 
+        let allData = [];
+        let currentPage = 1;
+        let perPage = 20;
+        let totalPages = 1;
+
         async function loadOdds() {
-            const limit = document.getElementById('limit').value;
             const minutes = document.getElementById('minutes').value;
             const sport = document.getElementById('sport').value;
 
@@ -540,7 +630,7 @@
             document.getElementById('error-msg').style.display = 'none';
 
             try {
-                const params = new URLSearchParams({ limit, minutes });
+                const params = new URLSearchParams({ limit: 200, minutes });
                 if (sport) params.append('sport', sport);
 
                 const url = `${CONFIG.apiEndpoint}?${params.toString()}`;
@@ -556,10 +646,14 @@
                     return;
                 }
 
-                renderTable(result.data);
+                allData = result.data;
+                currentPage = 1;
+                perPage = parseInt(document.getElementById('per-page').value);
+                totalPages = Math.ceil(allData.length / perPage);
+
+                renderPage();
                 updateStats(result.count, result.data.filter(d => d.sport === 'Football').length);
-                document.getElementById('table-wrapper').style.display = 'block';
-                document.getElementById('row-count').textContent = result.count;
+                document.getElementById('table-wrapper').style.display = 'flex';
 
             } catch (error) {
                 console.error('Error loading odds:', error);
@@ -567,6 +661,17 @@
                 document.getElementById('error-msg').style.display = 'block';
                 document.getElementById('error-msg').textContent = `❌ Error: ${error.message}`;
             }
+        }
+
+        function renderPage() {
+            const start = (currentPage - 1) * perPage;
+            const end = start + perPage;
+            const pageData = allData.slice(start, end);
+
+            renderTable(pageData);
+            updatePagination();
+
+            document.getElementById('page-info').textContent = `${start + 1}-${Math.min(end, allData.length)} of ${allData.length}`;
         }
 
         function renderTable(rows) {
@@ -598,6 +703,29 @@
             });
         }
 
+        function updatePagination() {
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = totalPages;
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = currentPage === totalPages;
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage();
+                document.querySelector('.table-scroll').scrollTop = 0;
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage();
+                document.querySelector('.table-scroll').scrollTop = 0;
+            }
+        }
+
         function updateStats(total, football) {
             document.getElementById('total-count').textContent = total;
             document.getElementById('football-count').textContent = football;
@@ -612,7 +740,13 @@
             return `${hours}:${minutes}:${seconds}`;
         }
 
-        document.getElementById('limit').addEventListener('change', loadOdds);
+        document.getElementById('per-page').addEventListener('change', () => {
+            currentPage = 1;
+            perPage = parseInt(document.getElementById('per-page').value);
+            totalPages = Math.ceil(allData.length / perPage);
+            renderPage();
+        });
+
         document.getElementById('minutes').addEventListener('change', loadOdds);
         document.getElementById('sport').addEventListener('change', loadOdds);
 
