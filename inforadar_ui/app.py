@@ -69,18 +69,18 @@ def calculate_severity(change_pct):
 # ==================== HTML МАРШРУТЫ ====================
 @app.route('/')
 def index():
-    """Главная страница - редирект на /live"""
-    return render_template('anomalies_22bet.html')
+    """Главная страница - редирект на live odds"""
+    return render_template('live_odds.html')
 
 @app.route('/live')
 def live_page():
-    """Страница LIVE матчей"""
-    return render_template('anomalies_22bet.html')
+    """Страница LIVE коэффициентов"""
+    return render_template('live_odds.html')
 
 @app.route('/prematch')
 def prematch_page():
-    """Страница PREMATCH матчей"""
-    return render_template('anomalies_22bet.html')
+    """Страница PREMATCH коэффициентов"""
+    return render_template('prematch_odds.html')
 
 @app.route('/anomalies_22bet')
 def anomalies_22bet_page():
