@@ -181,7 +181,8 @@ class LiveMatchParser:
             print(f"📊 Found {len(matches)} live matches")
 
             matches_data = []
-            for idx, match in enumerate(matches[:10]):
+            # 🔥 ИСПРАВЛЕНО: убрал [:10], теперь парсим ВСЕ матчи
+            for idx, match in enumerate(matches, 1):
                 try:
                     # Парсинг match_id с fallback
                     match_id = await match.get_attribute('data-event-id')
@@ -273,9 +274,10 @@ class LiveMatchParser:
                     })
 
                 except Exception as e:
-                    print(f"⚠️ Error parsing match: {e}")
+                    print(f"⚠️ Error parsing match #{idx}: {e}")
                     continue
 
+            print(f"✅ Successfully parsed {len(matches_data)}/{len(matches)} matches")
             return matches_data
 
         except Exception as e:
