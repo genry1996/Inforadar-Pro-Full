@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-22bet Prematch Parser - Upcoming Matches
+22bet Prematch Parser - Upcoming Matches (12 hours ahead)
 D:\Inforadar_Pro\parsers\playwright_22bet\prematch_parser.py
 
-Парсит матчи от 1 часа до 7 дней в будущем
+Парсит предстоящие матчи на 12 часов вперёд
+Интервал: 60 сек (чтобы не словить бан)
 """
 import asyncio
 import os
@@ -29,7 +30,7 @@ PROXY_CONFIG = {
     'password': '5d234f6517'
 }
 
-UPDATE_INTERVAL = int(os.getenv('UPDATE_INTERVAL', 5))
+UPDATE_INTERVAL = 60  # 🔥 60 секунд, чтобы не поймать бан
 BOOKMAKER = '22bet'
 
 
@@ -48,19 +49,19 @@ class PrematchParser:
 
     async def parse_prematch_matches(self, page):
         """
-        Парсинг prematch матчей
-        Ищет в секциях: Today, Tomorrow, Next 7 Days
+        Парсинг prematch матчей за 12 часов вперёд
+        Использует аналогичные селекторы как Live
         """
         try:
-            # Ждём загрузки элементов
-            await page.wait_for_selector('.c-events__item', timeout=10000)
+            # Ждём загрузки событий (более длительный таймаут)
+            await page.wait_for_selector('.c-events__item', timeout=15000)
             matches = await page.query_selector_all('.c-events__item')
 
             if not matches:
                 print(f"⚠️ No prematch matches found")
                 return []
 
-            print(f"📊 Found {len(matches)} prematch matches")
+            print(f"📅 Found {len(matches)} prematch matches (next 12 hours)")
 
             matches_data = []
             for idx, match in enumerate(matches, 1):
@@ -85,7 +86,6 @@ class PrematchParser:
                     if not match_id:
                         team_hash = hashlib.md5(f"{home_team}{away_team}".encode()).hexdigest()[:8]
                         match_id = f"22bet_{team_hash}"
-                        print(f"⚠️ Generated fallback match_id: {match_id}")
 
                     event_name = f"{home_team} vs {away_team}"
 
@@ -223,10 +223,10 @@ class PrematchParser:
 
     async def run(self):
         """Главный цикл парсера"""
-        print(f"🚀 Starting 22bet PREMATCH parser")
+        print(f"🚀 Starting 22bet PREMATCH parser (Football only)")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']} (Sweden)")
-        print(f"🔄 Update interval: {UPDATE_INTERVAL} seconds")
-        print(f"📅 Parsing upcoming matches (1 hour - 7 days ahead)")
+        print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds (safe)")
+        print(f"📅 Parsing upcoming matches (next 12 hours)")
 
         if not self.connect_db():
             print("❌ Cannot start without DB connection")
@@ -268,8 +268,12 @@ class PrematchParser:
 
             try:
                 print(f"🔄 Loading https://22bet.com/football (prematch) via proxy...")
-                # Грузим главную страницу футбола (где видны предстоящие матчи)
+                # Загружаем основную страницу футбола
                 await page.goto('https://22bet.com/football', timeout=30000, wait_until='domcontentloaded')
+                
+                # Даём странице время на загрузку элементов
+                await asyncio.sleep(3)
+                
                 print("✅ Loaded 22bet football page")
 
                 consecutive_errors = 0
@@ -288,7 +292,10 @@ class PrematchParser:
 
                         print(f"⏳ Waiting {UPDATE_INTERVAL} seconds...")
                         await asyncio.sleep(UPDATE_INTERVAL)
+                        
+                        # Перезагружаем страницу
                         await page.reload(wait_until='domcontentloaded')
+                        await asyncio.sleep(2)  # Даём время на загрузку
 
                     except Exception as e:
                         print(f"❌ Error in main loop: {e}")
