@@ -198,7 +198,7 @@ class PrematchParser:
                         'event_name': event_name,
                         'home_team': home_team,
                         'away_team': away_team,
-                        'status': 'prematch',
+                        'status': 'active',
                         'match_time': time_str,
                         'home_odd': home_odd,
                         'draw_odd': draw_odd,
