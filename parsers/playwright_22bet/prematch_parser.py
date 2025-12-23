@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-22bet PREMATCH Parser - Live Page with Prematch Filter + DEBUG
+22bet PREMATCH Parser - Line/Football Section
 D:\Inforadar_Pro\parsers\playwright_22bet\prematch_parser.py
 
-ДЕБАГ ВЕРСИЯ - показываем что именно парсим
+Парсим из секции LINE (prematch), а не LIVE!
+URL: https://22bet.com/line/football
+Интервал: 60 сек
 """
 import asyncio
 import os
@@ -31,7 +33,7 @@ PROXY_CONFIG = {
 UPDATE_INTERVAL = 60
 BOOKMAKER = '22bet'
 HOURS_AHEAD = 12
-DEBUG_MODE = True  # 🔍 ДЕБАГ
+DEBUG_MODE = True
 
 
 class PrematchParser:
@@ -53,43 +55,41 @@ class PrematchParser:
         key_str = f"{home_team}#{away_team}".lower()
         return hashlib.md5(key_str.encode()).hexdigest()[:12]
 
-    def parse_time_string(self, time_str):
-        time_str = time_str.strip()
-        
-        # Live матч
-        if "'" in time_str or 'HT' in time_str.upper():
-            return None, 'live'
-        
-        # Prematch
-        time_match = re.search(r'(\d{1,2}):(\d{2})', time_str)
-        if time_match:
-            try:
-                hour = int(time_match.group(1))
-                minute = int(time_match.group(2))
-                now = datetime.now()
-                match_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                
-                if match_time < now:
-                    match_time = match_time + timedelta(days=1)
-                
-                return match_time, 'prematch'
-            except:
-                return None, 'unknown'
-        
-        return None, 'unknown'
-
     async def parse_prematch_matches(self, page):
         try:
             if len(self.last_saved) > 10000:
                 self.last_saved = {}
 
-            await page.wait_for_selector('.c-events__item', timeout=15000)
-            await asyncio.sleep(2)
+            # Ждём загрузки - на LINE странице могут быть другие селекторы
+            await asyncio.sleep(5)  # Даём время JS полностью загрузиться
             
-            matches = await page.query_selector_all('.c-events__item')
+            # Пробуем разные селекторы
+            selectors_to_try = [
+                '.c-events__item',
+                '.c-events-scoreboard__item',
+                '[class*="event"]',
+                '.event-item',
+                'div[data-event-id]'
+            ]
+            
+            matches = None
+            for selector in selectors_to_try:
+                try:
+                    test = await page.query_selector_all(selector)
+                    if test and len(test) > 0:
+                        matches = test
+                        print(f"✅ Using selector: {selector} ({len(test)} items)")
+                        break
+                except:
+                    continue
             
             if not matches:
-                print(f"⚠️ No matches found")
+                print(f"⚠️ No matches found with any selector")
+                # Сохраняем HTML для анализа
+                html = await page.content()
+                with open('D:\\Inforadar_Pro\\debug_line_page.html', 'w', encoding='utf-8') as f:
+                    f.write(html)
+                print("📄 Saved page HTML to debug_line_page.html")
                 return []
 
             print(f"📊 Found {len(matches)} total items on page")
@@ -98,105 +98,101 @@ class PrematchParser:
             now = datetime.now()
             cutoff_time = now + timedelta(hours=HOURS_AHEAD)
 
-            # 🔍 ДЕБАГ: показываем первые 5 матчей
+            # 🔍 ДЕБАГ
             if DEBUG_MODE and self.debug_samples < 3:
-                print("\n🔍 DEBUG: Showing first 5 matches...")
-                for idx in range(min(5, len(matches))):
+                print("\n🔍 DEBUG: Showing first 10 matches...")
+                for idx in range(min(10, len(matches))):
                     match = matches[idx]
                     try:
-                        teams = await match.query_selector('.c-events__teams')
-                        teams_text = await teams.text_content() if teams else "N/A"
-                        teams_text = ' '.join(teams_text.split())
-                        
-                        time_elem = await match.query_selector('.c-events__time')
-                        time_str = await time_elem.text_content() if time_elem else "N/A"
-                        time_str = time_str.strip()
-                        
-                        match_time, status = self.parse_time_string(time_str)
-                        
-                        print(f"  [{idx+1}] {teams_text[:40]:<40} | Time: '{time_str}' -> {status}")
+                        # Получаем весь текст
+                        full_text = await match.text_content()
+                        full_text = ' '.join(full_text.split())[:80]
+                        print(f"  [{idx+1}] {full_text}")
                     except:
-                        pass
+                        print(f"  [{idx+1}] Error getting text")
                 print()
                 self.debug_samples += 1
 
             for idx, match in enumerate(matches, 1):
                 try:
-                    teams = await match.query_selector('.c-events__teams')
-                    teams_text = await teams.text_content() if teams else ""
-                    teams_text = ' '.join(teams_text.split())
-                    
-                    if ' - ' in teams_text:
-                        teams_split = teams_text.split(' - ')
-                    elif ' vs ' in teams_text:
-                        teams_split = teams_text.split(' vs ')
-                    else:
+                    # Получаем весь текст элемента
+                    full_text = await match.text_content()
+                    if not full_text:
                         continue
                     
-                    home_team = teams_split[0].strip() if len(teams_split) > 0 else None
-                    away_team = teams_split[1].strip() if len(teams_split) > 1 else None
-
-                    if not home_team or not away_team:
+                    full_text = ' '.join(full_text.split())
+                    
+                    # Пытаемся найти команды и время
+                    # Формат: "Team1 - Team2 14:30" или "Team1 vs Team2 21:00"
+                    pattern = r'(.+?)\s*(?:-|vs)\s*(.+?)\s+(\d{1,2}:\d{2})'
+                    match_data = re.search(pattern, full_text, re.IGNORECASE)
+                    
+                    if not match_data:
                         continue
-
-                    time_elem = await match.query_selector('.c-events__time')
-                    time_str = await time_elem.text_content() if time_elem else ""
-                    time_str = time_str.strip()
-
-                    match_time, status = self.parse_time_string(time_str)
-
-                    # Фильтр
-                    if status != 'prematch' or not match_time:
+                    
+                    home_team = match_data.group(1).strip()
+                    away_team = match_data.group(2).strip()
+                    time_str = match_data.group(3).strip()
+                    
+                    # Фильтр некорректных названий
+                    if len(home_team) < 3 or len(away_team) < 3:
                         continue
-
-                    if match_time > cutoff_time:
+                    if any(char.isdigit() for char in home_team[:5]):
                         continue
-                    if match_time < now - timedelta(minutes=5):
+                    
+                    # Парсим время
+                    try:
+                        time_match = re.search(r'(\d{1,2}):(\d{2})', time_str)
+                        if not time_match:
+                            continue
+                        
+                        hour = int(time_match.group(1))
+                        minute = int(time_match.group(2))
+                        match_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                        
+                        if match_time < now:
+                            match_time = match_time + timedelta(days=1)
+                        
+                        # Фильтр по времени
+                        if match_time > cutoff_time:
+                            continue
+                        if match_time < now - timedelta(minutes=5):
+                            continue
+                    except:
                         continue
-
-                    league_elem = await match.query_selector('.c-events__league')
-                    league = await league_elem.text_content() if league_elem else "Unknown"
-                    league = league.strip()
-
-                    odds_elements = await match.query_selector_all('.c-bets__bet')
+                    
+                    # Пытаемся найти лигу и коэффы
+                    league = "Unknown"
                     home_odd = draw_odd = away_odd = None
-
-                    if len(odds_elements) >= 3:
+                    
+                    # Коэффы - ищем числа в диапазоне 1.01-100
+                    odds_pattern = r'\b(\d{1,2}\.\d{2})\b'
+                    odds_found = re.findall(odds_pattern, full_text)
+                    
+                    if len(odds_found) >= 3:
                         try:
-                            home_text = await odds_elements[0].text_content()
-                            home_odd = float(home_text.strip()) if home_text.strip() else None
+                            home_odd = float(odds_found[0])
+                            draw_odd = float(odds_found[1])
+                            away_odd = float(odds_found[2])
                         except:
                             pass
-
-                        try:
-                            draw_text = await odds_elements[1].text_content()
-                            draw_text = draw_text.strip()
-                            if draw_text.upper() not in ['X', '']:
-                                draw_odd = float(draw_text)
-                        except:
-                            pass
-
-                        try:
-                            away_text = await odds_elements[2].text_content()
-                            away_odd = float(away_text.strip()) if away_text.strip() else None
-                        except:
-                            pass
-
+                    
                     event_name = f"{home_team} vs {away_team}"
                     unique_key = self.generate_unique_key(home_team, away_team)
-
+                    
+                    # Проверка дубликатов
                     if unique_key in self.last_saved:
                         if (self.last_saved[unique_key].get('home_odd') == home_odd and
                             self.last_saved[unique_key].get('draw_odd') == draw_odd and
                             self.last_saved[unique_key].get('away_odd') == away_odd):
                             continue
-
+                    
                     self.last_saved[unique_key] = {
                         'home_odd': home_odd,
                         'draw_odd': draw_odd,
                         'away_odd': away_odd
                     }
-
+                    
                     matches_data.append({
                         'match_id': unique_key,
                         'event_name': event_name,
@@ -215,11 +211,13 @@ class PrematchParser:
                 except Exception as e:
                     continue
 
-            print(f"✅ Filtered to {len(matches_data)} PREMATCH matches (next {HOURS_AHEAD} hours)")
+            print(f"✅ Parsed {len(matches_data)} PREMATCH matches (next {HOURS_AHEAD} hours)")
             return matches_data
 
         except Exception as e:
             print(f"❌ Error in parse_prematch_matches: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def save_to_database(self, matches_data):
@@ -270,12 +268,11 @@ class PrematchParser:
             print(f"❌ Error saving to DB: {e}")
 
     async def run(self):
-        print(f"\n🚀 Starting 22bet PREMATCH Parser (DEBUG MODE)")
+        print(f"\n🚀 Starting 22bet PREMATCH Parser")
         print(f"🌐 Proxy: {PROXY_CONFIG['server']}")
         print(f"⏰ Update interval: {UPDATE_INTERVAL} seconds")
         print(f"📅 Time window: NEXT {HOURS_AHEAD} hours")
-        print(f"📊 Parsing from: https://22bet.com/live/football")
-        print(f"🔍 Filter: Only matches with start time (HH:MM format)\n")
+        print(f"📊 Parsing from: https://22bet.com/line/football\n")
 
         if not self.connect_db():
             return
@@ -306,9 +303,9 @@ class PrematchParser:
             """)
 
             try:
-                print(f"🔄 Loading https://22bet.com/live/football...")
-                await page.goto('https://22bet.com/live/football', timeout=30000, wait_until='domcontentloaded')
-                await asyncio.sleep(3)
+                print(f"🔄 Loading https://22bet.com/line/football...")
+                await page.goto('https://22bet.com/line/football', timeout=30000, wait_until='domcontentloaded')
+                await asyncio.sleep(5)
                 
                 print("✅ Page loaded\n")
 
@@ -327,7 +324,7 @@ class PrematchParser:
                             if consecutive_errors >= max_errors:
                                 print(f"❌ Too many errors, reloading...")
                                 await page.reload(wait_until='domcontentloaded')
-                                await asyncio.sleep(3)
+                                await asyncio.sleep(5)
                                 consecutive_errors = 0
                                 continue
 
@@ -335,7 +332,7 @@ class PrematchParser:
                         await asyncio.sleep(UPDATE_INTERVAL)
                         
                         await page.reload(wait_until='domcontentloaded')
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(3)
 
                     except Exception as e:
                         print(f"❌ Error in loop: {e}")
@@ -346,6 +343,8 @@ class PrematchParser:
                 print("\n⏹️ Stopped by user")
             except Exception as e:
                 print(f"❌ Fatal error: {e}")
+                import traceback
+                traceback.print_exc()
             finally:
                 await context.close()
                 await browser.close()
