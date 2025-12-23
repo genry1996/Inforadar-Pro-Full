@@ -685,7 +685,7 @@
 
         // Flag emoji mapping (based on league country)
         const LEAGUE_FLAGS = {
-            'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+            'England': '🏴',
             'Spain': '🇪🇸',
             'Germany': '🇩🇪',
             'Italy': '🇮🇹',
@@ -721,7 +721,7 @@
             return '⚽';
         }
 
-        // ===== LOAD ANOMALIES =====
+        // ===== LOAD ANOMALIES (НОВЫЙ ФОРМАТ) =====
         async function loadAnomalies() {
             const minPct = document.getElementById('min-pct').value;
             const type = document.getElementById('anomaly-type').value;
@@ -737,28 +737,58 @@
             try {
                 const params = new URLSearchParams({
                     min_pct: minPct,
-                    type: type,
                     hours: hours
                 });
-                if (market) params.append('market', market);
-                if (outcome) params.append('outcome', outcome);
+
+                // optional filters to backend (если бэкенд их поддерживает)
+                if (type) params.append('type', type);
+                if (market) params.append('market', market.toLowerCase());
+                if (outcome) params.append('outcome', outcome.toLowerCase());
 
                 const url = `${CONFIG.apiEndpoint}?${params.toString()}`;
                 const response = await fetch(url);
-                const json = await response.json();
+                const data = await response.json();   // теперь это МАССИВ объектов из таблицы anomalies
 
                 document.getElementById('loading').style.display = 'none';
 
-                if (!json.success || !json.data || json.data.length === 0) {
+                if (!Array.isArray(data) || data.length === 0) {
                     document.getElementById('empty').style.display = 'block';
                     updateStats([], 0);
                     return;
                 }
 
-                renderTable(json.data);
-                updateStats(json.data, json.count);
+                // 🔥 ФИЛЬТР ТОЛЬКО LIVE (чтобы на лайве не было прематча)
+                let anomalies = data.filter(a =>
+                    a.is_live === 1 ||
+                    a.is_live === true ||
+                    (a.match_minute && a.match_minute > 0)
+                );
+
+                // Дополнительная фильтрация по типу (rise/drop), рынку и исходу на клиенте
+                if (type === 'rise') {
+                    anomalies = anomalies.filter(a => (parseFloat(a.change_pct) || 0) > 0);
+                } else if (type === 'drop') {
+                    anomalies = anomalies.filter(a => (parseFloat(a.change_pct) || 0) < 0);
+                }
+
+                if (market) {
+                    anomalies = anomalies.filter(a => (a.market || '').toLowerCase() === market.toLowerCase());
+                }
+
+                if (outcome) {
+                    anomalies = anomalies.filter(a => (a.outcome || '').toLowerCase() === outcome.toLowerCase());
+                }
+
+                if (anomalies.length === 0) {
+                    document.getElementById('empty').style.display = 'block';
+                    updateStats([], 0);
+                    return;
+                }
+
+                renderTable(anomalies);
+                updateStats(anomalies, anomalies.length);
                 document.getElementById('table-wrapper').style.display = 'block';
-                document.getElementById('row-count').textContent = json.data.length;
+                document.getElementById('row-count').textContent = anomalies.length;
 
             } catch (error) {
                 console.error('Error loading anomalies:', error);
@@ -768,19 +798,18 @@
             }
         }
 
-        // ===== RENDER TABLE =====
-        function renderTable(data) {
+        // ===== RENDER TABLE (под новые поля) =====
+        function renderTable(rows) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
-            data.forEach(row => {
+            rows.forEach(row => {
                 const tr = document.createElement('tr');
-                tr.className = `severity-${row.severity}`;
+                tr.className = `severity-${row.severity || 'low'}`;
 
-                // 🔥 ДОБАВЛЕНО: Переход на страницу матча при клике
                 tr.style.cursor = 'pointer';
                 tr.onclick = () => {
-                    const cleanEventName = row.event_name
+                    const cleanEventName = (row.event_name || '')
                         .replace(/\s*\|\s*1x2\s*$/i, '')
                         .replace(/\s*\|\s*Handicap\s*$/i, '')
                         .replace(/\s*\|\s*Total\s*$/i, '')
@@ -788,14 +817,15 @@
                     window.location.href = `/match/${encodeURIComponent(cleanEventName)}`;
                 };
 
-                const changeClass = row.change_pct < 0 ? 'change-negative' : 'change-positive';
-                const typeIcon = row.type === 'ODDS_DROP' ? '📉' : '📈';
-                const typeBadge = row.type === 'ODDS_DROP' ? 'badge-drop' : 'badge-rise';
+                const changePctNum = row.change_pct != null ? parseFloat(row.change_pct) : 0;
+                const changeClass = changePctNum < 0 ? 'change-negative' : 'change-positive';
+                const typeIcon = changePctNum < 0 ? '📉' : '📈';
+                const typeBadge = changePctNum < 0 ? 'badge-drop' : 'badge-rise';
 
-                const beforeVal = parseFloat(row.before).toFixed(3);
-                const afterVal = parseFloat(row.after).toFixed(3);
-                const changePct = parseFloat(row.change_pct).toFixed(2);
-                
+                const beforeVal = row.before_odds != null ? parseFloat(row.before_odds).toFixed(3) : '—';
+                const afterVal  = row.after_odds  != null ? parseFloat(row.after_odds).toFixed(3)  : '—';
+                const changePct = row.change_pct != null ? parseFloat(row.change_pct).toFixed(2) : '0.00';
+
                 const market = row.market || '1X2';
                 const outcome = row.outcome || '—';
                 const league = row.league || 'Unknown League';
@@ -809,25 +839,25 @@
                     </td>
                     <td class="event-name">
                         <span class="event-icon">⚡</span>
-                        ${row.event_name}
+                        ${row.event_name || ''}
                     </td>
                     <td>${market}</td>
                     <td><strong>${outcome}</strong></td>
                     <td><span class="badge ${typeBadge}">${typeIcon}</span></td>
                     <td style="white-space: nowrap;">${beforeVal} → ${afterVal}</td>
-                    <td><span class="${changeClass} change-percent">${changePct > 0 ? '+' : ''}${changePct}%</span></td>
-                    <td><span class="badge badge-${row.severity}">${row.severity.toUpperCase()}</span></td>
+                    <td><span class="${changeClass} change-percent">${changePctNum > 0 ? '+' : ''}${changePct}%</span></td>
+                    <td><span class="badge badge-${row.severity || 'low'}">${String(row.severity || 'low').toUpperCase()}</span></td>
                 `;
 
                 tbody.appendChild(tr);
             });
         }
 
-        // ===== UPDATE STATISTICS =====
+        // ===== UPDATE STATS (новые поля) =====
         function updateStats(data, total) {
-            const critical = data.filter(d => d.severity === 'critical').length;
+            const critical  = data.filter(d => d.severity === 'critical').length;
             const important = data.filter(d => d.severity === 'important').length;
-            const moderate = data.filter(d => d.severity === 'moderate').length;
+            const moderate  = data.filter(d => d.severity === 'moderate').length;
 
             document.getElementById('total-count').textContent = total;
             document.getElementById('critical-count').textContent = critical;
@@ -835,7 +865,6 @@
             document.getElementById('moderate-count').textContent = moderate;
         }
 
-        // ===== UTILITY FUNCTIONS =====
         function formatTime(isoString) {
             if (!isoString) return '—';
             const date = new Date(isoString);
@@ -845,25 +874,32 @@
             return `${hours}:${minutes}:${seconds}`;
         }
 
-        // ===== EVENT LISTENERS =====
+        // ===== EVENT LISTENERS / AUTO-REFRESH =====
         document.getElementById('min-pct').addEventListener('change', loadAnomalies);
         document.getElementById('anomaly-type').addEventListener('change', loadAnomalies);
         document.getElementById('hours').addEventListener('change', loadAnomalies);
         document.getElementById('market').addEventListener('change', loadAnomalies);
         document.getElementById('outcome').addEventListener('change', loadAnomalies);
 
-        // ===== AUTO-REFRESH =====
-        window.addEventListener('load', loadAnomalies);
-        setInterval(loadAnomalies, CONFIG.autoRefreshInterval);
+        let autoRefreshTimer = null;
 
-        // ===== PAGE VISIBILITY =====
-        let autoRefreshTimer;
+        function startAutoRefresh() {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            autoRefreshTimer = setInterval(loadAnomalies, CONFIG.autoRefreshInterval);
+        }
+
+        window.addEventListener('load', () => {
+            loadAnomalies();
+            startAutoRefresh();
+        });
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                clearInterval(autoRefreshTimer);
+                if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
             } else {
                 loadAnomalies();
-                autoRefreshTimer = setInterval(loadAnomalies, CONFIG.autoRefreshInterval);
+                startAutoRefresh();
             }
         });
     </script>
