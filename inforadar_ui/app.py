@@ -175,7 +175,8 @@ def api_odds_prematch():
 def api_odds_live():
     """
     API для получения live коэффициентов 22bet
-    Возвращает события, обновлённые за последние 10 минут
+    🔥 ИСПРАВЛЕНО: теперь берёт данные из live_matches и odds_full_history
+    Возвращает события, обновлённые за последние N минут
     """
     try:
         limit = int(request.args.get('limit', 100))
@@ -188,28 +189,40 @@ def api_odds_live():
 
         cursor = conn.cursor()
         
+        # 🔥 НОВЫЙ ЗАПРОС: из live_matches + последние odds из odds_full_history
         query = """
-            SELECT 
-                event_name,
-                sport,
-                league,
-                market_type,
-                odd_1,
-                odd_x,
-                odd_2,
-                updated_at
-            FROM odds_22bet
-            WHERE status = 'active'
-              AND updated_at >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
+            SELECT DISTINCT
+                lm.event_name,
+                lm.sport,
+                lm.league,
+                oh.home_odd AS odd_1,
+                oh.draw_odd AS odd_x,
+                oh.away_odd AS odd_2,
+                lm.updated_at
+            FROM live_matches lm
+            LEFT JOIN (
+                SELECT 
+                    match_id,
+                    home_odd,
+                    draw_odd,
+                    away_odd,
+                    timestamp,
+                    ROW_NUMBER() OVER (PARTITION BY match_id ORDER BY timestamp DESC) as rn
+                FROM odds_full_history
+                WHERE is_live = 1
+            ) oh ON lm.event_id = oh.match_id AND oh.rn = 1
+            WHERE lm.status = 'live'
+              AND lm.updated_at >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
+              AND lm.bookmaker = '22bet'
         """
         params = [minutes]
         
         # Фильтр по спорту
         if sport:
-            query += " AND sport = %s"
+            query += " AND lm.sport = %s"
             params.append(sport)
         
-        query += " ORDER BY updated_at DESC LIMIT %s"
+        query += " ORDER BY lm.updated_at DESC LIMIT %s"
         params.append(limit)
         
         cursor.execute(query, params)
@@ -220,9 +233,9 @@ def api_odds_live():
         for row in odds:
             result.append({
                 'event_name': row['event_name'],
-                'sport': row.get('sport', 'N/A'),
+                'sport': row.get('sport', 'Football'),
                 'league': row.get('league', 'Unknown League'),
-                'market_type': row.get('market_type', '1X2'),
+                'market_type': '1X2',
                 'odd_1': float(row['odd_1']) if row['odd_1'] else None,
                 'odd_x': float(row['odd_x']) if row['odd_x'] else None,
                 'odd_2': float(row['odd_2']) if row['odd_2'] else None,
@@ -949,7 +962,7 @@ if __name__ == '__main__':
     print("=" * 70)
     print("📡 API Endpoints:")
     print(f"   GET /api/odds/prematch - 22bet prematch odds")
-    print(f"   GET /api/odds/live - 22bet live odds")
+    print(f"   GET /api/odds/live - 22bet live odds (from live_matches)")
     print(f"   GET /api/odds/sports - Available sports list")
     print(f"   GET /api/anomalies_filtered?real_only=false&status=live")
     print(f"   GET /api/anomalies_22bet")
