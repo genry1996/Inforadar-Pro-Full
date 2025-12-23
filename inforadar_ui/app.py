@@ -175,12 +175,11 @@ def api_odds_prematch():
 def api_odds_live():
     """
     API для получения live коэффициентов 22bet
-    🔥 ИСПРАВЛЕНО: теперь берёт данные из live_matches и odds_full_history
-    Возвращает события, обновлённые за последние N минут
+    🔥 ИСПРАВЛЕНО: показывает ВСЕ live-матчи без фильтра по времени
+    Возвращает события из live_matches со статусом 'live'
     """
     try:
         limit = int(request.args.get('limit', 100))
-        minutes = int(request.args.get('minutes', 10))  # За сколько минут показывать
         sport = request.args.get('sport', '').strip()
         
         conn = get_connection()
@@ -189,7 +188,7 @@ def api_odds_live():
 
         cursor = conn.cursor()
         
-        # 🔥 НОВЫЙ ЗАПРОС: из live_matches + последние odds из odds_full_history
+        # 🔥 НОВЫЙ ЗАПРОС: ВСЕ live матчи без фильтра по времени
         query = """
             SELECT DISTINCT
                 lm.event_name,
@@ -212,10 +211,9 @@ def api_odds_live():
                 WHERE is_live = 1
             ) oh ON lm.event_id = oh.match_id AND oh.rn = 1
             WHERE lm.status = 'live'
-              AND lm.updated_at >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
               AND lm.bookmaker = '22bet'
         """
-        params = [minutes]
+        params = []
         
         # Фильтр по спорту
         if sport:
@@ -245,12 +243,11 @@ def api_odds_live():
         cursor.close()
         conn.close()
         
-        logger.info(f"✅ Returned {len(result)} live odds (last {minutes} minutes)")
+        logger.info(f"✅ Returned {len(result)} live odds")
         
         return jsonify({
             'success': True,
             'count': len(result),
-            'minutes': minutes,
             'data': result
         })
         
@@ -962,7 +959,7 @@ if __name__ == '__main__':
     print("=" * 70)
     print("📡 API Endpoints:")
     print(f"   GET /api/odds/prematch - 22bet prematch odds")
-    print(f"   GET /api/odds/live - 22bet live odds (from live_matches)")
+    print(f"   GET /api/odds/live - 22bet live odds (ALL LIVE, no time filter)")
     print(f"   GET /api/odds/sports - Available sports list")
     print(f"   GET /api/anomalies_filtered?real_only=false&status=live")
     print(f"   GET /api/anomalies_22bet")
