@@ -1550,3 +1550,36 @@ body .anomaly-comment {
     color: var(--muted);
     font-size: 16px;
 }
+
+.filter-section {
+    background: #f5f5f5;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.filter-section label {
+    font-weight: bold;
+}
+
+#league-filter {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    min-width: 300px;
+}
+
+#event-count {
+    color: #666;
+    font-size: 14px;
+    margin-left: auto;
+}
+
+.league-block h2 .count {
+    color: #007bff;
+    font-size: 16px;
+}
