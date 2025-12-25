@@ -1,8 +1,3 @@
-# ====================================================================
-# Inforadar Pro - Flask Backend
-# D:\Inforadar_Pro\inforadar_ui\app.py
-# ====================================================================
-
 from flask import Flask, render_template, jsonify, request
 import pymysql
 from datetime import datetime, timedelta
@@ -10,20 +5,27 @@ import os
 import logging
 import json
 import hashlib
+from urllib.parse import unquote  # ДОБАВЛЕНО для декодирования URL
 
-# ==================== НАСТРОЙКА ЛОГИРОВАНИЯ ====================
+# ============================================================
+# LOGGING CONFIGURATION
+# ============================================================
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
 logger = logging.getLogger(__name__)
 
-# ==================== ИНИЦИАЛИЗАЦИЯ FLASK ====================
+# ============================================================
+# FLASK APP INITIALIZATION
+# ============================================================
 app = Flask(__name__)
 
-# ==================== КОНФИГУРАЦИЯ БД ====================
+# ============================================================
+# DATABASE CONFIGURATION
+# ============================================================
 DB_CONFIG = {
     'host': os.getenv('MYSQL_HOST', 'localhost'),
     'user': os.getenv('MYSQL_USER', 'root'),
@@ -33,17 +35,22 @@ DB_CONFIG = {
     'cursorclass': pymysql.cursors.DictCursor
 }
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+# ============================================================
+# DATABASE CONNECTION
+# ============================================================
 def get_connection():
-    """Создать подключение к MySQL"""
+    """Создать MySQL подключение"""
     try:
         return pymysql.connect(**DB_CONFIG)
     except Exception as e:
-        logger.error(f"❌ MySQL connection error: {e}")
+        logger.error(f"MySQL connection error: {e}")
         return None
 
+# ============================================================
+# UTILITY FUNCTIONS
+# ============================================================
 def str_to_bool(value):
-    """Конвертация строки в bool для query параметров"""
+    """Преобразовать строку в bool"""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -51,13 +58,13 @@ def str_to_bool(value):
     return False
 
 def format_datetime(dt):
-    """Форматирование datetime в строку"""
+    """Форматировать datetime"""
     if dt:
         return dt.strftime('%Y-%m-%d %H:%M:%S')
     return None
 
 def calculate_severity(change_pct):
-    """Расчет критичности изменения"""
+    """Вычислить severity аномалии"""
     abs_change = abs(change_pct)
     if abs_change >= 10:
         return 'critical'
@@ -66,460 +73,323 @@ def calculate_severity(change_pct):
     else:
         return 'moderate'
 
-# ==================== HTML МАРШРУТЫ ====================
+# ============================================================
+# HTML PAGES ROUTES
+# ============================================================
 @app.route('/')
 def index():
-    """Главная страница - редирект на live odds"""
-    return render_template('live_odds.html')
+    """Главная страница - live odds"""
+    return render_template('liveodds.html')
 
 @app.route('/live')
 def live_page():
-    """Страница LIVE коэффициентов"""
-    return render_template('live_odds.html')
+    """Страница LIVE"""
+    return render_template('liveodds.html')
 
 @app.route('/prematch')
 def prematch_page():
-    """Страница PREMATCH коэффициентов"""
-    return render_template('prematch_odds.html')
+    """Страница PREMATCH"""
+    return render_template('prematchodds.html')
 
-@app.route('/anomalies_22bet')
+@app.route('/anomalies22bet')
 def anomalies_22bet_page():
-    """Страница всех аномалий 22BET"""
+    """Страница аномалий 22BET"""
     return render_template('anomalies_22bet.html')
 
 @app.route('/betwatch')
 def betwatch_page():
-    """Страница мониторинга BetWatch"""
+    """Страница BetWatch"""
     return render_template('betwatch.html')
 
-@app.route('/match/<event_name>')
-def match_detail_page(event_name):
-    """Детальная страница матча"""
-    return render_template('match_detail.html')
+@app.route('/match/<path:eventname>')
+def match_detail(eventname):
+    """
+    ИСПРАВЛЕНО: Страница деталей матча с графиками
+    """
+    # Декодируем название события из URL
+    decoded_name = unquote(eventname)
 
-# ==================== 22BET ODDS API ====================
+    # Получаем информацию о лиге из базы
+    league = "Unknown League"
+    try:
+        conn = get_connection()
+        if conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT league, sport 
+                FROM odds_22bet 
+                WHERE event_name = %s 
+                LIMIT 1
+            """
+            cursor.execute(query, (decoded_name,))
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
 
+            if result:
+                league = result.get('league', 'Unknown League')
+    except Exception as e:
+        logger.error(f"Error fetching league info: {e}")
+
+    return render_template('match_detail.html', 
+                         event_name=decoded_name, 
+                         league=league)
+
+# ============================================================
+# 22BET ODDS API ROUTES
+# ============================================================
 @app.route('/api/odds/prematch')
 def api_odds_prematch():
-    """
-    API для получения prematch коэффициентов 22bet
-    Возвращает все активные события из таблицы odds_22bet
-    """
+    """API: Получить prematch коэффициенты 22bet из таблицы odds_22bet"""
     try:
         limit = int(request.args.get('limit', 100))
         sport = request.args.get('sport', '').strip()
-        
+
         conn = get_connection()
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
-        
+
+        # ИСПРАВЛЕНО: Используем правильные названия колонок с подчёркиваниями
         query = """
-            SELECT 
-                event_name,
-                sport,
-                league,
-                market_type,
-                odd_1,
-                odd_x,
-                odd_2,
-                updated_at
+            SELECT event_name, sport, league, market_type, odd_1, odd_x, odd_2,
+                   updated_at, match_time, liquidity_level, is_suspicious
             FROM odds_22bet
             WHERE status = 'active'
         """
         params = []
-        
-        # Фильтр по спорту
+
         if sport:
             query += " AND sport = %s"
             params.append(sport)
-        
+
         query += " ORDER BY updated_at DESC LIMIT %s"
         params.append(limit)
-        
+
         cursor.execute(query, params)
         odds = cursor.fetchall()
-        
-        # Форматирование результата
+
         result = []
         for row in odds:
             result.append({
-                'event_name': row['event_name'],
+                'eventname': row['event_name'],
                 'sport': row.get('sport', 'N/A'),
                 'league': row.get('league', 'Unknown League'),
-                'market_type': row.get('market_type', '1X2'),
-                'odd_1': float(row['odd_1']) if row['odd_1'] else None,
-                'odd_x': float(row['odd_x']) if row['odd_x'] else None,
-                'odd_2': float(row['odd_2']) if row['odd_2'] else None,
-                'updated_at': format_datetime(row.get('updated_at'))
+                'markettype': row.get('market_type', '1X2'),
+                'odd1': float(row['odd_1']) if row['odd_1'] else None,
+                'oddx': float(row['odd_x']) if row['odd_x'] else None,
+                'odd2': float(row['odd_2']) if row['odd_2'] else None,
+                'updatedat': format_datetime(row.get('updated_at')),
+                'matchtime': format_datetime(row.get('match_time')),
+                'liquidity': row.get('liquidity_level', 'low'),
+                'suspicious': bool(row.get('is_suspicious', 0))
             })
-        
+
         cursor.close()
         conn.close()
-        
-        logger.info(f"✅ Returned {len(result)} prematch odds")
-        
+
+        logger.info(f"Returned {len(result)} prematch odds")
         return jsonify({
             'success': True,
             'count': len(result),
             'data': result
         })
-        
-    except Exception as e:
-        logger.error(f"❌ Error in api_odds_prematch: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
+    except Exception as e:
+        logger.error(f"Error in api_odds_prematch: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/odds/live')
 def api_odds_live():
-    """
-    API для получения live коэффициентов 22bet
-    🔥 ИСПРАВЛЕНО: показывает ВСЕ live-матчи без фильтра по времени
-    Возвращает события из live_matches со статусом 'live'
-    """
+    """API: Получить live коэффициенты 22bet"""
     try:
         limit = int(request.args.get('limit', 100))
         sport = request.args.get('sport', '').strip()
-        
+
         conn = get_connection()
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
-        
-        # 🔥 НОВЫЙ ЗАПРОС: ВСЕ live матчи без фильтра по времени
+
         query = """
             SELECT DISTINCT
-                lm.event_name,
-                lm.sport,
-                lm.league,
-                oh.home_odd AS odd_1,
-                oh.draw_odd AS odd_x,
-                oh.away_odd AS odd_2,
-                lm.updated_at
-            FROM live_matches lm
+                lm.eventname, lm.sport, lm.league,
+                oh.homeodd AS odd1, oh.drawodd AS oddx, oh.awayodd AS odd2,
+                lm.updatedat
+            FROM livematches lm
             LEFT JOIN (
-                SELECT 
-                    match_id,
-                    home_odd,
-                    draw_odd,
-                    away_odd,
-                    timestamp,
-                    ROW_NUMBER() OVER (PARTITION BY match_id ORDER BY timestamp DESC) as rn
-                FROM odds_full_history
-                WHERE is_live = 1
-            ) oh ON lm.event_id = oh.match_id AND oh.rn = 1
-            WHERE lm.status = 'live'
-              AND lm.bookmaker = '22bet'
+                SELECT matchid, homeodd, drawodd, awayodd, timestamp,
+                       ROW_NUMBER() OVER (PARTITION BY matchid ORDER BY timestamp DESC) as rn
+                FROM oddsfullhistory
+                WHERE islive = 1
+            ) oh ON lm.eventid = oh.matchid AND oh.rn = 1
+            WHERE lm.status = 'live' AND lm.bookmaker = '22bet'
         """
         params = []
-        
-        # Фильтр по спорту
+
         if sport:
             query += " AND lm.sport = %s"
             params.append(sport)
-        
-        query += " ORDER BY lm.updated_at DESC LIMIT %s"
+
+        query += " ORDER BY lm.updatedat DESC LIMIT %s"
         params.append(limit)
-        
+
         cursor.execute(query, params)
         odds = cursor.fetchall()
-        
-        # Форматирование результата
+
         result = []
         for row in odds:
             result.append({
-                'event_name': row['event_name'],
+                'eventname': row['eventname'],
                 'sport': row.get('sport', 'Football'),
                 'league': row.get('league', 'Unknown League'),
-                'market_type': '1X2',
-                'odd_1': float(row['odd_1']) if row['odd_1'] else None,
-                'odd_x': float(row['odd_x']) if row['odd_x'] else None,
-                'odd_2': float(row['odd_2']) if row['odd_2'] else None,
-                'updated_at': format_datetime(row.get('updated_at'))
+                'markettype': '1X2',
+                'odd1': float(row['odd1']) if row['odd1'] else None,
+                'oddx': float(row['oddx']) if row['oddx'] else None,
+                'odd2': float(row['odd2']) if row['odd2'] else None,
+                'updatedat': format_datetime(row.get('updatedat'))
             })
-        
+
         cursor.close()
         conn.close()
-        
-        logger.info(f"✅ Returned {len(result)} live odds")
-        
+
+        logger.info(f"Returned {len(result)} live odds")
         return jsonify({
             'success': True,
             'count': len(result),
             'data': result
         })
-        
-    except Exception as e:
-        logger.error(f"❌ Error in api_odds_live: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
+    except Exception as e:
+        logger.error(f"Error in api_odds_live: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/odds/sports')
 def api_odds_sports():
-    """
-    API для получения списка доступных видов спорта в odds_22bet
-    """
+    """API: Список видов спорта из odds_22bet"""
     try:
         conn = get_connection()
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
-        
         cursor.execute("""
             SELECT DISTINCT sport, COUNT(*) as count
             FROM odds_22bet
-            WHERE status = 'active'
-              AND sport IS NOT NULL
+            WHERE status = 'active' AND sport IS NOT NULL
             GROUP BY sport
             ORDER BY count DESC
         """)
-        
         sports = cursor.fetchall()
-        
+
         result = []
         for row in sports:
             result.append({
                 'name': row['sport'],
                 'count': row['count']
             })
-        
+
         cursor.close()
         conn.close()
-        
+
         return jsonify({
             'success': True,
             'count': len(result),
             'data': result
         })
-        
+
     except Exception as e:
-        logger.error(f"❌ Error in api_odds_sports: {e}")
+        logger.error(f"Error in api_odds_sports: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ==================== API ЭНДПОИНТЫ ====================
+# ============================================================
+# ANOMALIES API ROUTES
+# ============================================================
 
-@app.route('/api/anomalies_filtered')
-def anomalies_filtered():
+# ============================================================
+# MATCH DETAILS API ROUTES
+# ============================================================
+@app.route('/api/match/<path:eventname>/full')
+def api_match_full(eventname):
     """
-    Фильтрованные аномалии с поддержкой real_only
-
-    Параметры:
-    - real_only: true/false - только игры, которых НЕТ на БК
-    - min_pct: минимальный % изменения (по умолчанию 2)
-    - hours: период в часах (по умолчанию 4)
-    - type: тип изменения (rise/drop/all)
-    - market: тип рынка (1x2/total/handicap/all)
-    - outcome: исход (1/X/2/over/under/all)
-    - severity: критичность (critical/important/moderate/all)
-    - status: live/prematch/all
+    ДОБАВЛЕНО: API для полной информации о матче с историей коэффициентов
+    Возвращает данные для графиков 1X2, тоталов и фор
     """
     try:
-        # Парсинг параметров
-        real_only = str_to_bool(request.args.get('real_only', 'false'))
-        min_pct = float(request.args.get('min_pct', 2))
-        hours = int(request.args.get('hours', 4))
-        change_type = request.args.get('type', 'all').lower()
-        market = request.args.get('market', 'all').lower()
-        outcome = request.args.get('outcome', 'all').lower()
-        severity = request.args.get('severity', 'all').lower()
-        # ⭐ по умолчанию показываем live
-        status = request.args.get('status', 'live').lower()
-
-        logger.info(f"🔍 Filtering anomalies: real_only={real_only}, min_pct={min_pct}, hours={hours}, status={status}")
-
+        decoded_name = unquote(eventname)
         conn = get_connection()
+
         if not conn:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+            return jsonify({
+                'success': False,
+                'error': 'Database connection failed'
+            }), 500
 
         cursor = conn.cursor()
 
-        # Базовый запрос
+        # Получаем историю коэффициентов для этого матча
         query = """
-            SELECT
-                a.id,
-                a.event_name,
-                a.league,
-                a.market,
-                a.outcome,
-                a.before_odds,
-                a.after_odds,
-                a.change_pct,
-                a.severity,
-                a.time,
-                a.bookmaker,
-                a.is_live,
-                a.match_minute,
-                a.score,
-                a.match_time
-            FROM anomalies a
-            WHERE a.time >= NOW() - INTERVAL %s HOUR
-            AND ABS(a.change_pct) >= %s
-            AND a.bookmaker = '22bet'
-        """
-        params = [hours, min_pct]
-
-        # ⭐ ФИЛЬТР REAL_ONLY - только "осиротевшие" игры (не отображаются на БК)
-        if real_only:
-            query += """
-                AND a.event_name NOT IN (
-                    SELECT DISTINCT event_name
-                    FROM bookmaker_events
-                    WHERE last_seen >= NOW() - INTERVAL 5 MINUTE
-                    AND bookmaker = '22bet'
-                )
-            """
-            logger.info("🎯 Real-only filter enabled: showing orphan games only")
-
-        # Фильтр по статусу (live/prematch)
-        if status == 'live':
-            query += " AND (a.is_live = 1 OR a.match_minute > 0)"
-        elif status == 'prematch':
-            query += " AND (a.is_live = 0 AND (a.match_minute = 0 OR a.match_minute IS NULL))"
-
-        # Фильтр по типу изменения
-        if change_type == 'rise':
-            query += " AND a.change_pct > 0"
-        elif change_type == 'drop':
-            query += " AND a.change_pct < 0"
-
-        # Фильтр по рынку
-        if market != 'all':
-            query += " AND LOWER(a.market) = %s"
-            params.append(market)
-
-        # Фильтр по исходу
-        if outcome != 'all':
-            query += " AND LOWER(a.outcome) = %s"
-            params.append(outcome)
-
-        # Фильтр по критичности
-        if severity != 'all':
-            query += " AND LOWER(a.severity) = %s"
-            params.append(severity)
-
-        query += " ORDER BY a.time DESC LIMIT 200"
-
-        cursor.execute(query, params)
-        data = cursor.fetchall()
-
-        # Форматирование результата
-        result = []
-        for row in data:
-            result.append({
-                'id': row['id'],
-                'event_name': row['event_name'],
-                'league': row.get('league', 'Unknown'),
-                'market': row['market'],
-                'outcome': row['outcome'],
-                'before_odds': float(row['before_odds']) if row['before_odds'] else None,
-                'after_odds': float(row['after_odds']) if row['after_odds'] else None,
-                'change_pct': float(row['change_pct']),
-                'severity': row['severity'],
-                'time': format_datetime(row['time']),
-                'bookmaker': row.get('bookmaker', '22bet'),
-                'is_live': bool(row.get('is_live', False)),
-                'match_minute': row.get('match_minute'),
-                'score': row.get('score'),
-                'match_time': format_datetime(row.get('match_time'))
-            })
-
-        cursor.close()
-        conn.close()
-
-        logger.info(f"✅ Returned {len(result)} anomalies (real_only: {real_only}, status: {status})")
-
-        return jsonify({
-            'success': True,
-            'count': len(result),
-            'real_only': real_only,
-            'filters': {
-                'min_pct': min_pct,
-                'hours': hours,
-                'type': change_type,
-                'market': market,
-                'outcome': outcome,
-                'severity': severity,
-                'status': status
-            },
-            'data': result
-        })
-
-    except Exception as e:
-        logger.error(f"❌ Error in anomalies_filtered: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/anomalies_22bet')
-def api_anomalies_22bet():
-    """API для всех аномалий 22BET (legacy endpoint)"""
-    try:
-        hours = int(request.args.get('hours', 4))
-        min_pct = float(request.args.get('min_pct', 2))
-
-        conn = get_connection()
-        if not conn:
-            return jsonify([]), 500
-
-        cursor = conn.cursor()
-
-        query = """
-            SELECT
+            SELECT 
                 event_name,
                 league,
-                market,
-                outcome,
-                before_odds,
-                after_odds,
-                change_pct,
-                severity,
-                time,
-                is_live,
-                match_minute,
-                score
-            FROM anomalies
-            WHERE time >= NOW() - INTERVAL %s HOUR
-            AND ABS(change_pct) >= %s
-            AND bookmaker = '22bet'
-            ORDER BY time DESC
-            LIMIT 100
+                sport,
+                market_type,
+                odd_1,
+                odd_x,
+                odd_2,
+                updated_at,
+                is_suspicious
+            FROM odds_22bet 
+            WHERE event_name = %s 
+            ORDER BY updated_at ASC
+            LIMIT 1000
         """
-
-        cursor.execute(query, (hours, min_pct))
-        data = cursor.fetchall()
-
-        result = []
-        for row in data:
-            result.append({
-                'event_name': row['event_name'],
-                'league': row.get('league', 'Unknown'),
-                'market': row['market'],
-                'outcome': row['outcome'],
-                'before_odds': float(row['before_odds']) if row['before_odds'] else None,
-                'after_odds': float(row['after_odds']) if row['after_odds'] else None,
-                'change_pct': float(row['change_pct']),
-                'severity': row['severity'],
-                'time': format_datetime(row['time']),
-                'is_live': bool(row.get('is_live', False)),
-                'match_minute': row.get('match_minute'),
-                'score': row.get('score')
-            })
-
+        cursor.execute(query, (decoded_name,))
+        odds_history = cursor.fetchall()
         cursor.close()
         conn.close()
 
-        return jsonify(result)
+        if not odds_history:
+            return jsonify({
+                'success': False,
+                'error': 'Match not found',
+                'message': f'No data found for event: {decoded_name}'
+            }), 404
+
+        # Форматируем данные для графиков
+        response_data = {
+            'success': True,
+            'event': decoded_name,
+            'league': odds_history[0].get('league', 'Unknown'),
+            'sport': odds_history[0].get('sport', 'Football'),
+            'odds': []
+        }
+
+        # Добавляем историю коэффициентов 1X2
+        for record in odds_history:
+            response_data['odds'].append({
+                'time': record['updated_at'].isoformat() if record['updated_at'] else None,
+                'updatedat': record['updated_at'].isoformat() if record['updated_at'] else None,
+                'odd1': float(record['odd_1']) if record['odd_1'] else None,
+                'oddx': float(record['odd_x']) if record['odd_x'] else None,
+                'odd2': float(record['odd_2']) if record['odd_2'] else None,
+                'suspicious': record.get('is_suspicious', False)
+            })
+
+        return jsonify(response_data)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
-        return jsonify([]), 500
-
+        logger.error(f"Error in api_match_full: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/match/<event_name>/full')
 def match_full_data(event_name):
-    """Полные данные матча с историей коэффициентов"""
+    """API: Полная история матча"""
     try:
         conn = get_connection()
         if not conn:
@@ -527,22 +397,12 @@ def match_full_data(event_name):
 
         cursor = conn.cursor()
 
-        # Получить историю коэффициентов
         query = """
-            SELECT
-                timestamp,
-                odds_1x2_home,
-                odds_1x2_draw,
-                odds_1x2_away,
-                odds_total_over,
-                odds_total_under,
-                odds_handicap_home,
-                odds_handicap_away,
-                minute,
-                score_home,
-                score_away
-            FROM live_matches
-            WHERE event_name = %s
+            SELECT timestamp, odds1x2home, odds1x2draw, odds1x2away,
+                   oddstotalover, oddstotalunder, oddshandicaphome, oddshandicapaway,
+                   minute, scorehome, scoreaway
+            FROM livematches
+            WHERE eventname = %s
             ORDER BY timestamp ASC
         """
 
@@ -554,32 +414,31 @@ def match_full_data(event_name):
             conn.close()
             return jsonify({'error': 'Match not found'}), 404
 
-        # Форматирование данных
         result = {
-            'event_name': event_name,
+            'eventname': event_name,
             'history': []
         }
 
         for row in history:
             result['history'].append({
                 'timestamp': row['timestamp'].isoformat() if row['timestamp'] else None,
-                'odds_1x2': {
-                    'home': float(row['odds_1x2_home']) if row['odds_1x2_home'] else None,
-                    'draw': float(row['odds_1x2_draw']) if row['odds_1x2_draw'] else None,
-                    'away': float(row['odds_1x2_away']) if row['odds_1x2_away'] else None
+                'odds1x2': {
+                    'home': float(row['odds1x2home']) if row['odds1x2home'] else None,
+                    'draw': float(row['odds1x2draw']) if row['odds1x2draw'] else None,
+                    'away': float(row['odds1x2away']) if row['odds1x2away'] else None
                 },
-                'odds_total': {
-                    'over': float(row['odds_total_over']) if row['odds_total_over'] else None,
-                    'under': float(row['odds_total_under']) if row['odds_total_under'] else None
+                'oddstotal': {
+                    'over': float(row['oddstotalover']) if row['oddstotalover'] else None,
+                    'under': float(row['oddstotalunder']) if row['oddstotalunder'] else None
                 },
-                'odds_handicap': {
-                    'home': float(row['odds_handicap_home']) if row['odds_handicap_home'] else None,
-                    'away': float(row['odds_handicap_away']) if row['odds_handicap_away'] else None
+                'oddshandicap': {
+                    'home': float(row['oddshandicaphome']) if row['oddshandicaphome'] else None,
+                    'away': float(row['oddshandicapaway']) if row['oddshandicapaway'] else None
                 },
                 'minute': row.get('minute'),
                 'score': {
-                    'home': row.get('score_home'),
-                    'away': row.get('score_away')
+                    'home': row.get('scorehome'),
+                    'away': row.get('scoreaway')
                 }
             })
 
@@ -589,13 +448,12 @@ def match_full_data(event_name):
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"❌ Error in match_full_data: {e}")
+        logger.error(f"Error in match_full_data: {e}")
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/match/<event_name>/anomalies')
 def match_anomalies(event_name):
-    """Получить все аномалии для конкретного матча"""
+    """API: Аномалии конкретного матча"""
     try:
         conn = get_connection()
         if not conn:
@@ -604,17 +462,9 @@ def match_anomalies(event_name):
         cursor = conn.cursor()
 
         query = """
-            SELECT
-                market,
-                outcome,
-                before_odds,
-                after_odds,
-                change_pct,
-                severity,
-                time
+            SELECT market, outcome, beforeodds, afterodds, changepct, severity, time
             FROM anomalies
-            WHERE event_name = %s
-            AND bookmaker = '22bet'
+            WHERE eventname = %s AND bookmaker = '22bet'
             ORDER BY time DESC
             LIMIT 50
         """
@@ -627,9 +477,9 @@ def match_anomalies(event_name):
             result.append({
                 'market': row['market'],
                 'outcome': row['outcome'],
-                'before_odds': float(row['before_odds']) if row['before_odds'] else None,
-                'after_odds': float(row['after_odds']) if row['after_odds'] else None,
-                'change_pct': float(row['change_pct']),
+                'beforeodds': float(row['beforeodds']) if row['beforeodds'] else None,
+                'afterodds': float(row['afterodds']) if row['afterodds'] else None,
+                'changepct': float(row['changepct']),
                 'severity': row['severity'],
                 'time': format_datetime(row['time'])
             })
@@ -640,13 +490,15 @@ def match_anomalies(event_name):
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Error: {e}")
         return jsonify([]), 500
 
-
-@app.route('/api/live_matches')
-def api_live_matches():
-    """Получить список всех live матчей"""
+# ============================================================
+# LIVE MATCHES API ROUTES
+# ============================================================
+@app.route('/api/livematches')
+def api_livematches():
+    """API: Список live матчей"""
     try:
         conn = get_connection()
         if not conn:
@@ -655,17 +507,12 @@ def api_live_matches():
         cursor = conn.cursor()
 
         query = """
-            SELECT DISTINCT
-                event_name,
-                league,
-                minute,
-                score_home,
-                score_away,
-                MAX(timestamp) as last_update
-            FROM live_matches
+            SELECT DISTINCT eventname, league, minute, scorehome, scoreaway,
+                   MAX(timestamp) as lastupdate
+            FROM livematches
             WHERE timestamp >= NOW() - INTERVAL 1 HOUR
-            GROUP BY event_name, league, minute, score_home, score_away
-            ORDER BY last_update DESC
+            GROUP BY eventname, league, minute, scorehome, scoreaway
+            ORDER BY lastupdate DESC
         """
 
         cursor.execute(query)
@@ -674,11 +521,11 @@ def api_live_matches():
         result = []
         for row in matches:
             result.append({
-                'event_name': row['event_name'],
+                'eventname': row['eventname'],
                 'league': row.get('league', 'Unknown'),
                 'minute': row.get('minute'),
-                'score': f"{row.get('score_home', 0)}:{row.get('score_away', 0)}",
-                'last_update': format_datetime(row['last_update'])
+                'score': f"{row.get('scorehome', 0)}:{row.get('scoreaway', 0)}",
+                'lastupdate': format_datetime(row['lastupdate'])
             })
 
         cursor.close()
@@ -687,53 +534,53 @@ def api_live_matches():
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Error: {e}")
         return jsonify([]), 500
 
-
+# ============================================================
+# STATISTICS API ROUTES
+# ============================================================
 @app.route('/api/stats')
 def api_stats():
-    """Общая статистика"""
+    """API: Общая статистика"""
     try:
         conn = get_connection()
         if not conn:
             return jsonify({
-                'total_anomalies': 0,
+                'totalanomalies': 0,
                 'critical': 0,
                 'important': 0,
                 'moderate': 0,
-                'hour_anomalies': 0,
-                'live_matches': 0
+                'houranomalies': 0,
+                'livematches': 0
             }), 200
 
         cursor = conn.cursor()
 
-        # Общее количество аномалий за последние 24 часа
+        # Статистика за 24 часа
         cursor.execute("""
-            SELECT
+            SELECT 
                 COUNT(*) as total,
                 SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
                 SUM(CASE WHEN severity = 'important' THEN 1 ELSE 0 END) as important,
                 SUM(CASE WHEN severity = 'moderate' THEN 1 ELSE 0 END) as moderate
             FROM anomalies
-            WHERE time >= NOW() - INTERVAL 24 HOUR
-            AND bookmaker = '22bet'
+            WHERE time >= NOW() - INTERVAL 24 HOUR AND bookmaker = '22bet'
         """)
         stats_24h = cursor.fetchone()
 
-        # Аномалии за последний час
+        # Статистика за 1 час
         cursor.execute("""
             SELECT COUNT(*) as count
             FROM anomalies
-            WHERE time >= NOW() - INTERVAL 1 HOUR
-            AND bookmaker = '22bet'
+            WHERE time >= NOW() - INTERVAL 1 HOUR AND bookmaker = '22bet'
         """)
         stats_1h = cursor.fetchone()
 
         # Количество live матчей
         cursor.execute("""
-            SELECT COUNT(DISTINCT event_name) as count
-            FROM live_matches
+            SELECT COUNT(DISTINCT eventname) as count
+            FROM livematches
             WHERE timestamp >= NOW() - INTERVAL 10 MINUTE
         """)
         live_count = cursor.fetchone()
@@ -742,29 +589,31 @@ def api_stats():
         conn.close()
 
         return jsonify({
-            'total_anomalies': stats_24h['total'] or 0,
+            'totalanomalies': stats_24h['total'] or 0,
             'critical': stats_24h['critical'] or 0,
             'important': stats_24h['important'] or 0,
             'moderate': stats_24h['moderate'] or 0,
-            'hour_anomalies': stats_1h['count'] or 0,
-            'live_matches': live_count['count'] or 0
+            'houranomalies': stats_1h['count'] or 0,
+            'livematches': live_count['count'] or 0
         })
 
     except Exception as e:
-        logger.error(f"❌ Error in api_stats: {e}")
+        logger.error(f"Error in api_stats: {e}")
         return jsonify({
-            'total_anomalies': 0,
+            'totalanomalies': 0,
             'critical': 0,
             'important': 0,
             'moderate': 0,
-            'hour_anomalies': 0,
-            'live_matches': 0
+            'houranomalies': 0,
+            'livematches': 0
         }), 200
 
-
+# ============================================================
+# BETWATCH API ROUTES
+# ============================================================
 @app.route('/api/betwatch/signals')
 def betwatch_signals():
-    """API для BetWatch сигналов"""
+    """API: BetWatch сигналы"""
     try:
         conn = get_connection()
         if not conn:
@@ -773,23 +622,13 @@ def betwatch_signals():
         cursor = conn.cursor()
 
         query = """
-            SELECT
-                event_name,
-                league,
-                market,
-                outcome,
-                before_odds,
-                after_odds,
-                change_pct,
-                severity,
-                time,
-                is_live,
-                match_minute
+            SELECT eventname, league, market, outcome, beforeodds, afterodds, 
+                   changepct, severity, time, islive, matchminute
             FROM anomalies
             WHERE time >= NOW() - INTERVAL 1 HOUR
-            AND ABS(change_pct) >= 5
-            AND bookmaker = '22bet'
-            ORDER BY ABS(change_pct) DESC
+              AND ABS(changepct) >= 5
+              AND bookmaker = '22bet'
+            ORDER BY ABS(changepct) DESC
             LIMIT 50
         """
 
@@ -799,17 +638,17 @@ def betwatch_signals():
         result = []
         for row in signals:
             result.append({
-                'event_name': row['event_name'],
+                'eventname': row['eventname'],
                 'league': row.get('league', 'Unknown'),
                 'market': row['market'],
                 'outcome': row['outcome'],
-                'before_odds': float(row['before_odds']) if row['before_odds'] else None,
-                'after_odds': float(row['after_odds']) if row['after_odds'] else None,
-                'change_pct': float(row['change_pct']),
+                'beforeodds': float(row['beforeodds']) if row['beforeodds'] else None,
+                'afterodds': float(row['afterodds']) if row['afterodds'] else None,
+                'changepct': float(row['changepct']),
                 'severity': row['severity'],
                 'time': format_datetime(row['time']),
-                'is_live': bool(row.get('is_live', False)),
-                'match_minute': row.get('match_minute')
+                'islive': bool(row.get('islive', False)),
+                'matchminute': row.get('matchminute')
             })
 
         cursor.close()
@@ -818,13 +657,15 @@ def betwatch_signals():
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Error: {e}")
         return jsonify([]), 500
 
-
+# ============================================================
+# LEAGUES API ROUTES
+# ============================================================
 @app.route('/api/leagues')
 def api_leagues():
-    """Получить список всех лиг"""
+    """API: Список лиг"""
     try:
         conn = get_connection()
         if not conn:
@@ -833,13 +674,13 @@ def api_leagues():
         cursor = conn.cursor()
 
         query = """
-            SELECT DISTINCT league, COUNT(*) as match_count
+            SELECT DISTINCT league, COUNT(*) as matchcount
             FROM anomalies
             WHERE time >= NOW() - INTERVAL 24 HOUR
-            AND league IS NOT NULL
-            AND bookmaker = '22bet'
+              AND league IS NOT NULL
+              AND bookmaker = '22bet'
             GROUP BY league
-            ORDER BY match_count DESC
+            ORDER BY matchcount DESC
             LIMIT 50
         """
 
@@ -850,7 +691,7 @@ def api_leagues():
         for row in leagues:
             result.append({
                 'name': row['league'],
-                'match_count': row['match_count']
+                'matchcount': row['matchcount']
             })
 
         cursor.close()
@@ -859,15 +700,18 @@ def api_leagues():
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Error: {e}")
         return jsonify([]), 500
 
-
+# ============================================================
+# SEARCH API ROUTES
+# ============================================================
 @app.route('/api/search')
 def api_search():
-    """Поиск матчей по названию"""
+    """API: Поиск матчей"""
     try:
         query_text = request.args.get('q', '').strip()
+
         if not query_text or len(query_text) < 3:
             return jsonify([]), 200
 
@@ -878,10 +722,10 @@ def api_search():
         cursor = conn.cursor()
 
         query = """
-            SELECT DISTINCT event_name, league
+            SELECT DISTINCT eventname, league
             FROM anomalies
             WHERE bookmaker = '22bet'
-            AND (event_name LIKE %s OR league LIKE %s)
+              AND (eventname LIKE %s OR league LIKE %s)
             LIMIT 20
         """
 
@@ -892,7 +736,7 @@ def api_search():
         formatted_results = []
         for row in results:
             formatted_results.append({
-                'event_name': row['event_name'],
+                'eventname': row['eventname'],
                 'league': row.get('league', 'Unknown')
             })
 
@@ -902,13 +746,15 @@ def api_search():
         return jsonify(formatted_results)
 
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"Error: {e}")
         return jsonify([]), 500
 
-
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 @app.route('/api/health')
 def health_check():
-    """Проверка состояния сервиса"""
+    """API: Health check"""
     try:
         conn = get_connection()
         if conn:
@@ -934,43 +780,45 @@ def health_check():
             'timestamp': datetime.now().isoformat()
         }), 500
 
-# ==================== ERROR HANDLERS ====================
+# ============================================================
+# ERROR HANDLERS
+# ============================================================
 @app.errorhandler(404)
 def not_found(error):
-    """Обработка 404 ошибок"""
     return jsonify({'error': 'Endpoint not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    """Обработка 500 ошибок"""
     logger.error(f"Internal error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
-# ==================== ЗАПУСК СЕРВЕРА ====================
+# ============================================================
+# MAIN ENTRY POINT
+# ============================================================
 if __name__ == '__main__':
     print("=" * 70)
-    print("🚀 Inforadar Pro - Starting Flask Server")
+    print("Inforadar Pro - Starting Flask Server")
     print("=" * 70)
-    print(f"🌐 Main: http://localhost:5000/")
-    print(f"🔴 Live: http://localhost:5000/live")
-    print(f"⏰ Prematch: http://localhost:5000/prematch")
-    print(f"📊 All anomalies: http://localhost:5000/anomalies_22bet")
-    print(f"🔍 BetWatch: http://localhost:5000/betwatch")
+    print(f"→ Main: http://localhost:5000")
+    print(f"→ Live: http://localhost:5000/live")
+    print(f"→ Prematch: http://localhost:5000/prematch")
+    print(f"→ All anomalies: http://localhost:5000/anomalies22bet")
+    print(f"→ BetWatch: http://localhost:5000/betwatch")
     print("=" * 70)
-    print("📡 API Endpoints:")
-    print(f"   GET /api/odds/prematch - 22bet prematch odds")
-    print(f"   GET /api/odds/live - 22bet live odds (ALL LIVE, no time filter)")
-    print(f"   GET /api/odds/sports - Available sports list")
-    print(f"   GET /api/anomalies_filtered?real_only=false&status=live")
-    print(f"   GET /api/anomalies_22bet")
-    print(f"   GET /api/match/<event_name>/full")
-    print(f"   GET /api/match/<event_name>/anomalies")
-    print(f"   GET /api/live_matches")
-    print(f"   GET /api/stats")
-    print(f"   GET /api/betwatch/signals")
-    print(f"   GET /api/leagues")
-    print(f"   GET /api/search?q=")
-    print(f"   GET /api/health")
+    print("API Endpoints:")
+    print(f"→ GET /api/odds/prematch - 22bet prematch odds")
+    print(f"→ GET /api/odds/live - 22bet live odds")
+    print(f"→ GET /api/odds/sports - Available sports list")
+    print(f"→ GET /api/anomalies/filtered?realonly=false&status=live")
+    print(f"→ GET /api/anomalies/22bet")
+    print(f"→ GET /api/match/<event_name>/full")
+    print(f"→ GET /api/match/<event_name>/anomalies")
+    print(f"→ GET /api/livematches")
+    print(f"→ GET /api/stats")
+    print(f"→ GET /api/betwatch/signals")
+    print(f"→ GET /api/leagues")
+    print(f"→ GET /api/search?q=")
+    print(f"→ GET /api/health")
     print("=" * 70)
 
     # Проверка подключения к БД
@@ -979,8 +827,7 @@ if __name__ == '__main__':
         test_conn.close()
         print("✅ MySQL OK!")
     else:
-        print("⚠️ MySQL connection failed!")
+        print("❌ MySQL connection failed!")
     print("=" * 70)
 
-    # Запуск сервера
     app.run(host='0.0.0.0', port=5000, debug=True)

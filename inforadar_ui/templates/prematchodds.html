@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prematch - Inforadar Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f7fa;
+            color: #202733;
+            min-height: 100vh;
+        }
+
+        .ir-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e6ebf0;
+            padding: 0 40px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .ir-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #202733;
+            text-decoration: none;
+        }
+
+        .ir-logo::before {
+            content: '🔴';
+            font-size: 24px;
+        }
+
+        .ir-nav {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .ir-nav a {
+            text-decoration: none;
+            color: #6b7380;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .ir-subtabs {
+            background: #ffffff;
+            border-bottom: 1px solid #e6ebf0;
+            display: flex;
+            gap: 40px;
+            padding: 0 40px;
+            position: sticky;
+            top: 64px;
+            z-index: 99;
+        }
+
+        .ir-subtabs a {
+            text-decoration: none;
+            color: #6b7380;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 12px 0;
+            border-bottom: 3px solid transparent;
+        }
+
+        .ir-subtabs a.active {
+            color: #202733;
+            font-weight: 600;
+            border-bottom-color: #00d4ff;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 30px 40px;
+        }
+
+        .table-wrapper {
+            background: #ffffff;
+            border: 1px solid #e6ebf0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e6ebf0;
+            background: #fafbfc;
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            color: #6b7380;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #fafbfc;
+            border-bottom: 2px solid #e6ebf0;
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #6b7380;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f2f5;
+            font-size: 13px;
+            color: #202733;
+        }
+
+        tbody tr {
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .datetime-col {
+            color: #6b7380;
+            font-weight: 500;
+            white-space: nowrap;
+            width: 120px;
+        }
+
+        .league-col {
+            color: #6b7380;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 300px;
+        }
+
+        .country-flag {
+            font-size: 20px;
+        }
+
+        .teams-col {
+            font-weight: 500;
+            color: #202733;
+            min-width: 400px;
+        }
+
+        .odd-col {
+            text-align: center;
+            font-weight: 700;
+            color: #00d4ff;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7380;
+        }
+
+        .spinner {
+            border: 3px solid #e6ebf0;
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 80px 20px;
+            color: #6b7380;
+        }
+    </style>
+</head>
+<body>
+    <header class="ir-header">
+        <a href="/" class="ir-logo">INFORADAR.LIVE</a>
+        <nav class="ir-nav">
+            <a href="/soccer">Soccer</a>
+            <a href="/basketball">Basketball</a>
+            <a href="/support">Support</a>
+            <a href="/faq">FAQ</a>
+        </nav>
+    </header>
+
+    <div class="ir-subtabs">
+        <a href="/live">Live</a>
+        <a href="/prematch" class="active">Prematch</a>
+        <a href="/result">Result</a>
+    </div>
+
+    <div class="container">
+        <div class="table-wrapper">
+            <div class="table-header">
+                <div class="pagination-info">1 – 50 of <span id="total-count">0</span></div>
+            </div>
+
+            <div id="table-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading prematch odds...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getCountryFlag(league) {
+            if (!league) return '🌍';
+
+            const leagueStr = String(league).trim().toUpperCase();
+
+            // Словарь флагов
+            const flags = {
+                'HN': '🇭🇳', 'ГОНДУРАС': '🇭🇳', 'HONDURAS': '🇭🇳',
+                'IN': '🇮🇳', 'ИНДИЯ': '🇮🇳', 'INDIA': '🇮🇳',
+                'IL': '🇮🇱', 'ИЗРАИЛЬ': '🇮🇱', 'ISRAEL': '🇮🇱',
+                'JP': '🇯🇵', 'ЯПОНИЯ': '🇯🇵', 'JAPAN': '🇯🇵',
+                'ID': '🇮🇩', 'ИНДОНЕЗИЯ': '🇮🇩', 'INDONESIA': '🇮🇩',
+                'BD': '🇧🇩', 'БАНГЛАДЕШ': '🇧🇩', 'BANGLADESH': '🇧🇩',
+                'MY': '🇲🇾', 'МАЛАЙЗИЯ': '🇲🇾', 'MALAYSIA': '🇲🇾',
+                'DZ': '🇩🇿', 'АЛЖИР': '🇩🇿', 'ALGERIA': '🇩🇿',
+                'MM': '🇲🇲', 'МЬЯНМА': '🇲🇲', 'MYANMAR': '🇲🇲',
+                'TN': '🇹🇳', 'ТУНИС': '🇹🇳',
+                'EG': '🇪🇬', 'ЕГИПЕТ': '🇪🇬',
+                'ES': '🇪🇸', 'ИСПАНИЯ': '🇪🇸',
+                'GB': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'UK': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'АНГЛИЯ': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+                'IT': '🇮🇹', 'ИТАЛИЯ': '🇮🇹',
+                'DE': '🇩🇪', 'ГЕРМАНИЯ': '🇩🇪',
+                'FR': '🇫🇷', 'ФРАНЦИЯ': '🇫🇷',
+                'RU': '🇷🇺', 'РОССИЯ': '🇷🇺',
+                'BR': '🇧🇷', 'БРАЗИЛИЯ': '🇧🇷',
+                'AR': '🇦🇷', 'АРГЕНТИНА': '🇦🇷',
+                'US': '🇺🇸', 'США': '🇺🇸'
+            };
+
+            // Проверка ISO кода в начале
+            const isoMatch = leagueStr.match(/^([A-Z]{2})\s/);
+            if (isoMatch && flags[isoMatch[1]]) {
+                return flags[isoMatch[1]];
+            }
+
+            // Поиск по названию страны
+            for (const [key, flag] of Object.entries(flags)) {
+                if (leagueStr.includes(key)) {
+                    return flag;
+                }
+            }
+
+            return '🌍';
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            try {
+                const d = new Date(dateStr);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${day}/${month} ${hours}:${minutes}`;
+            } catch {
+                return dateStr;
+            }
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch('/api/odds/prematch?limit=500&sport=Football');
+                const data = await response.json();
+
+                if (data.success) {
+                    renderTable(data.data || []);
+                } else {
+                    showError('Failed to load data');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Connection error');
+            }
+        }
+
+        function renderTable(events) {
+            const container = document.getElementById('table-container');
+            document.getElementById('total-count').textContent = events.length;
+
+            if (events.length === 0) {
+                container.innerHTML = '<div class="empty">No prematch events available</div>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">DATE/TIME</th>
+                            <th style="width: 300px;">LEAGUE</th>
+                            <th>MATCH</th>
+                            <th style="width: 80px; text-align: center;">1</th>
+                            <th style="width: 80px; text-align: center;">X</th>
+                            <th style="width: 80px; text-align: center;">2</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            events.forEach(event => {
+                const datetime = formatDateTime(event.matchtime || event.updatedat);
+                const flag = getCountryFlag(event.league);
+                const league = event.league || 'Unknown League';
+                const teams = event.eventname || 'Unknown vs Unknown';
+                const odd1 = event.odd1 ? parseFloat(event.odd1).toFixed(2) : '-';
+                const oddX = event.oddx ? parseFloat(event.oddx).toFixed(2) : '-';
+                const odd2 = event.odd2 ? parseFloat(event.odd2).toFixed(2) : '-';
+                const encodedName = encodeURIComponent(teams);
+
+                html += `
+                    <tr onclick="window.location.href='/match/${encodedName}'">
+                        <td class="datetime-col">${datetime}</td>
+                        <td>
+                            <div class="league-col">
+                                <span class="country-flag">${flag}</span>
+                                <span>${league}</span>
+                            </div>
+                        </td>
+                        <td class="teams-col">${teams}</td>
+                        <td class="odd-col">${odd1}</td>
+                        <td class="odd-col">${oddX}</td>
+                        <td class="odd-col">${odd2}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function showError(message) {
+            document.getElementById('table-container').innerHTML = 
+                `<div class="empty">${message}</div>`;
+        }
+
+        // Загружаем данные
+        loadData();
+
+        // Автообновление каждые 30 секунд
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>

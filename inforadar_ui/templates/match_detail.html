@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ event_name }} - Match Detail</title>
+    <title>{{ event_name }} - Match Details | Inforadar Pro</title>
     <style>
         * {
             margin: 0;
@@ -12,12 +12,12 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             background: #f5f7fa;
             color: #202733;
+            min-height: 100vh;
         }
 
-        /* HEADER */
         .ir-header {
             background: #ffffff;
             border-bottom: 1px solid #e6ebf0;
@@ -33,6 +33,9 @@
         }
 
         .ir-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 16px;
             font-weight: 700;
             color: #202733;
@@ -40,378 +43,191 @@
         }
 
         .ir-logo::before {
-            content: "⚡ ";
+            content: '🔴';
+            font-size: 24px;
         }
 
-        .header-left {
+        .ir-nav {
             display: flex;
             align-items: center;
+            gap: 30px;
         }
 
-        .live-badge {
-            display: inline-block;
-            background: #ff4444;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 700;
-            margin-left: 12px;
-            animation: pulse 1.5s infinite;
-            letter-spacing: 0.5px;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .back-btn {
-            background: #00d4ff;
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 6px;
+        .ir-nav a {
             text-decoration: none;
-            font-weight: 600;
+            color: #6b7380;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .back-link {
+            color: #00d4ff;
+            text-decoration: none;
             font-size: 14px;
-            transition: all 0.2s;
-            border: none;
-            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
         }
 
-        .back-btn:hover {
-            background: #00b8d4;
+        .back-link:hover {
+            text-decoration: underline;
         }
 
-        /* CONTAINER */
         .container {
-            max-width: 1800px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 30px 40px;
         }
 
-        /* MATCH HEADER WITH TIMELINE */
         .match-header {
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            border: 1px solid #e6ebf0;
+            text-align: center;
             margin-bottom: 30px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
         }
 
-        .match-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 15px;
+        .match-league {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #202733;
+            margin-bottom: 15px;
         }
 
-        .match-score {
-            font-size: 32px;
-            color: #00d4ff;
+        .match-teams {
+            font-size: 28px;
             font-weight: 700;
+            color: #202733;
+            margin-bottom: 15px;
         }
 
-        .match-info {
-            font-size: 14px;
-            color: #6b7380;
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        /* GREEN GAME TIMELINE */
-        .game-timeline {
+        .match-progress {
+            max-width: 600px;
+            margin: 0 auto 20px;
+            height: 30px;
+            background: #e6ebf0;
+            border-radius: 15px;
+            overflow: hidden;
             position: relative;
-            height: 40px;
-            background: linear-gradient(90deg, #2e7d32 0%, #4caf50 50%, #2e7d32 100%);
-            border-radius: 8px;
-            margin-top: 20px;
-            overflow: visible;
-            box-shadow: 0 3px 8px rgba(46, 125, 50, 0.25);
         }
 
-        .timeline-progress {
-            position: absolute;
-            top: 0;
-            left: 0;
+        .match-progress-bar {
             height: 100%;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
             transition: width 0.3s;
         }
 
-        /* CURRENT TIME MARKER */
-        .timeline-marker {
-            position: absolute;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid #4caf50;
-            font-size: 10px;
+        .match-controls {
             display: flex;
-            align-items: center;
             justify-content: center;
-            font-weight: 700;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-            z-index: 10;
-            transition: all 0.3s ease;
-            color: #2e7d32;
-        }
-
-        /* GOALS ON TIMELINE */
-        .timeline-goal {
-            position: absolute;
-            transform: translateX(-50%);
-            width: 24px;
-            height: 24px;
-            background: radial-gradient(circle at 30% 30%, #ffffff, #e8e8e8);
-            border: 2px solid #333;
-            border-radius: 50%;
-            z-index: 6;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .timeline-goal::before {
-            content: "⚽";
-            font-size: 14px;
-        }
-
-        .timeline-goal:hover {
-            transform: translateX(-50%) scale(1.4);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-        }
-
-        .timeline-goal.home {
-            top: -20px;
-        }
-
-        .timeline-goal.away {
-            top: calc(100% + 20px);
-        }
-
-        /* CARDS ON TIMELINE */
-        .timeline-card {
-            position: absolute;
-            transform: translateX(-50%);
-            width: 16px;
-            height: 20px;
-            border-radius: 3px;
-            z-index: 5;
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .timeline-card:hover {
-            transform: translateX(-50%) scale(1.4);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-        }
-
-        .timeline-card.home {
-            top: -15px;
-        }
-
-        .timeline-card.away {
-            top: calc(100% + 15px);
-        }
-
-        .timeline-card.yellow {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            border: 1px solid #daa520;
-        }
-
-        .timeline-card.red {
-            background: linear-gradient(135deg, #dc143c 0%, #ff1744 100%);
-            border: 1px solid #8b0000;
-        }
-
-        .timeline-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            font-size: 12px;
-            color: #6b7380;
-            font-weight: 600;
-        }
-
-        /* ANOMALY STATS */
-        .anomaly-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
-        .anomaly-card {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #0a8754;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .anomaly-label {
-            font-size: 12px;
-            color: #6b7380;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-
-        .anomaly-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #0a8754;
-        }
-
-        /* FT/HT TABS */
-        .time-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            background: #fff;
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid #e6ebf0;
-        }
-
-        .time-tab {
-            flex: 1;
-            padding: 12px;
-            text-align: center;
-            font-size: 14px;
-            font-weight: 600;
-            color: #6b7380;
-            background: transparent;
+        .btn-toggle {
+            padding: 8px 20px;
             border: none;
+            background: #e6ebf0;
+            color: #6b7380;
+            font-weight: 600;
+            font-size: 13px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
         }
 
-        .time-tab:hover {
-            background: #f5f7fa;
-            color: #202733;
+        .btn-toggle.active {
+            background: #4caf50;
+            color: white;
         }
 
-        .time-tab.active {
-            background: #00d4ff;
-            color: #fff;
+        .btn-toggle:hover {
+            background: #d0d6dd;
         }
 
-        /* 3 TABLES LAYOUT */
-        .tables-container {
+        .btn-toggle.active:hover {
+            background: #45a049;
+        }
+
+        .cards-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
             margin-bottom: 30px;
         }
 
-        @media (max-width: 1400px) {
-            .tables-container {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .tables-container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .table-wrapper {
-            background: #fff;
-            padding: 20px;
+        .odds-card {
+            background: white;
             border-radius: 10px;
-            border: 1px solid #e6ebf0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
-        .table-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #202733;
+        .odds-card-header {
+            background: #4caf50;
+            color: white;
+            padding: 12px 16px;
+            font-weight: 700;
+            font-size: 15px;
+            text-align: center;
         }
 
-        table {
+        .odds-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
         }
 
-        thead {
-            background: #0a8754;
-            border-bottom: 2px solid #e6ebf0;
-            position: sticky;
-            top: 0;
-            z-index: 9;
+        .odds-table thead {
+            background: #f5f7fa;
         }
 
-        th {
-            padding: 10px 6px;
+        .odds-table th {
+            padding: 10px 8px;
             text-align: center;
             font-weight: 600;
-            font-size: 10px;
-            text-transform: uppercase;
-            color: #fff;
-            letter-spacing: 0.3px;
-        }
-
-        td {
-            padding: 8px 6px;
-            border-bottom: 1px solid #f0f2f5;
-            text-align: center;
             font-size: 11px;
-            color: #202733;
+            color: #6b7380;
+            border-bottom: 1px solid #e6ebf0;
         }
 
-        tbody tr:hover {
+        .odds-table td {
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 13px;
+            color: #202733;
+            border-bottom: 1px solid #f0f2f5;
+        }
+
+        .odds-table tbody tr:hover {
             background: #f9fafb;
         }
 
-        tbody tr:last-child td {
+        .odds-table tbody tr:last-child td {
             border-bottom: none;
         }
 
-        /* COLORED CELLS */
-        td.time-col {
-            font-weight: 600;
+        .odd-value {
+            font-weight: 700;
             color: #202733;
         }
 
-        td.score-col {
-            font-weight: 700;
-            color: #00d4ff;
-        }
-
-        .cell-updated {
-            background: #fff3cd !important;
-            animation: highlight 0.6s ease;
-        }
-
-        @keyframes highlight {
-            0% { background: #ffeb99 !important; }
-            100% { background: transparent; }
+        .time-value {
+            color: #6b7380;
+            font-size: 11px;
         }
 
         .loading {
             text-align: center;
-            padding: 60px;
+            padding: 60px 20px;
             color: #6b7380;
         }
 
@@ -430,371 +246,342 @@
             100% { transform: rotate(360deg); }
         }
 
-        .error-message {
+        .error-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
             padding: 20px;
-            background: #ffebee;
-            border: 1px solid #ef5350;
             border-radius: 8px;
-            color: #c62828;
-            text-align: center;
+            margin: 20px 0;
         }
 
         .empty-state {
-            padding: 40px;
             text-align: center;
+            padding: 40px 20px;
             color: #6b7380;
-            font-size: 14px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 1200px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .match-teams {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
     <header class="ir-header">
-        <div class="header-left">
-            <a href="/" class="ir-logo">INFORADAR.LIVE</a>
-            <span class="live-badge" id="live-badge">● LIVE</span>
-        </div>
-        <button class="back-btn" onclick="history.back()">← Back to Anomalies</button>
+        <a href="/" class="ir-logo">INFORADAR.LIVE</a>
+        <nav class="ir-nav">
+            <a href="/soccer">Soccer</a>
+            <a href="/basketball">Basketball</a>
+            <a href="/support">Support</a>
+            <a href="/faq">FAQ</a>
+        </nav>
     </header>
 
     <div class="container">
+        <a href="/prematch" class="back-link">← Back to Anomalies</a>
+
         <div class="match-header">
-            <div class="match-title">
-                <span>⚽ <span id="event-title">{{ event_name }}</span></span>
-                <span class="match-score" id="match-score">—</span>
+            <div class="match-league">
+                <span>🏆</span>
+                <span id="league-name">{{ league }}</span>
+                <span id="match-datetime"></span>
             </div>
-
-            <div class="match-info">
-                <span id="sport-info">⚽ Football</span>
-                <span id="league-info">🏆 League</span>
-                <span id="updates-info">📊 Loading...</span>
-            </div>
-
-            <div class="game-timeline" id="game-timeline">
-                <div class="timeline-progress" id="timeline-progress"></div>
-                <div class="timeline-marker" id="timeline-marker">
-                    <span id="current-minute">0</span>
-                </div>
-            </div>
-
-            <div class="timeline-labels">
-                <span>0'</span>
-                <span>HT (45')</span>
-                <span>FT (90')</span>
+            <div class="match-teams" id="match-teams">{{ event_name }}</div>
+            <div class="match-progress">
+                <div class="match-progress-bar" id="progress-bar" style="width: 10%;">PRE</div>
             </div>
         </div>
 
-        <div id="loading" class="loading">
+        <div class="match-controls">
+            <button class="btn-toggle active" id="btn-ft">FT</button>
+            <button class="btn-toggle" id="btn-ht">HT</button>
+        </div>
+
+        <div id="loading-indicator" class="loading">
             <div class="spinner"></div>
-            <p>Loading match data...</p>
+            Loading match data...
         </div>
 
-        <div class="anomaly-stats" id="anomaly-stats" style="display: none;">
-            <div class="anomaly-card">
-                <div class="anomaly-label">🔴 Total Anomalies</div>
-                <div class="anomaly-value" id="total-anomalies">0</div>
-            </div>
-            <div class="anomaly-card">
-                <div class="anomaly-label">📊 Updates Count</div>
-                <div class="anomaly-value" id="updates-count">0</div>
-            </div>
-            <div class="anomaly-card">
-                <div class="anomaly-label">📈 Odd 1 Range</div>
-                <div class="anomaly-value" id="odd1-range">—</div>
-            </div>
-            <div class="anomaly-card">
-                <div class="anomaly-label">❌ Odd X Range</div>
-                <div class="anomaly-value" id="oddx-range">—</div>
-            </div>
-            <div class="anomaly-card">
-                <div class="anomaly-label">📊 Odd 2 Range</div>
-                <div class="anomaly-value" id="odd2-range">—</div>
-            </div>
-        </div>
+        <div id="error-container"></div>
 
-        <div class="time-tabs" id="time-tabs" style="display: none;">
-            <button class="time-tab active" data-period="FT">Full Time (FT)</button>
-            <button class="time-tab" data-period="HT">Half Time (HT)</button>
-        </div>
-
-        <div class="tables-container" id="tables-container" style="display: none;">
-            <div class="table-wrapper">
-                <div class="table-title">📊 1X2 Movement</div>
-                <table id="table-1x2">
+        <div id="cards-container" class="cards-grid" style="display: none;">
+            <!-- 1X2 Card -->
+            <div class="odds-card">
+                <div class="odds-card-header">1X2</div>
+                <table class="odds-table">
                     <thead>
                         <tr>
-                            <th>GAME TIME</th>
-                            <th>SCORE</th>
+                            <th>Game Time</th>
+                            <th>Score</th>
                             <th>1</th>
                             <th>X</th>
                             <th>2</th>
-                            <th>A1</th>
-                            <th>ΔX</th>
-                            <th>Δ2</th>
-                            <th>TIME</th>
+                            <th>Time</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="tbody-1x2">
+                        <tr>
+                            <td colspan="6" class="empty-state">No data</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
 
-            <div class="table-wrapper">
-                <div class="table-title">🏆 Handicap</div>
-                <table id="table-hc">
+            <!-- Handicap Card -->
+            <div class="odds-card">
+                <div class="odds-card-header">Handicap</div>
+                <table class="odds-table">
                     <thead>
                         <tr>
-                            <th>GAME TIME</th>
-                            <th>SCORE</th>
-                            <th>HOME</th>
-                            <th>HANDICAP</th>
-                            <th>AWAY</th>
-                            <th>A1G1</th>
-                            <th>A2G2</th>
-                            <th>TIME</th>
+                            <th>Game Time</th>
+                            <th>Score</th>
+                            <th>Home</th>
+                            <th>Handicap</th>
+                            <th>Away</th>
+                            <th>Time</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="tbody-handicap">
+                        <tr>
+                            <td colspan="6" class="empty-state">No data</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
 
-            <div class="table-wrapper">
-                <div class="table-title">📈 Total (Over/Under)</div>
-                <table id="table-ou">
+            <!-- Total Card -->
+            <div class="odds-card">
+                <div class="odds-card-header">Total</div>
+                <table class="odds-table">
                     <thead>
                         <tr>
-                            <th>GAME TIME</th>
-                            <th>SCORE</th>
-                            <th>OVER</th>
-                            <th>TOTAL</th>
-                            <th>UNDER</th>
-                            <th>A1G1</th>
-                            <th>A2G2</th>
-                            <th>TIME</th>
+                            <th>Game Time</th>
+                            <th>Score</th>
+                            <th>Over</th>
+                            <th>Total</th>
+                            <th>Under</th>
+                            <th>Time</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="tbody-total">
+                        <tr>
+                            <td colspan="6" class="empty-state">No data</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
-        </div>
-
-        <div id="error-container" style="display: none;">
-            <div class="error-message" id="error-message"></div>
-        </div>
-
-        <div id="empty-state" class="empty-state" style="display: none;">
-            <p>No data found for this match.</p>
         </div>
     </div>
 
     <script>
-        const eventName = '{{ event_name }}';
-        let allData = {};
-        let currentPeriod = 'FT';
-        let refreshInterval = null;
-        let previousDataStr = '';
+        const EVENT_NAME = "{{ event_name }}";
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadMatchData();
-            setupTabHandlers();
-            // Auto-refresh every 1.5 seconds for LIVE coefficient updates
-            refreshInterval = setInterval(loadMatchData, 1500);
-        });
+        function formatTime(dateStr) {
+            if (!dateStr) return '-';
+            try {
+                const d = new Date(dateStr);
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const seconds = String(d.getSeconds()).padStart(2, '0');
+                return `${hours}:${minutes}:${seconds}`;
+            } catch {
+                return dateStr;
+            }
+        }
 
-        window.addEventListener('beforeunload', () => {
-            if (refreshInterval) clearInterval(refreshInterval);
-        });
+        function formatDateTime(dateStr) {
+            if (!dateStr) return null;
+            try {
+                const d = new Date(dateStr);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return `${day}.${month}.${year} ${hours}:${minutes}`;
+            } catch {
+                return null;
+            }
+        }
 
         async function loadMatchData() {
             try {
-                const historyRes = await fetch(`/api/match/${encodeURIComponent(eventName)}/history`);
-                const historyData = await historyRes.json();
+                const response = await fetch(`/api/match/${encodeURIComponent(EVENT_NAME)}/full`);
 
-                const statsRes = await fetch(`/api/match/${encodeURIComponent(eventName)}/stats`);
-                const statsData = await statsRes.json();
-
-                if (!historyData.success || !statsData.success) {
-                    throw new Error('Failed to load data');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
                 }
 
-                document.getElementById('loading').style.display = 'none';
+                const data = await response.json();
 
-                if (!historyData.timeline || historyData.timeline.length === 0) {
-                    document.getElementById('empty-state').style.display = 'block';
-                    return;
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load');
                 }
 
-                const newDataStr = JSON.stringify(historyData.timeline);
-                const dataChanged = newDataStr !== previousDataStr;
-                previousDataStr = newDataStr;
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('cards-container').style.display = 'grid';
 
-                allData = historyData;
-                document.getElementById('anomaly-stats').style.display = 'grid';
-                document.getElementById('time-tabs').style.display = 'flex';
-                document.getElementById('tables-container').style.display = 'grid';
+                // Обновляем лигу и дату
+                if (data.league) {
+                    document.getElementById('league-name').textContent = data.league;
+                }
 
-                renderAnomalies(historyData);
-                renderStats(statsData, historyData);
-                renderTables(historyData, currentPeriod, dataChanged);
-                detectAndRenderEvents(historyData);
+                if (data.odds && data.odds.length > 0) {
+                    const firstRecord = data.odds[0];
+                    if (firstRecord.matchtime) {
+                        const formatted = formatDateTime(firstRecord.matchtime);
+                        if (formatted) {
+                            document.getElementById('match-datetime').textContent = formatted;
+                        }
+                    }
+                }
 
-                // Always show LIVE badge - match is being tracked
-                document.getElementById('live-badge').style.display = 'inline-block';
+                // Рендерим таблицу 1X2
+                if (data.odds && data.odds.length > 0) {
+                    render1X2Table(data.odds);
+                }
+
+                // Рендерим тоталы и форы (если есть)
+                if (data.totals && data.totals.length > 0) {
+                    renderTotalTable(data.totals);
+                }
+
+                if (data.handicaps && data.handicaps.length > 0) {
+                    renderHandicapTable(data.handicaps);
+                }
 
             } catch (error) {
                 console.error('Error:', error);
-                if (document.getElementById('loading').style.display !== 'none') {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('error-container').style.display = 'block';
-                    document.getElementById('error-message').textContent = `❌ Error: ${error.message}`;
-                }
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('error-container').innerHTML = 
+                    `<div class="error-box">Failed to load match data: ${error.message}</div>`;
             }
         }
 
-        function renderAnomalies(data) {
-            document.getElementById('total-anomalies').textContent = data.total_anomalies || 0;
-        }
+        function render1X2Table(odds) {
+            const tbody = document.getElementById('tbody-1x2');
+            tbody.innerHTML = '';
 
-        function renderStats(stats, data) {
-            const statsObj = stats.stats;
-            document.getElementById('odd1-range').textContent = `${statsObj.odd_1.min.toFixed(2)} - ${statsObj.odd_1.max.toFixed(2)}`;
-            document.getElementById('oddx-range').textContent = `${statsObj.odd_x.min.toFixed(2)} - ${statsObj.odd_x.max.toFixed(2)}`;
-            document.getElementById('odd2-range').textContent = `${statsObj.odd_2.min.toFixed(2)} - ${statsObj.odd_2.max.toFixed(2)}`;
-            document.getElementById('updates-count').textContent = statsObj.updates_count;
-
-            if (data.timeline.length > 0) {
-                const progress = Math.min((data.timeline.length / 50) * 100, 100);
-                document.getElementById('timeline-progress').style.width = progress + '%';
-                document.getElementById('updates-info').textContent = `📊 ${data.timeline.length} updates`;
-            }
-        }
-
-        function renderTables(data, period, highlight = false) {
-            const tbody1x2 = document.querySelector('#table-1x2 tbody');
-            const tbodyHc = document.querySelector('#table-hc tbody');
-            const tbodyOU = document.querySelector('#table-ou tbody');
-
-            tbody1x2.innerHTML = '';
-            tbodyHc.innerHTML = '';
-            tbodyOU.innerHTML = '';
-
-            let filtered = data.timeline;
-            if (period === 'HT') {
-                filtered = data.timeline.filter(row => row.minute && parseInt(row.minute) <= 45);
+            if (odds.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>';
+                return;
             }
 
-            if (filtered && Array.isArray(filtered)) {
-                filtered.forEach((row, idx) => {
-                    const highlightClass = highlight && idx === filtered.length - 1 ? 'cell-updated' : '';
+            // Берём только последние 10 записей
+            const recent = odds.slice(-10).reverse();
 
-                    const tr1 = document.createElement('tr');
-                    tr1.innerHTML = `
-                        <td class="time-col">${row.minute || '90'}</td>
-                        <td class="score-col">${row.score || '—'}</td>
-                        <td class="${highlightClass}">${row.odd_1 ? row.odd_1.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.odd_x ? row.odd_x.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.odd_2 ? row.odd_2.toFixed(2) : '—'}</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>${row.time}</td>
-                    `;
-                    tbody1x2.appendChild(tr1);
+            recent.forEach(record => {
+                const row = document.createElement('tr');
 
-                    const tr2 = document.createElement('tr');
-                    tr2.innerHTML = `
-                        <td class="time-col">${row.minute || '90'}</td>
-                        <td class="score-col">${row.score || '—'}</td>
-                        <td class="${highlightClass}">${row.handicap_home ? row.handicap_home.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.handicap ? row.handicap.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.handicap_away ? row.handicap_away.toFixed(2) : '—'}</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>${row.time}</td>
-                    `;
-                    tbodyHc.appendChild(tr2);
+                const gameTime = '-';
+                const score = '-';
+                const odd1 = record.odd1 ? parseFloat(record.odd1).toFixed(2) : '-';
+                const oddX = record.oddx ? parseFloat(record.oddx).toFixed(2) : '-';
+                const odd2 = record.odd2 ? parseFloat(record.odd2).toFixed(2) : '-';
+                const time = formatTime(record.updatedat);
 
-                    const tr3 = document.createElement('tr');
-                    tr3.innerHTML = `
-                        <td class="time-col">${row.minute || '90'}</td>
-                        <td class="score-col">${row.score || '—'}</td>
-                        <td class="${highlightClass}">${row.over ? row.over.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.total ? row.total.toFixed(2) : '—'}</td>
-                        <td class="${highlightClass}">${row.under ? row.under.toFixed(2) : '—'}</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>${row.time}</td>
-                    `;
-                    tbodyOU.appendChild(tr3);
-                });
-            }
-        }
+                row.innerHTML = `
+                    <td>${gameTime}</td>
+                    <td>${score}</td>
+                    <td class="odd-value">${odd1}</td>
+                    <td class="odd-value">${oddX}</td>
+                    <td class="odd-value">${odd2}</td>
+                    <td class="time-value">${time}</td>
+                `;
 
-        function detectAndRenderEvents(data) {
-            const timeline = document.getElementById('game-timeline');
-            timeline.querySelectorAll('.timeline-goal, .timeline-card').forEach(el => el.remove());
-
-            if (!data.timeline || data.timeline.length < 2) return;
-
-            for (let i = 1; i < data.timeline.length; i++) {
-                const prev = data.timeline[i - 1];
-                const curr = data.timeline[i];
-                if (!prev || !curr) continue;
-
-                const minute = parseInt(curr.minute) || 90;
-                const percent = Math.min((minute / 90) * 100, 100);
-
-                let goalDetected = false;
-                
-                if (prev.odd_1 && curr.odd_1) {
-                    const change = Math.abs((curr.odd_1 - prev.odd_1) / prev.odd_1);
-                    if (change > 0.15) {
-                        const goal = document.createElement('div');
-                        goal.className = `timeline-goal ${curr.odd_1 < prev.odd_1 ? 'home' : 'away'}`;
-                        goal.style.left = percent + '%';
-                        goal.title = `Goal at ${minute}'`;
-                        timeline.appendChild(goal);
-                        goalDetected = true;
-                    }
-                }
-
-                if (!goalDetected && prev.odd_2 && curr.odd_2) {
-                    const change = Math.abs((curr.odd_2 - prev.odd_2) / prev.odd_2);
-                    if (change > 0.15) {
-                        const goal = document.createElement('div');
-                        goal.className = `timeline-goal ${curr.odd_2 < prev.odd_2 ? 'away' : 'home'}`;
-                        goal.style.left = percent + '%';
-                        goal.title = `Goal at ${minute}'`;
-                        timeline.appendChild(goal);
-                    }
-                }
-
-                if (curr.red_cards && (!prev.red_cards || curr.red_cards > prev.red_cards)) {
-                    const card = document.createElement('div');
-                    card.className = 'timeline-card red';
-                    card.style.left = percent + '%';
-                    card.title = `Red card at ${minute}'`;
-                    timeline.appendChild(card);
-                }
-
-                if (curr.yellow_cards && (!prev.yellow_cards || curr.yellow_cards > prev.yellow_cards)) {
-                    const card = document.createElement('div');
-                    card.className = 'timeline-card yellow';
-                    card.style.left = percent + '%';
-                    card.title = `Yellow card at ${minute}'`;
-                    timeline.appendChild(card);
-                }
-            }
-        }
-
-        function setupTabHandlers() {
-            document.querySelectorAll('.time-tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    currentPeriod = this.dataset.period;
-                    renderTables(allData, currentPeriod);
-                });
+                tbody.appendChild(row);
             });
         }
+
+        function renderTotalTable(totals) {
+            const tbody = document.getElementById('tbody-total');
+            tbody.innerHTML = '';
+
+            if (totals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>';
+                return;
+            }
+
+            const recent = totals.slice(-10).reverse();
+
+            recent.forEach(record => {
+                const row = document.createElement('tr');
+
+                const over = record.over ? parseFloat(record.over).toFixed(2) : '-';
+                const total = record.line || '-';
+                const under = record.under ? parseFloat(record.under).toFixed(2) : '-';
+                const time = formatTime(record.time || record.updatedat);
+
+                row.innerHTML = `
+                    <td>-</td>
+                    <td>-</td>
+                    <td class="odd-value">${over}</td>
+                    <td>${total}</td>
+                    <td class="odd-value">${under}</td>
+                    <td class="time-value">${time}</td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderHandicapTable(handicaps) {
+            const tbody = document.getElementById('tbody-handicap');
+            tbody.innerHTML = '';
+
+            if (handicaps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>';
+                return;
+            }
+
+            const recent = handicaps.slice(-10).reverse();
+
+            recent.forEach(record => {
+                const row = document.createElement('tr');
+
+                const home = record.home ? parseFloat(record.home).toFixed(2) : '-';
+                const handicap = record.handicap || '-';
+                const away = record.away ? parseFloat(record.away).toFixed(2) : '-';
+                const time = formatTime(record.time || record.updatedat);
+
+                row.innerHTML = `
+                    <td>-</td>
+                    <td>-</td>
+                    <td class="odd-value">${home}</td>
+                    <td>${handicap}</td>
+                    <td class="odd-value">${away}</td>
+                    <td class="time-value">${time}</td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        // Кнопки FT/HT (пока просто переключение стилей)
+        document.getElementById('btn-ft').addEventListener('click', function() {
+            this.classList.add('active');
+            document.getElementById('btn-ht').classList.remove('active');
+        });
+
+        document.getElementById('btn-ht').addEventListener('click', function() {
+            this.classList.add('active');
+            document.getElementById('btn-ft').classList.remove('active');
+        });
+
+        loadMatchData();
     </script>
 </body>
 </html>

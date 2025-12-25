@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prematch - 22BET | Inforadar Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: #f5f7fa;
+            color: #202733;
+            min-height: 100vh;
+        }
+
+        .ir-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e6ebf0;
+            padding: 0 40px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .ir-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #202733;
+            text-decoration: none;
+        }
+
+        .ir-logo::before {
+            content: '🔴';
+            font-size: 24px;
+        }
+
+        .ir-nav {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .ir-nav a {
+            text-decoration: none;
+            color: #6b7380;
+            font-size: 15px;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 4px 0;
+        }
+
+        .ir-nav a:hover {
+            color: #202733;
+        }
+
+        .ir-nav a.active {
+            color: #202733;
+            font-weight: 600;
+            border-bottom: 2px solid #00d4ff;
+        }
+
+        .ir-nav .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ir-nav .btn.ghost {
+            background: transparent;
+            border: 1px solid #00d4ff;
+            color: #00d4ff;
+        }
+
+        .ir-nav .btn.ghost:hover {
+            background: #00d4ff;
+            color: #fff;
+        }
+
+        .ir-subtabs {
+            background: #ffffff;
+            border-bottom: 1px solid #e6ebf0;
+            display: flex;
+            gap: 40px;
+            padding: 0 40px;
+            position: sticky;
+            top: 64px;
+            z-index: 99;
+        }
+
+        .ir-subtabs a {
+            text-decoration: none;
+            color: #6b7380;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 12px 0;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .ir-subtabs a:hover {
+            color: #202733;
+        }
+
+        .ir-subtabs a.active {
+            color: #202733;
+            font-weight: 600;
+            border-bottom-color: #00d4ff;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 30px 40px;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: #202733;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-title::before {
+            content: '⚽';
+            font-size: 32px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e6ebf0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-label {
+            color: #6b7380;
+            font-size: 13px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #202733;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-value.highlight {
+            color: #00d4ff;
+        }
+
+        .controls {
+            background: #ffffff;
+            border: 1px solid #e6ebf0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .control-group label {
+            color: #6b7380;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        select {
+            background: #f5f7fa;
+            border: 1px solid #e6ebf0;
+            color: #202733;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: #fff;
+        }
+
+        button {
+            background: #00d4ff;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background: #00b8d4;
+            transform: translateY(-1px);
+        }
+
+        .refresh-info {
+            color: #6b7380;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .refresh-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00d4ff;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .table-wrapper {
+            background: #ffffff;
+            border: 1px solid #e6ebf0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e6ebf0;
+            background: #fafbfc;
+        }
+
+        .table-info {
+            font-size: 14px;
+            color: #6b7380;
+            font-weight: 500;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #fafbfc;
+            border-bottom: 2px solid #e6ebf0;
+        }
+
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6b7380;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid #f0f2f5;
+            font-size: 14px;
+            color: #202733;
+            vertical-align: middle;
+        }
+
+        tbody tr {
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        td.event-name {
+            font-weight: 600;
+            font-size: 15px;
+            min-width: 300px;
+        }
+
+        td.event-name::before {
+            content: '⚽';
+            margin-right: 8px;
+            font-size: 18px;
+            opacity: 0.6;
+        }
+
+        td.league-name {
+            font-size: 13px;
+            color: #6b7380;
+            min-width: 250px;
+        }
+
+        .country-flag {
+            font-size: 20px;
+            margin-right: 6px;
+            display: inline-block;
+        }
+
+        td.odd {
+            text-align: center;
+            font-weight: 700;
+            color: #00d4ff;
+            font-size: 16px;
+            background: rgba(0, 212, 255, 0.06);
+            border-radius: 6px;
+            padding: 8px 12px;
+            min-width: 70px;
+        }
+
+        td.time {
+            color: #6b7380;
+            font-size: 13px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        td.market {
+            text-align: center;
+            font-size: 12px;
+            color: #6b7380;
+            text-transform: uppercase;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 25px;
+            padding: 20px;
+        }
+
+        .pagination-btn {
+            background: #ffffff;
+            border: 1px solid #e6ebf0;
+            border-radius: 6px;
+            padding: 10px 16px;
+            color: #202733;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #f5f7fa;
+            border-color: #00d4ff;
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #6b7380;
+            font-size: 14px;
+            padding: 0 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7380;
+        }
+
+        .spinner {
+            border: 3px solid #e6ebf0;
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 80px 20px;
+            color: #6b7380;
+            font-size: 16px;
+        }
+
+        .empty::before {
+            content: '🔍';
+            font-size: 64px;
+            display: block;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        @media (max-width: 768px) {
+            .ir-header, .ir-subtabs, .container {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 10px 12px;
+            }
+
+            td.event-name {
+                min-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="ir-header">
+        <a href="/" class="ir-logo">INFORADAR.LIVE</a>
+        <nav class="ir-nav">
+            <a href="/soccer" class="active">Soccer</a>
+            <a href="/basketball">Basketball</a>
+            <a href="/support">Support</a>
+            <a href="/faq">FAQ</a>
+            <a href="#" class="btn ghost">BOTS</a>
+        </nav>
+    </header>
+
+    <div class="ir-subtabs">
+        <a href="/live">Live</a>
+        <a href="/prematch" class="active">Prematch</a>
+        <a href="/result">Result</a>
+        <a href="/betwatch">📊 Betwatch</a>
+        <a href="/anomalies22bet">🚨 22BET Anomalies</a>
+    </div>
+
+    <div class="container">
+        <div class="page-title">Prematch Odds - 22BET</div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">📊 UPCOMING EVENTS</div>
+                <div class="stat-value" id="total-events">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚽ FOOTBALL</div>
+                <div class="stat-value highlight" id="football-events">0</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Per Page:</label>
+                <select id="per-page">
+                    <option value="20" selected>20 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="100">100 per page</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Sport:</label>
+                <select id="sport-filter">
+                    <option value="football" selected>⚽ Football</option>
+                    <option value="all">All Sports</option>
+                </select>
+            </div>
+
+            <button id="refresh-btn">🔄 Refresh Now</button>
+
+            <div class="refresh-info">
+                <span class="refresh-dot"></span>
+                <span>Auto-refresh every 30s</span>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <div class="table-header">
+                <div class="table-info">Showing <span id="showing-range">1-20</span> of <span id="showing-total">0</span> events</div>
+            </div>
+
+            <div id="table-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading prematch odds...
+                </div>
+            </div>
+        </div>
+
+        <div class="pagination" id="pagination" style="display: none;">
+            <button class="pagination-btn" id="prev-btn" disabled>← Previous</button>
+            <div class="pagination-info">
+                Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+            </div>
+            <button class="pagination-btn" id="next-btn">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let perPage = 20;
+        let sportFilter = 'football';
+        let allData = [];
+
+        function getCountryFlag(league) {
+            if (!league) return '🌍';
+
+            const leagueUpper = league.toUpperCase();
+
+            const countryMap = {
+                'РОССИЯ': '🇷🇺', 'РОССИИ': '🇷🇺', 'РОССИЙСКОЙ': '🇷🇺', 'РПЛ': '🇷🇺',
+                'ИСПАНИЯ': '🇪🇸', 'ИСПАНИИ': '🇪🇸', 'ЛАМЛИГА': '🇪🇸',
+                'АНГЛИЯ': '🏴‍☠️', 'АНГЛИИ': '🏴‍☠️', 'АПЛ': '🏴‍☠️', 'ПРЕМЬЕР-ЛИГА': '🏴‍☠️',
+                'ГЕРМАНИЯ': '🇩🇪', 'ГЕРМАНИИ': '🇩🇪', 'БУНДЕСЛИГА': '🇩🇪',
+                'ИТАЛИЯ': '🇮🇹', 'ИТАЛИИ': '🇮🇹', 'СЕРИЯ': '🇮🇹',
+                'ФРАНЦИЯ': '🇫🇷', 'ФРАНЦИИ': '🇫🇷',
+                'ПОРТУГАЛИЯ': '🇵🇹', 'ПОРТУГАЛИИ': '🇵🇹',
+                'НИДЕРЛАНДЫ': '🇳🇱', 'НИДЕРЛАНДОВ': '🇳🇱', 'ГОЛЛАНДИЯ': '🇳🇱',
+                'БЕЛЬГИЯ': '🇧🇪', 'БЕЛЬГИИ': '🇧🇪',
+                'ТУРЦИЯ': '🇹🇷', 'ТУРЦИИ': '🇹🇷',
+                'ГРЕЦИЯ': '🇬🇷', 'ГРЕЦИИ': '🇬🇷',
+                'УКРАИНА': '🇺🇦', 'УКРАИНЫ': '🇺🇦',
+                'ПОЛЬША': '🇵🇱', 'ПОЛЬШИ': '🇵🇱',
+                'ЧЕХИЯ': '🇨🇿', 'ЧЕХИИ': '🇨🇿',
+                'ШВЕЦИЯ': '🇸🇪', 'ШВЕЦИИ': '🇸🇪',
+                'НОРВЕГИЯ': '🇳🇴', 'НОРВЕГИИ': '🇳🇴',
+                'ДАНИЯ': '🇩🇰', 'ДАНИИ': '🇩🇰',
+                'ШВЕЙЦАРИЯ': '🇨🇭', 'ШВЕЙЦАРИИ': '🇨🇭',
+                'АВСТРИЯ': '🇦🇹', 'АВСТРИИ': '🇦🇹',
+                'ШОТЛАНДИЯ': '🏴‍☠️', 'ШОТЛАНДИИ': '🏴‍☠️',
+                'БРАЗИЛИЯ': '🇧🇷', 'БРАЗИЛИИ': '🇧🇷',
+                'АРГЕНТИНА': '🇦🇷', 'АРГЕНТИНЫ': '🇦🇷',
+                'МЕКСИКА': '🇲🇽', 'МЕКСИКИ': '🇲🇽',
+                'США': '🇺🇸', 'АМЕРИК': '🇺🇸', 'MLS': '🇺🇸',
+                'КИТАЙ': '🇨🇳', 'КИТАЯ': '🇨🇳',
+                'ЯПОНИЯ': '🇯🇵', 'ЯПОНИИ': '🇯🇵',
+                'ЮЖНАЯ КОРЕЯ': '🇰🇷', 'КОРЕЯ': '🇰🇷', 'КОРЕИ': '🇰🇷',
+                'САУДОВСКАЯ': '🇸🇦', 'САУДОВСКОЙ': '🇸🇦',
+                'ОАЭ': '🇦🇪', 'ЭМИРАТЫ': '🇦🇪',
+                'КАТАР': '🇶🇦', 'КАТАРА': '🇶🇦',
+                'ЕГИПЕТ': '🇪🇬', 'ЕГИПТА': '🇪🇬',
+                'МАРОККО': '🇲🇦', 'МАРОКК': '🇲🇦',
+                'ТУНИС': '🇹🇳', 'ТУНИСА': '🇹🇳',
+                'АЛЖИР': '🇩🇿', 'АЛЖИРА': '🇩🇿',
+                'ЮАР': '🇿🇦', 'ЮЖНОЙ АФРИКИ': '🇿🇦',
+                'АВСТРАЛИЯ': '🇦🇺', 'АВСТРАЛИИ': '🇦🇺',
+                'ИЗРАИЛЬ': '🇮🇱', 'ИЗРАИЛЯ': '🇮🇱',
+                'ИНДИЯ': '🇮🇳', 'ИНДИИ': '🇮🇳',
+                'ИРАН': '🇮🇷', 'ИРАНА': '🇮🇷',
+                'ИРАК': '🇮🇶', 'ИРАКА': '🇮🇶',
+                'СЕРБИЯ': '🇷🇸', 'СЕРБИИ': '🇷🇸',
+                'ХОРВАТИЯ': '🇭🇷', 'ХОРВАТИИ': '🇭🇷',
+                'РУМЫНИЯ': '🇷🇴', 'РУМЫНИИ': '🇷🇴',
+                'БОЛГАРИЯ': '🇧🇬', 'БОЛГАРИИ': '🇧🇬',
+                'СЛОВАКИЯ': '🇸🇰', 'СЛОВАКИИ': '🇸🇰',
+                'СЛОВЕНИЯ': '🇸🇮', 'СЛОВЕНИИ': '🇸🇮',
+                'ВЕНГРИЯ': '🇭🇺', 'ВЕНГРИИ': '🇭🇺',
+                'ФИНЛЯНДИЯ': '🇫🇮', 'ФИНЛЯНДИИ': '🇫🇮',
+                'ИСЛАНДИЯ': '🇮🇸', 'ИСЛАНДИИ': '🇮🇸',
+                'ЭСТОНИЯ': '🇪🇪', 'ЭСТОНИИ': '🇪🇪',
+                'ЛАТВИЯ': '🇱🇻', 'ЛАТВИИ': '🇱🇻',
+                'ЛИТВА': '🇱🇹', 'ЛИТВЫ': '🇱🇹',
+                'ГРУЗИЯ': '🇬🇪', 'ГРУЗИИ': '🇬🇪',
+                'АРМЕНИЯ': '🇦🇲', 'АРМЕНИИ': '🇦🇲',
+                'АЗЕРБАЙДЖАН': '🇦🇿', 'АЗЕРБАЙДЖАНА': '🇦🇿',
+                'КАЗАХСТАН': '🇰🇿', 'КАЗАХСТАНА': '🇰🇿',
+                'УЗБЕКИСТАН': '🇺🇿', 'УЗБЕКИСТАНА': '🇺🇿',
+                'ЧИЛИ': '🇨🇱',
+                'КОЛУМБИЯ': '🇨🇴', 'КОЛУМБИИ': '🇨🇴',
+                'ЭКВАДОР': '🇪🇨', 'ЭКВАДОРА': '🇪🇨',
+                'ПЕРУ': '🇵🇪',
+                'УРУГВАЙ': '🇺🇾', 'УРУГВАЯ': '🇺🇾',
+                'ПАРАГВАЙ': '🇵🇾', 'ПАРАГВАЯ': '🇵🇾',
+                'ВЕНЕСУЭЛА': '🇻🇪', 'ВЕНЕСУЭЛЫ': '🇻🇪',
+                'ГОНДУРАС': '🇭🇳', 'ГОНДУРАСА': '🇭🇳',
+                'КОСТА-РИКА': '🇨🇷', 'КОСТА-РИК': '🇨🇷',
+                'ПАНАМА': '🇵🇦', 'ПАНАМЫ': '🇵🇦',
+                'БЕЛАРУСЬ': '🇧🇾', 'БЕЛАРУСИ': '🇧🇾',
+                'МОЛДОВА': '🇲🇩', 'МОЛДОВЫ': '🇲🇩',
+                'АЛБАНИЯ': '🇦🇱', 'АЛБАНИИ': '🇦🇱',
+                'МАКЕДОНИЯ': '🇲🇰', 'МАКЕДОНИИ': '🇲🇰',
+                'БОСНИЯ': '🇧🇦', 'БОСНИИ': '🇧🇦',
+                'ЧЕРНОГОРИЯ': '🇲🇪', 'ЧЕРНОГОРИИ': '🇲🇪',
+                'ЛИВИЯ': '🇱🇾', 'ЛИВИИ': '🇱🇾'
+            };
+
+            for (const [keyword, flag] of Object.entries(countryMap)) {
+                if (leagueUpper.includes(keyword)) {
+                    return flag;
+                }
+            }
+
+            return '🌍';
+        }
+
+        async function loadData() {
+            try {
+                const url = sportFilter === 'all' 
+                    ? '/api/odds/prematch?limit=500'
+                    : '/api/odds/prematch?sport=Football&limit=500';
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    allData = data.data || [];
+                    updateStats();
+                    renderTable();
+                } else {
+                    showError('Ошибка загрузки данных');
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError('Не удалось загрузить данные');
+            }
+        }
+
+        function updateStats() {
+            const totalEvents = allData.length;
+            const footballEvents = allData.filter(e => 
+                e.sport && e.sport.toLowerCase() === 'football'
+            ).length;
+
+            document.getElementById('total-events').textContent = totalEvents;
+            document.getElementById('football-events').textContent = footballEvents;
+        }
+
+        function getFilteredData() {
+            if (sportFilter === 'all') {
+                return allData;
+            }
+            return allData.filter(event => 
+                event.sport && event.sport.toLowerCase() === 'football'
+            );
+        }
+
+        function renderTable() {
+            const filteredData = getFilteredData();
+            const totalItems = filteredData.length;
+            const totalPages = Math.ceil(totalItems / perPage);
+
+            const startIndex = (currentPage - 1) * perPage;
+            const endIndex = Math.min(startIndex + perPage, totalItems);
+            const pageData = filteredData.slice(startIndex, endIndex);
+
+            document.getElementById('showing-range').textContent = 
+                totalItems > 0 ? `${startIndex + 1}-${endIndex}` : '0';
+            document.getElementById('showing-total').textContent = totalItems;
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = totalPages || 1;
+
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = currentPage >= totalPages;
+            document.getElementById('pagination').style.display = totalItems > 0 ? 'flex' : 'none';
+
+            const container = document.getElementById('table-container');
+
+            if (pageData.length === 0) {
+                container.innerHTML = '<div class="empty">Нет доступных событий</div>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>LEAGUE</th>
+                            <th>EVENT</th>
+                            <th>MARKET</th>
+                            <th style="text-align: center;">1 (HOME)</th>
+                            <th style="text-align: center;">X (DRAW)</th>
+                            <th style="text-align: center;">2 (AWAY)</th>
+                            <th style="text-align: center;">TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            pageData.forEach(event => {
+                const league = event.league || 'Unknown League';
+                const flag = getCountryFlag(league);
+                const teams = event.eventname || 'Unknown vs Unknown';
+                const market = event.markettype || '1X2';
+                const odd1 = event.odd1 || '-';
+                const oddX = event.oddx || '-';
+                const odd2 = event.odd2 || '-';
+                const time = formatTime(event.updatedat);
+
+                html += `
+                    <tr>
+                        <td class="league-name">
+                            <span class="country-flag">${flag}</span>${league}
+                        </td>
+                        <td class="event-name">${teams}</td>
+                        <td class="market">${market}</td>
+                        <td class="odd">${odd1}</td>
+                        <td class="odd">${oddX}</td>
+                        <td class="odd">${odd2}</td>
+                        <td class="time">${time}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function formatTime(timeStr) {
+            if (!timeStr) return '-';
+            try {
+                const date = new Date(timeStr);
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            } catch {
+                return timeStr;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('table-container').innerHTML = 
+                `<div class="empty">${message}</div>`;
+        }
+
+        document.getElementById('per-page').addEventListener('change', (e) => {
+            perPage = parseInt(e.target.value);
+            currentPage = 1;
+            renderTable();
+        });
+
+        document.getElementById('sport-filter').addEventListener('change', (e) => {
+            sportFilter = e.target.value;
+            currentPage = 1;
+            loadData();
+        });
+
+        document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+                window.scrollTo(0, 0);
+            }
+        });
+
+        document.getElementById('next-btn').addEventListener('click', () => {
+            const totalPages = Math.ceil(getFilteredData().length / perPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+                window.scrollTo(0, 0);
+            }
+        });
+
+        setInterval(loadData, 30000);
+        loadData();
+    </script>
+</body>
+</html>
