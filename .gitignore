@@ -75,3 +75,35 @@ config_local.py
 node_modules/
 Dockerfile.*
 requirements_*.txt
+# =========================
+# Generated / local stuff
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.bak_*
+*.broken_*
+*.tmp
+
+# venv
+venv/
+.venv/
+
+# env secrets (НЕ пушим)
+.env
+.env.*
+!.env.example
+
+# Playwright/HTTP dumps & snapshots
+netdump*/
+*_snapshot*.json
+*_diff*.json
+*.har
+*.zip
+
+# local caches
+.pytest_cache/
+.mypy_cache/
+.DS_Store
