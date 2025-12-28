@@ -107,3 +107,8 @@ netdump*/
 .pytest_cache/
 .mypy_cache/
 .DS_Store
+
+# secrets
+.env
+**/.env
+
