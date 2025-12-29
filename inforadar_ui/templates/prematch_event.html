@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Prematch event</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#f6f8fb; margin:0;}
+    .wrap{max-width:1200px;margin:18px auto;padding:0 14px;}
+    .top{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .card{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:12px;}
+    .grid{display:grid;grid-template-columns: 1fr 420px;gap:12px;}
+    table{width:100%;border-collapse:collapse;font-size:14px;}
+    th,td{padding:8px 10px;border-bottom:1px solid #eef1f6;vertical-align:top;}
+    th{background:#fbfcff;text-align:left;font-weight:600;}
+    .pill{display:inline-block;padding:2px 8px;border:1px solid #dfe6f2;border-radius:999px;font-size:12px;background:#fff;}
+    .rowbtn{cursor:pointer;color:#0b5fff;text-decoration:underline;}
+    .muted{color:#6b7280}
+    .h{font-weight:700;margin:0 0 8px 0}
+    .sec{margin-top:12px}
+    .small{font-size:12px}
+    pre{white-space:pre-wrap;word-break:break-word;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="pill">event_id: {{ event_id }}</div>
+        <div id="title" class="h" style="margin-top:8px;">Загрузка…</div>
+        <div id="meta" class="muted small"></div>
+      </div>
+      <div><a href="/prematch">← назад к prematch</a></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="h">Рынки</div>
+        <div id="markets"></div>
+      </div>
+
+      <div class="card">
+        <div class="h">История</div>
+        <div class="muted small" id="histHint">Кликни по исходу слева.</div>
+        <div id="history"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const EVENT_ID = {{ event_id }};
+const $m = document.getElementById('markets');
+const $h = document.getElementById('history');
+const $t = document.getElementById('title');
+const $meta = document.getElementById('meta');
+
+function esc(s){ return (s??'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+function groupTables(markets){
+  const groups = {};
+  for (const r of markets){
+    (groups[r.group] ||= []).push(r);
+  }
+  const order = ["1X2","Totals","Handicaps","Other"];
+  let html = "";
+  for (const g of order){
+    const arr = groups[g] || [];
+    if (!arr.length) continue;
+    html += `<div class="sec"><div class="pill">${g}</div></div>`;
+    html += `<table><thead><tr>
+      <th>Market</th><th>Outcome</th><th>Line</th><th>Side</th><th>Odd</th><th>Updated</th>
+    </tr></thead><tbody>`;
+    for (const r of arr){
+      const line = r.line ?? "";
+      const side = r.side ?? "";
+      const odd = (r.odd==null) ? "-" : r.odd;
+      const key = encodeURIComponent(JSON.stringify({
+        event_id: r.event_id,
+        market_name: r.market_name,
+        outcome_name: r.outcome_name,
+        line: r.line,
+        side: r.side
+      }));
+      html += `<tr>
+        <td>${esc(r.market_name)}</td>
+        <td><span class="rowbtn" data-key="${key}">${esc(r.outcome_name)}</span></td>
+        <td>${esc(line)}</td>
+        <td>${esc(side)}</td>
+        <td>${odd}</td>
+        <td class="muted small">${esc(r.updated_at)}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+  }
+  return html || `<div class="muted">Нет рынков</div>`;
+}
+
+async function loadMarkets(){
+  const r = await fetch(`/api/22bet/prematch/markets?event_id=${EVENT_ID}`);
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error || 'markets failed');
+  const markets = j.markets || [];
+
+  if (markets.length){
+    const any = markets[0];
+    $t.textContent = `${any.home} vs ${any.away}`;
+    $meta.textContent = `${any.league || ''} • start: ${any.start_time || ''}`;
+  } else {
+    $t.textContent = `event_id ${EVENT_ID}`;
+    $meta.textContent = '';
+  }
+
+  $m.innerHTML = groupTables(markets);
+
+  $m.querySelectorAll('[data-key]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const data = JSON.parse(decodeURIComponent(el.getAttribute('data-key')));
+      await loadHistory(data);
+    });
+  });
+}
+
+async function loadHistory(sel){
+  document.getElementById('histHint').textContent =
+    `${sel.market_name} • ${sel.outcome_name} • line=${sel.line ?? ''} • side=${sel.side ?? ''}`;
+
+  const qs = new URLSearchParams({
+    event_id: sel.event_id,
+    market_name: sel.market_name,
+    outcome_name: sel.outcome_name
+  });
+  if (sel.line != null) qs.set('line', sel.line);
+  if (sel.side != null) qs.set('side', sel.side);
+
+  const r = await fetch(`/api/22bet/prematch/history?${qs.toString()}`);
+  const j = await r.json();
+  if (!j.success) throw new Error(j.error || 'history failed');
+
+  const arr = j.history || [];
+  let html = `<table><thead><tr><th>ts</th><th>odd</th></tr></thead><tbody>`;
+  for (const x of arr){
+    html += `<tr><td class="muted small">${esc(x.ts)}</td><td>${x.odd ?? '-'}</td></tr>`;
+  }
+  html += `</tbody></table>`;
+  $h.innerHTML = html;
+}
+
+loadMarkets().catch(e=>{
+  $m.innerHTML = `<pre class="muted">ERROR: ${esc(e.message)}</pre>`;
+});
+</script>
+</body>
+</html>

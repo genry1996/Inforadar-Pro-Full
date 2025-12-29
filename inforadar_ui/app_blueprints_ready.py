@@ -18,17 +18,22 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# FLASK APP INITIALIZATION
+# ============================================================
+app = Flask(__name__)
+
+
+
+# ============================================================
+# BLUEPRINTS (isolated modules, to avoid app.py conflicts)
+# ============================================================
 try:
     from blueprints.fonbet import fonbet_bp
     app.register_blueprint(fonbet_bp)
     logger.info("Fonbet blueprint loaded")
 except Exception as e:
     logger.warning(f"Fonbet blueprint not loaded: {e}")
-
-# ============================================================
-# FLASK APP INITIALIZATION
-# ============================================================
-app = Flask(__name__)
 
 # ============================================================
 # DATABASE CONFIGURATION
@@ -366,7 +371,7 @@ def api_odds_sports():
         cursor.execute("""
             SELECT DISTINCT sport, COUNT(*) as count
             FROM odds_22bet
-            WHERE status IN ('active','upcoming') AND sport IS NOT NULL
+            WHERE status = 'active' AND sport IS NOT NULL
             GROUP BY sport
             ORDER BY count DESC
         """)

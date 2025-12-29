@@ -362,7 +362,7 @@ class PrematchParser:
             scroll_iterations += 1
             
             if scroll_iterations % 20 == 0:
-                print(f"   ... {scroll_iterations
+                print(f"   ... {scroll_iterations}")
             if scroll_iterations % 20 == 0:
                 print(f"   ... {scroll_iterations}")
         

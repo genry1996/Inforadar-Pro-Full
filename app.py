@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+load_dotenv()  # подтянет .env из текущей папки
+load_dotenv("../.env")  # если решишь держать .env в корне D:\Inforadar_Pro
+load_dotenv("../parsers/playwright_22bet/.env")  # если .env лежит там
 # -*- coding: utf-8 -*-
 """
 Inforadar Pro - Main Flask Application
