@@ -22,13 +22,12 @@ def get_connection():
         logger.error(f"MySQL connection error (fonbet blueprint): {e}")
         return None
 
-@fonbet_bp.route("/fonbet")
+@fonbet_bp.get("/fonbet")
 def fonbet_page():
     return render_template("fonbet.html")
 
-@fonbet_bp.get("/api/odds")
-def api_odds_generic():
-    bookmaker = (request.args.get("bookmaker", "fonbet") or "fonbet").strip()
+@fonbet_bp.get("/fonbet/api/odds")
+def fonbet_api_odds():
     sport = (request.args.get("sport", "football") or "football").strip()
     live = int(request.args.get("live", "0"))
     limit = int(request.args.get("limit", "500"))
@@ -52,15 +51,14 @@ def api_odds_generic():
               o.odd,
               o.limit_value,
               DATE_FORMAT(o.updated_at, '%%Y-%%m-%%d %%H:%%i:%%s') AS updated_at
-            FROM matches m
-            JOIN odds o
-              ON o.bookmaker = m.bookmaker
-             AND o.event_id  = m.event_id
-            WHERE m.bookmaker=%s AND m.sport=%s AND m.is_live=%s
+            FROM fonbet_matches m
+            JOIN fonbet_odds o
+              ON o.event_id = m.event_id
+            WHERE m.sport=%s AND m.is_live=%s
             ORDER BY o.updated_at DESC
             LIMIT %s
             """,
-            (bookmaker, sport, live, limit),
+            (sport, live, limit),
         )
         rows = cur.fetchall()
         cur.close()

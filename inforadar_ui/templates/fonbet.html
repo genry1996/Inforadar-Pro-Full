@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>Fonbet (International)</title>
+  <title>Fonbet (com.cy)</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 16px; }
     .muted { color:#666; font-size:12px; margin-bottom:12px; }
@@ -12,9 +12,9 @@
   </style>
 </head>
 <body>
-  <h2>Fonbet (com.cy) — Football</h2>
+  <h2>Fonbet (com.cy)</h2>
   <div class="muted">
-    Polling: <code>/api/odds?bookmaker=fonbet&sport=football&live=0</code>
+    API: <code>/fonbet/api/odds?sport=football&live=0</code>
   </div>
 
   <table>
@@ -36,11 +36,11 @@
 <script>
 async function tick(){
   try {
-    const res = await fetch("/api/odds?bookmaker=fonbet&sport=football&live=0");
+    const res = await fetch("/fonbet/api/odds?sport=football&live=0&limit=800");
     const payload = await res.json();
-    const data = Array.isArray(payload) ? payload : (payload.data || payload.rows || []);
+    const data = payload && payload.data ? payload.data : [];
     const tbody = document.getElementById("rows");
-    tbody.innerHTML = data.slice(0, 800).map(r => `
+    tbody.innerHTML = data.map(r => `
       <tr>
         <td>${r.league ?? ""}</td>
         <td>${(r.team1 ?? "")} ${(r.team2 ? "— " + r.team2 : "")}</td>

@@ -1,11 +1,18 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 import pymysql
 from datetime import datetime, timedelta
 import os
+
+from dotenv import load_dotenv
+from pathlib import Path
+# Load .env (current dir and project root)
+load_dotenv(Path(__file__).resolve().parent / '.env')
+load_dotenv(Path(__file__).resolve().parents[1] / '.env')
+
 import logging
 import json
 import hashlib
-from urllib.parse import unquote  # ДОБАВЛЕНО для декодирования URL
+from urllib.parse import unquote, quote  # decode/encode URL segments
 
 # ============================================================
 # LOGGING CONFIGURATION
@@ -18,13 +25,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-try:
-    from blueprints.fonbet import fonbet_bp
-    app.register_blueprint(fonbet_bp)
-    logger.info("Fonbet blueprint loaded")
-except Exception as e:
-    logger.warning(f"Fonbet blueprint not loaded: {e}")
-
 # ============================================================
 # FLASK APP INITIALIZATION
 # ============================================================
@@ -33,13 +33,17 @@ app = Flask(__name__)
 # ============================================================
 # DATABASE CONFIGURATION
 # ============================================================
+def _env(name: str, default: str = "") -> str:
+    v = os.getenv(name, default)
+    return v.strip() if isinstance(v, str) else v
+
 DB_CONFIG = {
-    'host': os.getenv('MYSQL_HOST', 'localhost'),
-    'user': os.getenv('MYSQL_USER', 'root'),
-    'password': os.getenv('MYSQL_PASSWORD', 'ryban8991!'),
-    'database': os.getenv('MYSQL_DB', 'inforadar'),
-    'charset': 'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor
+    "host": _env("MYSQL_HOST", "localhost"),
+    "user": _env("MYSQL_USER", "root"),
+    "password": _env("MYSQL_PASSWORD", ""),
+    "database": _env("MYSQL_DATABASE", "inforadar"),
+    "port": int(_env("MYSQL_PORT", "3306") or 3306),
+    "charset": "utf8mb4",
 }
 
 # ============================================================
@@ -48,7 +52,18 @@ DB_CONFIG = {
 def get_connection():
     """Создать MySQL подключение"""
     try:
-        return pymysql.connect(**DB_CONFIG)
+        # PyMySQL encodes the password as latin-1 internally; if MYSQL_PASSWORD contains
+        # non-latin chars, it crashes with: "latin-1 codec can't encode characters...".
+        # Workaround: pass password as bytes (utf-8) when needed.
+        cfg = dict(DB_CONFIG)
+        pwd = cfg.get("password")
+        if isinstance(pwd, str):
+            try:
+                pwd.encode("latin-1")
+            except UnicodeEncodeError:
+                cfg["password"] = pwd.encode("utf-8")
+
+        return pymysql.connect(**cfg, cursorclass=pymysql.cursors.DictCursor, autocommit=True, use_unicode=True)
     except Exception as e:
         logger.error(f"MySQL connection error: {e}")
         return None
@@ -97,6 +112,29 @@ def live_page():
 def prematch_page():
     """Страница PREMATCH"""
     return render_template('prematchodds.html')
+
+
+# Backward compatible route (older UI links used /prematch_event/<id>)
+@app.route('/prematch_event/<int:event_id>')
+def prematch_event_page(event_id: int):
+    """Redirect to match detail by event_id."""
+    try:
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT event_name FROM odds_22bet WHERE event_id=%s ORDER BY updated_at DESC LIMIT 1",
+                (event_id,),
+            )
+            row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Event not found"}), 404
+
+        event_name = row.get("event_name") or ""
+        return redirect(url_for('match_detail', eventname=quote(event_name, safe='')))
+    except Exception as e:
+        logging.exception("Error in prematch_event_page")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/anomalies22bet')
 def anomalies_22bet_page():
@@ -147,146 +185,68 @@ def match_detail(eventname):
 # ============================================================
 @app.route('/api/odds/prematch')
 def api_odds_prematch():
-    """
-    API: prematch (список матчей + 1X2) — читаем из odds_22bet_markets
-    и аккуратно определяем odd1/oddx/odd2 по side/outcome_name/home/away.
-    """
+    """API: Получить prematch коэффициенты 22bet из таблицы odds_22bet"""
     try:
         limit = int(request.args.get('limit', 500))
         limit = max(1, min(limit, 5000))
-
-        sport = request.args.get('sport', '').strip()  # фронт шлёт "Football"
-        hours = int(request.args.get('hours', 12))
-        hours = max(1, min(hours, 72))
+        sport = request.args.get('sport', '').strip()
 
         conn = get_connection()
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        cur = conn.cursor()
+        cursor = conn.cursor()
 
-        # Берём много строк (по 1 событию обычно 3 исхода), потом группируем в питоне
-        rows_limit = limit * 80
-
-        q = """
-            SELECT
-              event_id,
-              league,
-              home,
-              away,
-              start_time AS match_time,
-              updated_at,
-              market_name,
-              outcome_name,
-              side,
-              odd
-            FROM odds_22bet_markets
-            WHERE start_time IS NOT NULL
-              AND start_time >= NOW()
-              AND start_time <= DATE_ADD(NOW(), INTERVAL %s HOUR)
-              AND home IS NOT NULL AND home <> '' AND away IS NOT NULL AND away <> ''
-              AND LOWER(COALESCE(league,'')) NOT LIKE %s
-              AND LOWER(COALESCE(market_name,'')) NOT LIKE %s
-              AND (
-                   LOWER(COALESCE(market_name,'')) LIKE %s
-                OR LOWER(COALESCE(market_name,'')) = '1x2'
-                OR LOWER(COALESCE(market_name,'')) = '1x2 (full time)'
-                OR LOWER(COALESCE(market_name,'')) = 'match result'
-              )
-            ORDER BY match_time ASC
-            LIMIT %s
+        # ИСПРАВЛЕНО: Используем правильные названия колонок с подчёркиваниями
+        query = """
+            SELECT event_name, sport, league, market_type, odd_1, odd_x, odd_2,
+                   updated_at, match_time, liquidity_level, is_suspicious
+            FROM odds_22bet
+            WHERE status = 'active'
         """
+        params = []
 
-        cur.execute(q, (hours, "%team vs player%", "%special%", "%1x2%", rows_limit))
-        rows = cur.fetchall()
+        if sport:
+            query += " AND sport = %s"
+            params.append(sport)
 
-        def n(x):
-            return (x or "").strip().lower()
+        query += " AND match_time IS NOT NULL"
 
-        events = {}
-        for r in rows:
-            eid = int(r["event_id"])
-            ev = events.get(eid)
-            if not ev:
-                home = (r.get("home") or "").strip()
-                away = (r.get("away") or "").strip()
-                ev = {
-                    "event_id": eid,
-                    "home": home,
-                    "away": away,
-                    "league": r.get("league") or "Unknown League",
-                    "match_time": r.get("match_time"),
-                    "updated_at": r.get("updated_at"),
-                    "odd1": None,
-                    "oddx": None,
-                    "odd2": None,
-                }
-                events[eid] = ev
-            else:
-                # обновим updated_at если свежее
-                if r.get("updated_at") and (not ev["updated_at"] or r["updated_at"] > ev["updated_at"]):
-                    ev["updated_at"] = r["updated_at"]
+        query += " ORDER BY match_time ASC, updated_at DESC LIMIT %s"
+        params.append(limit)
 
-            side = n(r.get("side"))
-            outc = (r.get("outcome_name") or "").strip()
-            outc_n = n(outc)
-            home_n = n(ev["home"])
-            away_n = n(ev["away"])
-
-            odd = r.get("odd")
-            try:
-                odd_val = float(odd) if odd is not None else None
-            except Exception:
-                odd_val = None
-
-            # 1
-            if side in ("1", "home", "h") or outc_n in ("1", "п1", "p1", "w1") or (home_n and outc_n == home_n):
-                if ev["odd1"] is None and odd_val is not None:
-                    ev["odd1"] = odd_val
-                continue
-
-            # X
-            if side in ("x", "draw", "d") or outc_n in ("x", "draw", "ничья", "d"):
-                if ev["oddx"] is None and odd_val is not None:
-                    ev["oddx"] = odd_val
-                continue
-
-            # 2
-            if side in ("2", "away", "a") or outc_n in ("2", "п2", "p2", "w2") or (away_n and outc_n == away_n):
-                if ev["odd2"] is None and odd_val is not None:
-                    ev["odd2"] = odd_val
-                continue
-
-        # сортировка и limit
-        data = sorted(events.values(), key=lambda x: x["match_time"] or datetime.max)[:limit]
+        cursor.execute(query, params)
+        odds = cursor.fetchall()
 
         result = []
-        for ev in data:
-            eventname = f"{ev['home']} vs {ev['away']}".strip(" vs ")
-
+        for row in odds:
             result.append({
-                'event_id': int(ev['event_id']),
-                'eventname': eventname,
-                'sport': sport or 'Football',
-                'league': ev.get('league') or 'Unknown League',
-                'markettype': '1X2',
-                'odd1': ev.get('odd1'),
-                'oddx': ev.get('oddx'),
-                'odd2': ev.get('odd2'),
-                'updatedat': format_datetime(ev.get('updated_at')),
-                'matchtime': format_datetime(ev.get('match_time')),
-                'liquidity': 'low',
-                'suspicious': False
+                'eventname': row['event_name'],
+                'sport': row.get('sport', 'N/A'),
+                'league': row.get('league', 'Unknown League'),
+                'markettype': row.get('market_type', '1X2'),
+                'odd1': float(row['odd_1']) if row['odd_1'] else None,
+                'oddx': float(row['odd_x']) if row['odd_x'] else None,
+                'odd2': float(row['odd_2']) if row['odd_2'] else None,
+                'updatedat': format_datetime(row.get('updated_at')),
+                'matchtime': format_datetime(row.get('match_time')),
+                'liquidity': row.get('liquidity_level', 'low'),
+                'suspicious': bool(row.get('is_suspicious', 0))
             })
 
-        cur.close()
+        cursor.close()
         conn.close()
-        return jsonify({'success': True, 'count': len(result), 'data': result})
+
+        logger.info(f"Returned {len(result)} prematch odds")
+        return jsonify({
+            'success': True,
+            'count': len(result),
+            'data': result
+        })
 
     except Exception as e:
         logger.error(f"Error in api_odds_prematch: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/odds/live')
 def api_odds_live():
@@ -366,7 +326,7 @@ def api_odds_sports():
         cursor.execute("""
             SELECT DISTINCT sport, COUNT(*) as count
             FROM odds_22bet
-            WHERE status IN ('active','upcoming') AND sport IS NOT NULL
+            WHERE status = 'active' AND sport IS NOT NULL
             GROUP BY sport
             ORDER BY count DESC
         """)
@@ -883,144 +843,6 @@ def internal_error(error):
 # ============================================================
 # MAIN ENTRY POINT
 # ============================================================
-
-@app.route('/prematch_event/<int:event_id>')
-def prematch_event_page(event_id: int):
-    """Страница матча: 1X2 / Totals / Handicaps + история."""
-    return render_template('prematch_event.html', event_id=event_id)
-
-def _is_special_22bet(text: str) -> bool:
-    s = (text or "").lower()
-    bad = [
-        "special bet", "special bets", "enhanced daily", "daily special",
-        "team vs player", "player vs team", "team v player", "vs player",
-    ]
-    return any(x in s for x in bad)
-
-@app.route('/api/22bet/prematch/markets')
-def api_22bet_prematch_markets():
-    """Все рынки по событию из odds_22bet_markets."""
-    try:
-        event_id = int(request.args.get('event_id', '0'))
-        if event_id <= 0:
-            return jsonify({'success': False, 'error': 'event_id is required'}), 400
-
-        conn = get_connection()
-        if not conn:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
-
-        cur = conn.cursor()
-        q = """
-            SELECT
-              event_id, market_name, outcome_name, side, line, odd,
-              updated_at, start_time, league, home, away
-            FROM odds_22bet_markets
-            WHERE event_id = %s
-            ORDER BY
-              market_name ASC,
-              COALESCE(line, '') ASC,
-              COALESCE(side, '') ASC,
-              outcome_name ASC
-        """
-        cur.execute(q, (event_id,))
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        out = []
-        for r in rows:
-            league = r.get('league') or ''
-            mname = r.get('market_name') or ''
-            if _is_special_22bet(league) or _is_special_22bet(mname):
-                continue
-            if not (r.get('home') or '').strip() or not (r.get('away') or '').strip():
-                continue
-
-            mn = (mname or "").lower()
-            if "handicap" in mn or "hcp" in mn or "fora" in mn or "фора" in mn:
-                group = "Handicaps"
-            elif "total" in mn or "over" in mn or "under" in mn or "тотал" in mn:
-                group = "Totals"
-            elif "1x2" in mn or "match result" in mn:
-                group = "1X2"
-            else:
-                group = "Other"
-
-            out.append({
-                "group": group,
-                "event_id": int(r["event_id"]),
-                "market_name": r.get("market_name"),
-                "outcome_name": r.get("outcome_name"),
-                "side": r.get("side"),
-                "line": r.get("line"),
-                "odd": float(r["odd"]) if r.get("odd") is not None else None,
-                "updated_at": format_datetime(r.get("updated_at")),
-                "start_time": format_datetime(r.get("start_time")),
-                "league": r.get("league"),
-                "home": r.get("home"),
-                "away": r.get("away"),
-            })
-
-        return jsonify({"success": True, "count": len(out), "markets": out})
-
-    except Exception as e:
-        logger.error(f"Error in api_22bet_prematch_markets: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/22bet/prematch/history')
-def api_22bet_prematch_history():
-    """История по конкретному исходу из odds_22bet_market_history."""
-    try:
-        event_id = int(request.args.get('event_id', '0'))
-        market_name = request.args.get('market_name', '')
-        outcome_name = request.args.get('outcome_name', '')
-        line = request.args.get('line', None)
-        side = request.args.get('side', None)
-
-        if event_id <= 0 or not market_name or not outcome_name:
-            return jsonify({'success': False, 'error': 'event_id, market_name, outcome_name are required'}), 400
-
-        conn = get_connection()
-        if not conn:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
-
-        cur = conn.cursor()
-
-        q = """
-            SELECT ts, odd
-            FROM odds_22bet_market_history
-            WHERE event_id = %s
-              AND market_name = %s
-              AND outcome_name = %s
-        """
-        params = [event_id, market_name, outcome_name]
-
-        if line not in (None, "", "null"):
-            q += " AND line = %s"
-            params.append(line)
-
-        if side not in (None, "", "null"):
-            q += " AND side = %s"
-            params.append(side)
-
-        q += " ORDER BY ts ASC LIMIT 5000"
-
-        cur.execute(q, params)
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        series = [{
-            "ts": format_datetime(r.get("ts")),
-            "odd": float(r["odd"]) if r.get("odd") is not None else None
-        } for r in rows]
-
-        return jsonify({"success": True, "count": len(series), "history": series})
-
-    except Exception as e:
-        logger.error(f"Error in api_22bet_prematch_history: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 if __name__ == '__main__':
     print("=" * 70)
     print("Inforadar Pro - Starting Flask Server")
