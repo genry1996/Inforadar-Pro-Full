@@ -4,261 +4,207 @@ import json
 import argparse
 import asyncio
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional
 
-from playwright.async_api import async_playwright, TimeoutError as PWTimeout, Error as PWError
-
-LIST_URL = "https://fonbet.com.cy/sports/football?mode=1&dateInterval=5"
-EVENT_HREF_RE = re.compile(r"^/sports/football/country/[^/]+/\d+/(\d+)$")
-
-MARKET_1X2_KEYS = ["Full time result", "Match result", "Исход матча", "Результат матча"]
-DRAW_KEYS = ["Draw", "Ничья"]
-ODD_RE = re.compile(r"^\d{1,3}(\.\d{2,3})?$")
+from playwright.async_api import async_playwright, Error as PWError
 
 
-def env(name: str, default: str = "") -> str:
-    return (os.getenv(name, default) or "").strip()
+DEFAULT_URL = "https://fonbet.com.cy/sports/football?mode=1&dateInterval=5"
 
 
-def proxy_from_env() -> Optional[dict]:
-    server = env("FONBET_PROXY_SERVER")
+def _env(name: str, default: str = "") -> str:
+    return (os.environ.get(name, default) or "").strip()
+
+
+def proxy_from_env() -> Optional[Dict[str, str]]:
+    server = _env("FONBET_PROXY_SERVER")
+    user = _env("FONBET_PROXY_USERNAME")
+    pwd = _env("FONBET_PROXY_PASSWORD")
+
     if not server:
         return None
-    user = env("FONBET_PROXY_USERNAME")
-    pwd = env("FONBET_PROXY_PASSWORD")
-    pr = {"server": server}
-    if user and pwd:
+
+    # защита от заглушек
+    bad = ("YOUR_HOST", "YOUR_USER", "YOUR_PASS", "<", ">")
+    if any(x in server for x in bad):
+        return None
+
+    pr: Dict[str, str] = {"server": server}
+    if user:
         pr["username"] = user
+    if pwd:
         pr["password"] = pwd
     return pr
 
 
-def clean_lines(text: str) -> List[str]:
-    out = []
-    for raw in text.splitlines():
-        s = raw.replace("\u00a0", " ").strip()
-        if s:
-            out.append(s)
+async def dump_page(page, out_dir: Path, tag: str) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        (out_dir / f"{tag}.url.txt").write_text(page.url, encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        html = await page.content()
+        (out_dir / f"{tag}.html").write_text(html, encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        await page.screenshot(path=str(out_dir / f"{tag}.png"), full_page=True)
+    except Exception:
+        pass
+
+
+def json_deep_iter(obj: Any):
+    if isinstance(obj, dict):
+        yield obj
+        for v in obj.values():
+            yield from json_deep_iter(v)
+    elif isinstance(obj, list):
+        for x in obj:
+            yield from json_deep_iter(x)
+
+
+def extract_events(payload: Any, limit: int = 50) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    seen = set()
+
+    for d in json_deep_iter(payload):
+        if not isinstance(d, dict):
+            continue
+        _id = d.get("id")
+        if not isinstance(_id, int) or _id in seen:
+            continue
+
+        name = d.get("name") or d.get("eventName") or d.get("title")
+        if not isinstance(name, str) or not name.strip():
+            a = d.get("team1") or d.get("home") or d.get("teamHome")
+            b = d.get("team2") or d.get("away") or d.get("teamAway")
+            if isinstance(a, str) and isinstance(b, str) and a.strip() and b.strip():
+                name = f"{a.strip()} — {b.strip()}"
+            else:
+                continue
+
+        seen.add(_id)
+        out.append({"id": _id, "name": name.strip()})
+        if len(out) >= limit:
+            break
+
     return out
 
 
-def find_first_match_links(items: List[dict], limit: int) -> List[Tuple[int, str, str]]:
-    seen = set()
-    res = []
-    for it in items:
-        href = (it.get("href") or "").strip()
-        if not href:
-            continue
-        m = EVENT_HREF_RE.match(href)
-        if not m:
-            continue
-        eid = int(m.group(1))
-        if eid in seen:
-            continue
-        seen.add(eid)
-        title = " ".join((it.get("text") or "").split()) or f"event {eid}"
-        res.append((eid, title, "https://fonbet.com.cy" + href))
-        if len(res) >= limit:
-            break
-    return res
-
-
-def detect_teams(lines: List[str]) -> Tuple[Optional[str], Optional[str]]:
-    for ln in lines:
-        if " — " in ln:
-            a, b = ln.split(" — ", 1)
-            if a.strip() and b.strip():
-                return a.strip(), b.strip()
-        if " - " in ln:
-            a, b = ln.split(" - ", 1)
-            if a.strip() and b.strip():
-                return a.strip(), b.strip()
-    for i in range(1, len(lines) - 1):
-        if lines[i] == "-" and lines[i - 1] and lines[i + 1]:
-            return lines[i - 1], lines[i + 1]
-    return None, None
-
-
-def pick_odd(block: List[str], label: str) -> Optional[float]:
-    for i in range(len(block) - 1):
-        if block[i] == label and ODD_RE.match(block[i + 1]):
-            try:
-                return float(block[i + 1])
-            except Exception:
-                return None
-    return None
-
-
-def parse_1x2(lines: List[str]) -> Dict[str, Any]:
-    home, away = detect_teams(lines)
-    data: Dict[str, Any] = {"teams": {"home": home, "away": away}, "markets": {}}
-
-    idx = None
-    for k in MARKET_1X2_KEYS:
-        if k in lines:
-            idx = lines.index(k)
-            break
-    if idx is None:
-        return data
-
-    block = lines[idx + 1: idx + 200]
-
-    if not home or not away:
-        odds = [x for x in block if ODD_RE.match(x)]
-        if len(odds) >= 3:
-            data["markets"]["1X2"] = {"1": float(odds[0]), "X": float(odds[1]), "2": float(odds[2])}
-        return data
-
-    draw_label = next((d for d in DRAW_KEYS if d in block), "Draw")
-    data["markets"]["1X2"] = {
-        "1": pick_odd(block, home),
-        "X": pick_odd(block, draw_label),
-        "2": pick_odd(block, away),
-    }
-    return data
-
-
-async def dump_page(page, debug: Path, prefix: str):
-    try:
-        await page.screenshot(path=str(debug / f"{prefix}.png"), full_page=True)
-    except Exception:
-        pass
-    try:
-        (debug / f"{prefix}.html").write_text(await page.content(), encoding="utf-8")
-    except Exception:
-        pass
-    try:
-        (debug / f"{prefix}_body.txt").write_text(await page.inner_text("body"), encoding="utf-8")
-    except Exception:
-        pass
-
-
-async def wait_enter(prompt: str):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: input(prompt))
-
-
-async def main():
+async def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default=LIST_URL)
+    ap.add_argument("--url", default=DEFAULT_URL)
+    ap.add_argument("--manual", action="store_true")
     ap.add_argument("--limit", type=int, default=30)
-    ap.add_argument("--index", type=int, default=0)
+    ap.add_argument("--capture-seconds", type=int, default=int(_env("FONBET_CAPTURE_SECONDS", "120") or "120"))
+    ap.add_argument("--profile-dir", default="fonbet_profile")
     ap.add_argument("--debug-dir", default="fonbet_debug")
-    ap.add_argument("--manual", action="store_true", help="открыть окно и дать подтвердить 'я человек' вручную")
+    ap.add_argument("--capture-json", default="captured.json")
     args = ap.parse_args()
 
     debug = Path(args.debug_dir)
+    profile_dir = Path(args.profile_dir)
     debug.mkdir(parents=True, exist_ok=True)
+    profile_dir.mkdir(parents=True, exist_ok=True)
 
     proxy = proxy_from_env()
+    print("Proxy:", proxy.get("server") if proxy else "(none)")
+    print("OPEN:", args.url)
+
+    captured: List[Dict[str, Any]] = []
+    seen_urls = set()
 
     async with async_playwright() as p:
-        # ВАЖНО: persistent context сохраняет cookies/локалсторадж между запусками
-        profile_dir = debug / "profile"
         context = await p.chromium.launch_persistent_context(
             user_data_dir=str(profile_dir),
-            channel="chrome", 
-            headless=not args.manual,        # manual => окно
+            channel="chrome",
+            headless=not args.manual,
             proxy=proxy,
-            args=["--no-default-browser-check"],
             viewport={"width": 1400, "height": 900},
             locale="ru-RU",
             timezone_id="Europe/Stockholm",
+            args=["--no-default-browser-check"],
         )
-
+        context.set_default_timeout(60000)
         page = context.pages[0] if context.pages else await context.new_page()
-        await context.add_init_script("() => { Object.defineProperty(navigator, 'webdriver', {get: () => undefined}); }")
 
-        print("OPEN:", args.url)
-        try:
-            await page.goto(args.url, wait_until="domcontentloaded", timeout=90000)
-        except PWTimeout:
-            print("WARN: goto timeout, continue...")
-        except PWError as e:
-            print("ERROR: goto failed:", e)
-            await dump_page(page, debug, "goto_failed")
-            await context.close()
-            return
-
-        await asyncio.sleep(2)
-        await dump_page(page, debug, "list_after_goto")
-
-        # Если включилась защита — НЕ обходим, а просим вручную подтвердить
-        if args.manual:
-            # простой признак челленджа
-            txt = ""
+        async def on_response(resp):
             try:
-                txt = (await page.inner_text("body")).lower()
+                ct = (resp.headers or {}).get("content-type", "")
+                if "json" not in (ct or "").lower():
+                    return
+
+                url = resp.url
+                # ловим только важные штуки, чтобы не раздувать
+                if "events/" not in url and "line" not in url and "market" not in url:
+                    return
+
+                # чтобы не писать одно и то же много раз
+                key = (url, resp.status)
+                if key in seen_urls:
+                    return
+                seen_urls.add(key)
+
+                js = await resp.json()
+                captured.append({"url": url, "status": resp.status, "json": js})
+            except Exception:
+                return
+
+        context.on("response", on_response)
+
+        try:
+            await page.goto(args.url, wait_until="domcontentloaded", timeout=120000)
+            await asyncio.sleep(2)
+            await dump_page(page, debug, "after_goto")
+
+            if args.manual:
+                print("Если есть Cloudflare — реши в окне и просто НЕ закрывай браузер.")
+                print("Скрипт только ждёт и ловит JSON (не обходит).")
+
+            print(f"Capturing JSON for {args.capture_seconds}s ...")
+            await asyncio.sleep(max(1, args.capture_seconds))
+
+        except Exception as e:
+            print("ERROR during run:", repr(e))
+            try:
+                await dump_page(page, debug, "error")
+            except Exception:
+                pass
+        finally:
+            # ВАЖНО: сохраняем даже если было исключение
+            cap_path = debug / args.capture_json
+            try:
+                cap_path.write_text(json.dumps(captured, ensure_ascii=False, indent=2), encoding="utf-8")
+                print("Captured JSON blocks:", len(captured))
+                print("Saved:", str(cap_path.resolve()))
+            except Exception as e:
+                print("FAILED to save captured.json:", repr(e))
+
+            try:
+                await context.close()
             except Exception:
                 pass
 
-            if "cloudflare" in txt or "подтвердите, что вы человек" in txt:
-                print("CLOUDFLARE CHALLENGE detected. Solve it in the opened browser window.")
-                await wait_enter("Когда решишь капчу/проверку — нажми Enter здесь... ")
-                await asyncio.sleep(2)
-                await dump_page(page, debug, "list_after_manual")
+    # Анализ: находим последний events/listBase или events/list
+    best = None
+    for item in reversed(captured):
+        u = item.get("url", "")
+        if "events/listBase" in u or "events/list" in u:
+            best = item
+            break
 
-        # дальше — ждём ссылки матчей
-        try:
-            await page.wait_for_function(
-                """() => Array.from(document.querySelectorAll('a[href]'))
-                    .some(a => (a.getAttribute('href')||'').includes('/sports/football/country/'))""",
-                timeout=60000,
-            )
-        except (PWTimeout, PWError) as e:
-            print("FAIL: match links not found / page error:", e)
-            await dump_page(page, debug, "list_timeout_or_error")
-            await context.close()
-            return
+    if not best:
+        print("No events/listBase or events/list captured.")
+        print("Open fonbet_debug/captured.json and check what URLs were captured.")
+        return
 
-        # скролл для подгрузки
-        for _ in range(3):
-            await page.mouse.wheel(0, 1400)
-            await asyncio.sleep(0.6)
-
-        await dump_page(page, debug, "list_ready")
-
-        items = await page.eval_on_selector_all(
-            "a[href]",
-            "els => els.map(a => ({href: a.getAttribute('href'), text: (a.innerText||'').trim()}))",
-        )
-        matches = find_first_match_links(items, args.limit)
-
-        print(f"MATCH LINKS FOUND: {len(matches)}")
-        for i, (eid, title, url) in enumerate(matches[: min(10, len(matches))]):
-            print(f"{i:02d}) {eid} | {title} | {url}")
-
-        if not matches:
-            print("FAIL: 0 matches. See fonbet_debug/list_ready.*")
-            await context.close()
-            return
-
-        idx = max(0, min(args.index, len(matches) - 1))
-        eid, title, event_url = matches[idx]
-
-        print("\nOPEN EVENT:", eid, title)
-        await page.goto(event_url, wait_until="domcontentloaded", timeout=90000)
-        await asyncio.sleep(2)
-        await dump_page(page, debug, f"event_{eid}")
-
-        body_text = ""
-        try:
-            body_text = await page.inner_text("body")
-        except Exception:
-            pass
-
-        data = parse_1x2(clean_lines(body_text))
-        data["event"] = {"id": eid, "title": title, "url": event_url}
-
-        (debug / f"event_{eid}_parsed.json").write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-        print("\nPARSED:")
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-
-        await context.close()
+    payload = best.get("json")
+    events = extract_events(payload, limit=args.limit)
+    print("BEST URL:", best.get("url"))
+    print(f"Events extracted: {len(events)}")
+    for e in events[: args.limit]:
+        print(f"- {e['id']}: {e['name']}")
 
 
 if __name__ == "__main__":
