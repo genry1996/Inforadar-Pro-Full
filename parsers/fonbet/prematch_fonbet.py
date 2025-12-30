@@ -11,9 +11,13 @@ from urllib.parse import urlparse
 
 import requests
 import pymysql
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
-# -------- .env loader (без зависимостей) --------
+# ----------------------------
+# .env loader (без зависимостей)
+# ----------------------------
 def load_env(repo_root: Path) -> List[str]:
     loaded: List[str] = []
 
@@ -33,17 +37,19 @@ def load_env(repo_root: Path) -> List[str]:
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
-            # не перетираем то, что уже задано в окружении
+            # не перетираем env, если уже задано (например через $env:...)
             if os.environ.get(k) is None:
                 os.environ[k] = v
         return True
 
     root_env = repo_root / ".env"
     cwd_env = Path.cwd() / ".env"
+
     if _load(root_env):
         loaded.append(str(root_env))
     if cwd_env != root_env and _load(cwd_env):
         loaded.append(str(cwd_env))
+
     return loaded
 
 
@@ -51,6 +57,9 @@ def env(name: str, default: str = "") -> str:
     return (os.getenv(name, default) or "").strip()
 
 
+# ----------------------------
+# Proxy (как у тебя в .env)
+# ----------------------------
 def build_proxy_dict() -> Optional[Dict[str, str]]:
     server = env("FONBET_PROXY_SERVER")
     user = env("FONBET_PROXY_USERNAME")
@@ -67,6 +76,9 @@ def build_proxy_dict() -> Optional[Dict[str, str]]:
     return {"http": proxy_url, "https": proxy_url}
 
 
+# ----------------------------
+# Config
+# ----------------------------
 @dataclass
 class FonbetCfg:
     lang: str = "ru"
@@ -75,15 +87,62 @@ class FonbetCfg:
         "https://line01.cy8cff-resources.com",
         "https://line02.cy8cff-resources.com",
     )
-    timeout_s: int = 25
-    odds_divisor: int = 1000  # часто odds приходят как int*1000
+    odds_divisor: int = 1000
 
 
-def pick_line_base(cfg: FonbetCfg, s: requests.Session) -> str:
-    # у тебя getApiState отдавался GET-ом
+# ----------------------------
+# Requests session (retry + timeouts)
+# ----------------------------
+def build_session(
+    lang: str,
+    proxies: Optional[Dict[str, str]],
+    retries: int,
+    backoff: float,
+) -> requests.Session:
+    s = requests.Session()
+    s.headers.update({
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+        ),
+        "Accept-Language": f"{lang},en;q=0.8",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Connection": "keep-alive",
+    })
+    if proxies:
+        s.proxies.update(proxies)
+
+    retry = Retry(
+        total=retries,
+        connect=retries,
+        read=retries,
+        status=retries,
+        backoff_factor=backoff,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("GET",),
+        raise_on_status=False,
+        respect_retry_after_header=True,
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=50, pool_maxsize=50)
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
+    return s
+
+
+# ----------------------------
+# API calls
+# ----------------------------
+def pick_line_base(
+    cfg: FonbetCfg,
+    s: requests.Session,
+    timeout: Tuple[float, float],
+) -> str:
+    # getApiState (у тебя он приходил GET)
     for base in cfg.line_hosts:
         try:
-            r = s.get(f"{base}/getApiState", timeout=cfg.timeout_s)
+            r = s.get(f"{base}/getApiState", timeout=timeout)
             if r.status_code == 200:
                 return base
         except Exception:
@@ -91,21 +150,32 @@ def pick_line_base(cfg: FonbetCfg, s: requests.Session) -> str:
     return cfg.line_hosts[0]
 
 
-def get_list_base(cfg: FonbetCfg, s: requests.Session, base: str) -> Dict[str, Any]:
+def get_list_base(
+    cfg: FonbetCfg,
+    s: requests.Session,
+    base: str,
+    timeout: Tuple[float, float],
+) -> Dict[str, Any]:
     r = s.get(
         f"{base}/events/listBase",
         params={"lang": cfg.lang, "scopeMarket": str(cfg.scope_market)},
-        timeout=cfg.timeout_s,
+        timeout=timeout,
     )
     r.raise_for_status()
     return r.json()
 
 
-def get_list(cfg: FonbetCfg, s: requests.Session, base: str, version: int) -> Dict[str, Any]:
+def get_list(
+    cfg: FonbetCfg,
+    s: requests.Session,
+    base: str,
+    version: int,
+    timeout: Tuple[float, float],
+) -> Dict[str, Any]:
     r = s.get(
         f"{base}/events/list",
         params={"lang": cfg.lang, "version": str(int(version)), "scopeMarket": str(cfg.scope_market)},
-        timeout=cfg.timeout_s,
+        timeout=timeout,
     )
     r.raise_for_status()
     return r.json()
@@ -129,12 +199,15 @@ def extract_events(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
+# ----------------------------
+# Normalizers
+# ----------------------------
 def to_epoch_sec(x: Any) -> Optional[int]:
     if x is None:
         return None
     if isinstance(x, (int, float)):
         v = int(x)
-        if v > 10_000_000_000:
+        if v > 10_000_000_000:  # ms -> sec
             v //= 1000
         return v
     return None
@@ -179,9 +252,6 @@ def extract_teams(e: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
 
 
 def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
-    """
-    Вариант 1: факторы лежат прямо в event["factors"].
-    """
     factors = e.get("factors")
     out: List[Tuple[int, Any]] = []
     if not isinstance(factors, list):
@@ -200,11 +270,9 @@ def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
 
 def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, int, Any]]:
     """
-    Вариант 2 (частый у Fonbet):
-    котировки приходят отдельными блоками вида:
+    Частый формат у Fonbet:
       { "e": <event_id>, "factors": [ {"f": <factor_id>, "v": <odd>}, ... ] }
-
-    Возвращает список (event_id, factor_id, raw_value).
+    Возвращает (event_id, factor_id, raw_value)
     """
     out: List[Tuple[int, int, Any]] = []
 
@@ -242,16 +310,16 @@ def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, 
                 if isinstance(fid, int):
                     out.append((eid, fid, val))
 
-    # 1) если ключи известны
+    # 1) если ключи явные
     for key in ("customFactors", "eventFactors", "eventFactorList", "factors", "eventFactor"):
         if key in payload:
             consume_list(payload.get(key))
 
-    # 2) любые top-level списки похожей формы
+    # 2) любые top-level списки
     for v in payload.values():
         consume_list(v)
 
-    # 3) иногда всё внутри data={}
+    # 3) data
     data = payload.get("data")
     if isinstance(data, dict):
         for v in data.values():
@@ -260,8 +328,10 @@ def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, 
     return out
 
 
+# ----------------------------
+# MySQL
+# ----------------------------
 def mysql_conn():
-    # сначала MYSQL_*, потом DB_*
     host = env("MYSQL_HOST") or env("DB_HOST") or "127.0.0.1"
     user = env("MYSQL_USER") or env("DB_USER") or "root"
     password = env("MYSQL_PASSWORD") or env("DB_PASSWORD") or ""
@@ -347,6 +417,9 @@ def upsert_odds_and_history(
     return len(hist_rows)
 
 
+# ----------------------------
+# Main
+# ----------------------------
 def main():
     repo_root = Path(__file__).resolve().parents[2]  # D:\Inforadar_Pro
     loaded = load_env(repo_root)
@@ -360,98 +433,142 @@ def main():
     ap.add_argument("--hours", type=float, default=float(env("FONBET_HOURS", "12")))
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--dump", action="store_true")
+
+    # anti-hang settings
+    ap.add_argument("--connect-timeout", type=float, default=float(env("FONBET_CONNECT_TIMEOUT", "5")))
+    ap.add_argument("--read-timeout", type=float, default=float(env("FONBET_READ_TIMEOUT", "25")))
+    ap.add_argument("--retries", type=int, default=int(env("FONBET_RETRIES", "2")))
+    ap.add_argument("--backoff", type=float, default=float(env("FONBET_BACKOFF", "0.5")))
+    ap.add_argument("--failover-cooldown", type=float, default=float(env("FONBET_FAILOVER_COOLDOWN", "1.0")))
     args = ap.parse_args()
+
+    timeout = (float(args.connect_timeout), float(args.read_timeout))
 
     cfg = FonbetCfg(lang=args.lang, scope_market=args.scope_market)
 
-    s = requests.Session()
-    s.headers.update({
-        "Accept": "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-        "Accept-Language": f"{cfg.lang},en;q=0.8",
-    })
-
     proxies = build_proxy_dict()
-    if proxies:
-        s.proxies.update(proxies)
+    s = build_session(cfg.lang, proxies, retries=int(args.retries), backoff=float(args.backoff))
 
-    base = pick_line_base(cfg, s)
-    print(f"🏁 Fonbet PREMATCH | base={base} | scopeMarket={cfg.scope_market} | interval={args.interval}s")
+    bases = list(cfg.line_hosts)
+    base_idx = 0
+
+    def current_base() -> str:
+        return bases[base_idx]
+
+    def rotate_base() -> str:
+        nonlocal base_idx
+        base_idx = (base_idx + 1) % len(bases)
+        return bases[base_idx]
+
+    # выбираем рабочую ноду
+    base = pick_line_base(cfg, s, timeout=timeout)
+    if base in bases:
+        base_idx = bases.index(base)
+
+    print(f"🏁 Fonbet PREMATCH | base={current_base()} | scopeMarket={cfg.scope_market} | interval={args.interval}s")
 
     conn = mysql_conn()
     with conn:
         with conn.cursor() as cur:
-            lb = get_list_base(cfg, s, base)
-            version = get_packet_version(lb)
-            print(f"ℹ️ listBase version={version}")
+            try:
+                lb = get_list_base(cfg, s, current_base(), timeout=timeout)
+                version = get_packet_version(lb)
+                print(f"ℹ️ listBase version={version}")
+            except Exception as e:
+                print(f"❌ listBase failed on {current_base()}: {e}")
+                print("↪️ failover to next line host")
+                rotate_base()
+                time.sleep(max(0.1, float(args.failover_cooldown)))
+                lb = get_list_base(cfg, s, current_base(), timeout=timeout)
+                version = get_packet_version(lb)
+                print(f"ℹ️ listBase version={version}")
 
-            while True:
-                payload = get_list(cfg, s, base, version) if version else get_list_base(cfg, s, base)
-                pv = get_packet_version(payload) or version
-                events = extract_events(payload)
-
-                now_ts = int(time.time())
-                max_ts = now_ts + int(args.hours * 3600)
-
-                ev_rows: List[Dict[str, Any]] = []
-                odds_rows: List[Tuple[int, int, Optional[float]]] = []
-
-                event_ids_set: set[int] = set()
-
-                # 1) события
-                for e in events:
-                    if not isinstance(e, dict):
+            try:
+                while True:
+                    try:
+                        payload = get_list(cfg, s, current_base(), version, timeout=timeout) if version else get_list_base(cfg, s, current_base(), timeout=timeout)
+                    except (requests.exceptions.RequestException, ValueError) as e:
+                        print(f"⚠️ request/json error on {current_base()}: {e}")
+                        print("↪️ failover to next line host")
+                        rotate_base()
+                        time.sleep(max(0.1, float(args.failover_cooldown)))
+                        # после переключения попробуем listBase, чтобы восстановить версию
+                        try:
+                            lb = get_list_base(cfg, s, current_base(), timeout=timeout)
+                            version = get_packet_version(lb) or version
+                            print(f"ℹ️ recovered version={version} on {current_base()}")
+                        except Exception as e2:
+                            print(f"❌ recovery listBase failed on {current_base()}: {e2}")
                         continue
-                    eid = extract_event_id(e)
-                    if not eid:
-                        continue
 
-                    st = to_epoch_sec(e.get("startTime") or e.get("start") or e.get("time"))
-                    if st is not None and not (now_ts <= st <= max_ts):
-                        continue
+                    pv = get_packet_version(payload) or version
+                    events = extract_events(payload)
 
-                    t1, t2 = extract_teams(e)
-                    ev_rows.append({
-                        "event_id": eid,
-                        "sport_id": e.get("sportId") if isinstance(e.get("sportId"), int) else None,
-                        "league_id": e.get("leagueId") if isinstance(e.get("leagueId"), int) else None,
-                        "league_name": e.get("leagueName") if isinstance(e.get("leagueName"), str) else None,
-                        "team1": t1,
-                        "team2": t2,
-                        "start_ts": st,
-                        "state": e.get("state") if isinstance(e.get("state"), str) else None,
-                    })
-                    event_ids_set.add(eid)
+                    now_ts = int(time.time())
+                    max_ts = now_ts + int(args.hours * 3600)
 
-                    # вариант: факторы внутри events
-                    for fid, raw_val in extract_factors_from_event(e):
-                        odd = norm_odd(raw_val, cfg.odds_divisor)
-                        odds_rows.append((eid, fid, odd))
+                    ev_rows: List[Dict[str, Any]] = []
+                    odds_rows: List[Tuple[int, int, Optional[float]]] = []
+                    event_ids_set: set[int] = set()
 
-                # 2) добор котировок из payload (вне events)
-                seen = {(e, f) for (e, f, _) in odds_rows}
-                for peid, pfid, pval in extract_payload_factor_triplets(payload):
-                    if peid in event_ids_set and (peid, pfid) not in seen:
-                        odd = norm_odd(pval, cfg.odds_divisor)
-                        odds_rows.append((peid, pfid, odd))
-                        seen.add((peid, pfid))
+                    # 1) события + факторы внутри events
+                    for e in events:
+                        if not isinstance(e, dict):
+                            continue
+                        eid = extract_event_id(e)
+                        if not eid:
+                            continue
 
-                upsert_events(cur, ev_rows)
-                existing = load_existing_odds(cur, list(event_ids_set))
-                changed = upsert_odds_and_history(cur, odds_rows, existing)
+                        st = to_epoch_sec(e.get("startTime") or e.get("start") or e.get("time"))
+                        if st is not None and not (now_ts <= st <= max_ts):
+                            continue
 
-                print(f"✅ events={len(ev_rows)} odds={len(odds_rows)} history_added={changed} pv={pv}")
+                        t1, t2 = extract_teams(e)
+                        ev_rows.append({
+                            "event_id": eid,
+                            "sport_id": e.get("sportId") if isinstance(e.get("sportId"), int) else None,
+                            "league_id": e.get("leagueId") if isinstance(e.get("leagueId"), int) else None,
+                            "league_name": e.get("leagueName") if isinstance(e.get("leagueName"), str) else None,
+                            "team1": t1,
+                            "team2": t2,
+                            "start_ts": st,
+                            "state": e.get("state") if isinstance(e.get("state"), str) else None,
+                        })
+                        event_ids_set.add(eid)
 
-                if args.dump:
-                    (repo_root / "fonbet_last_payload.json").write_text(
-                        json.dumps(payload, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
+                        for fid, raw_val in extract_factors_from_event(e):
+                            odd = norm_odd(raw_val, cfg.odds_divisor)
+                            odds_rows.append((eid, fid, odd))
 
-                version = pv
-                if args.once:
-                    break
-                time.sleep(max(1.0, float(args.interval)))
+                    # 2) добор котировок из payload (вне events)
+                    seen = {(e, f) for (e, f, _) in odds_rows}
+                    for peid, pfid, pval in extract_payload_factor_triplets(payload):
+                        if peid in event_ids_set and (peid, pfid) not in seen:
+                            odd = norm_odd(pval, cfg.odds_divisor)
+                            odds_rows.append((peid, pfid, odd))
+                            seen.add((peid, pfid))
+
+                    upsert_events(cur, ev_rows)
+                    existing = load_existing_odds(cur, list(event_ids_set))
+                    changed = upsert_odds_and_history(cur, odds_rows, existing)
+
+                    print(f"✅ events={len(ev_rows)} odds={len(odds_rows)} history_added={changed} pv={pv} base={current_base()}")
+
+                    if args.dump:
+                        (repo_root / "fonbet_last_payload.json").write_text(
+                            json.dumps(payload, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+
+                    version = pv
+
+                    if args.once:
+                        break
+
+                    time.sleep(max(1.0, float(args.interval)))
+
+            except KeyboardInterrupt:
+                print("🛑 stopped by user (KeyboardInterrupt). Bye.")
 
 
 if __name__ == "__main__":
