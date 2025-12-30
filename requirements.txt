@@ -2,3 +2,4 @@ requests==2.31.0
 mysql-connector-python==8.2.0
 playwright==1.40.0
 flask==3.0.0
+tzdata
