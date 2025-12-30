@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>INFORADAR · Prematch</title>
+  <style>
+    :root{
+      --border:#9aa0a6;
+      --border2:#c7c7c7;
+      --text:#111;
+      --muted:#666;
+      --bg:#ffffff;
+      --link:#2a64c5;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font:13px/1.25 Arial, Helvetica, sans-serif;background:var(--bg);color:var(--text)}
+    a{color:var(--link);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .topbar{
+      border-bottom:1px solid var(--border2);
+      padding:10px 14px;
+      display:flex;align-items:center;gap:14px;
+    }
+    .brand{
+      display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.4px
+    }
+    .brand-badge{
+      width:18px;height:18px;border-radius:50%;
+      background:linear-gradient(135deg,#3bb273,#1e88e5);
+      display:inline-block;
+    }
+    .nav{display:flex;gap:16px;margin-left:10px}
+    .nav a{color:#000;font-weight:600}
+    .nav a.active{border-bottom:2px solid #2e7d32;padding-bottom:6px}
+    .tabs{
+      border-bottom:1px solid var(--border2);
+      padding:8px 14px;
+      display:flex;gap:14px;align-items:center;
+    }
+    .tabs a{color:#000}
+    .tabs a.active{font-weight:700}
+    .wrap{max-width:1080px;margin:0 auto;padding:10px 14px 30px}
+    .pager{
+      display:flex;align-items:center;justify-content:flex-end;gap:10px;
+      color:var(--muted);font-size:12px;margin:6px 0 10px;
+    }
+    .btn{
+      border:1px solid var(--border2);
+      padding:3px 10px;border-radius:12px;background:#fff;color:#000;
+      font-size:12px;
+    }
+    .btn[aria-disabled="true"]{opacity:.5;pointer-events:none}
+    table{width:100%;border-collapse:collapse}
+    tr{border:1px solid var(--border)}
+    td{padding:6px 8px;vertical-align:middle}
+    td.time{width:110px;white-space:nowrap;color:#000}
+    td.league{width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .flag{display:inline-block;width:18px;text-align:center;margin-right:6px}
+    td.event{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .vs{color:var(--muted);padding:0 8px}
+    .subtle{color:var(--muted);font-size:12px;margin-top:8px}
+    .filters{
+      display:flex;gap:10px;align-items:center;margin:4px 0 10px;
+      color:var(--muted);font-size:12px;
+    }
+    .filters select,.filters input{
+      font:12px Arial;border:1px solid var(--border2);
+      padding:3px 6px;border-radius:6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="brand-badge"></span>INFORADAR<span style="font-weight:400;color:var(--muted)">.LIVE</span></div>
+    <div class="nav">
+      <a class="active" href="#">Soccer</a>
+      <a href="#">Basketball</a>
+      <a href="#">Support</a>
+      <a href="#">FAQ</a>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px">
+      <a class="btn" href="#">BOTS</a>
+      <a class="btn" href="#">TELEGRAM</a>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <a href="#" >Live</a>
+    <a class="active" href="{{ url_for('prematch') }}">Prematch</a>
+    <a href="#" >Result</a>
+  </div>
+
+  <div class="wrap">
+    <div class="filters">
+      <div>Sport:</div>
+      <form method="get" action="{{ url_for('prematch') }}" style="display:flex;gap:10px;align-items:center">
+        <select name="sport">
+          {% for s in sports %}
+            <option value="{{ s }}" {% if s==sport %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+        <input name="q" value="{{ q or '' }}" placeholder="search team/league"/>
+        <select name="per_page">
+          {% for n in [25,50,100,200] %}
+            <option value="{{n}}" {% if per_page==n %}selected{% endif %}>{{n}}</option>
+          {% endfor %}
+        </select>
+        <button class="btn" type="submit">Apply</button>
+      </form>
+    </div>
+
+    <div class="pager">
+      <span>{{ start_idx }} – {{ end_idx }} of {{ total }}</span>
+      <a class="btn" href="{{ url_for('prematch', sport=sport, q=q, per_page=per_page, page=page-1) }}"
+         aria-disabled="{{ 'true' if page<=1 else 'false' }}">‹</a>
+      <a class="btn" href="{{ url_for('prematch', sport=sport, q=q, per_page=per_page, page=page+1) }}"
+         aria-disabled="{{ 'true' if end_idx>=total else 'false' }}">›</a>
+    </div>
+
+    <table>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="time">{{ r.time }}</td>
+          <td class="league" title="{{ r.league }}"><span class="flag">{{ r.flag }}</span>{{ r.league }}</td>
+          <td class="event" title="{{ r.home }} vs {{ r.away }}">
+            <a href="{{ url_for('prematch_event', event_id=r.event_id) }}">{{ r.home }}</a>
+            <span class="vs">vs</span>
+            <a href="{{ url_for('prematch_event', event_id=r.event_id) }}">{{ r.away }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="subtle">
+      Tip: клик по матчу ведёт на /prematch_event/&lt;event_id&gt; (история 1X2/Total/Hcap).
+    </div>
+  </div>
+</body>
+</html>

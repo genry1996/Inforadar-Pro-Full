@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <h2>Fonbet • Prematch</h2>
+  <div class="sub">Список событий (отдельная БД-ветка fonbet_*)</div>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" placeholder="поиск: команда / лига" value="{{ q }}" />
+  <label>Часы:
+    <input type="number" name="hours" min="1" max="72" value="{{ hours }}" />
+  </label>
+  <label>Лимит:
+    <input type="number" name="limit" min="50" max="2000" value="{{ limit }}" />
+  </label>
+  <button type="submit">Показать</button>
+</form>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>Лига</th>
+        <th>Матч</th>
+        <th>ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td>{{ e.start_time or "-" }}</td>
+        <td>{{ e.league_name or "-" }}</td>
+        <td>
+          <a href="/fonbet/event/{{ e.event_id }}">
+            {{ e.team1 or "?" }} — {{ e.team2 or "?" }}
+          </a>
+        </td>
+        <td class="mono">{{ e.event_id }}</td>
+      </tr>
+      {% endfor %}
+      {% if events|length == 0 %}
+      <tr><td colspan="4">Нет событий по фильтрам</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

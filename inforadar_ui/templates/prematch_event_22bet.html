@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>{{ title or 'Prematch event' }}</title>
+  <style>
+    :root{--border:#c7c7c7;--text:#111;--muted:#666;--link:#2a64c5}
+    body{margin:0;font:13px/1.25 Arial, Helvetica, sans-serif;color:var(--text)}
+    a{color:var(--link);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:1080px;margin:0 auto;padding:14px}
+    .top{display:flex;gap:10px;align-items:center}
+    .title{font-size:18px;font-weight:700;margin:10px 0 6px}
+    .subtitle{color:var(--muted);margin-bottom:10px}
+    .tabs{display:flex;gap:10px;margin:10px 0 12px}
+    .tab{border:1px solid var(--border);padding:4px 10px;border-radius:10px;color:#000}
+    .tab.active{font-weight:700}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid var(--border);padding:6px 8px;text-align:left}
+    th{background:#f6f6f6}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="{{ url_for('prematch') }}">← Back to prematch</a></div>
+    <div class="title">{{ title }}</div>
+    <div class="subtitle">{{ league }} · {{ sport }}</div>
+
+    <div class="tabs">
+      <a class="tab {% if tab=='1x2' %}active{% endif %}" href="{{ url_for('prematch_event', event_id=event_id, tab='1x2') }}">1X2</a>
+      <a class="tab {% if tab=='hcap' %}active{% endif %}" href="{{ url_for('prematch_event', event_id=event_id, tab='hcap') }}">Handicap</a>
+      <a class="tab {% if tab=='total' %}active{% endif %}" href="{{ url_for('prematch_event', event_id=event_id, tab='total') }}">Total</a>
+    </div>
+
+    {% if tab=='1x2' %}
+      <table>
+        <thead><tr><th style="width:180px">Time</th><th>1</th><th>X</th><th>2</th></tr></thead>
+        <tbody>
+          {% for h in history %}
+            <tr><td>{{ h.time }}</td><td>{{ h.v1 }}</td><td>{{ h.vx }}</td><td>{{ h.v2 }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% elif tab=='total' %}
+      <table>
+        <thead><tr><th style="width:180px">Time</th><th style="width:120px">Line</th><th>Over</th><th>Under</th></tr></thead>
+        <tbody>
+          {% for h in history %}
+            <tr><td>{{ h.time }}</td><td>{{ h.line }}</td><td>{{ h.over }}</td><td>{{ h.under }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <table>
+        <thead><tr><th style="width:180px">Time</th><th style="width:120px">Line</th><th>Home</th><th>Away</th></tr></thead>
+        <tbody>
+          {% for h in history %}
+            <tr><td>{{ h.time }}</td><td>{{ h.line }}</td><td>{{ h.home }}</td><td>{{ h.away }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if not history %}
+      <div class="muted" style="margin-top:10px">Нет данных истории (проверь, что poll пишет снапшоты/оддсы в БД и запрос в app_22bet.py вытаскивает нужные колонки).</div>
+    {% endif %}
+  </div>
+</body>
+</html>
