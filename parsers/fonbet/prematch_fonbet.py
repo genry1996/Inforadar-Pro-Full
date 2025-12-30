@@ -29,22 +29,21 @@ def load_env(repo_root: Path) -> List[str]:
             k = k.strip()
             v = v.strip()
 
+            # strip quotes
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
-            # НЕ перетираем то, что уже задано в окружении
+            # не перетираем то, что уже задано в окружении
             if os.environ.get(k) is None:
                 os.environ[k] = v
         return True
 
     root_env = repo_root / ".env"
     cwd_env = Path.cwd() / ".env"
-
     if _load(root_env):
         loaded.append(str(root_env))
     if cwd_env != root_env and _load(cwd_env):
         loaded.append(str(cwd_env))
-
     return loaded
 
 
@@ -77,11 +76,11 @@ class FonbetCfg:
         "https://line02.cy8cff-resources.com",
     )
     timeout_s: int = 25
-    odds_divisor: int = 1000
+    odds_divisor: int = 1000  # часто odds приходят как int*1000
 
 
 def pick_line_base(cfg: FonbetCfg, s: requests.Session) -> str:
-    # В твоём capture getApiState — GET :contentReference[oaicite:3]{index=3}
+    # у тебя getApiState отдавался GET-ом
     for base in cfg.line_hosts:
         try:
             r = s.get(f"{base}/getApiState", timeout=cfg.timeout_s)
@@ -147,6 +146,7 @@ def norm_odd(val: Any, divisor: int) -> Optional[float]:
     if isinstance(val, float):
         return float(val)
     if isinstance(val, int):
+        # 2000 -> 2.0
         if divisor and val >= divisor:
             return val / float(divisor)
         return float(val)
@@ -178,7 +178,10 @@ def extract_teams(e: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     return (t1 if isinstance(t1, str) else None, t2 if isinstance(t2, str) else None)
 
 
-def extract_factors(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
+def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
+    """
+    Вариант 1: факторы лежат прямо в event["factors"].
+    """
     factors = e.get("factors")
     out: List[Tuple[int, Any]] = []
     if not isinstance(factors, list):
@@ -195,8 +198,70 @@ def extract_factors(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
     return out
 
 
+def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, int, Any]]:
+    """
+    Вариант 2 (частый у Fonbet):
+    котировки приходят отдельными блоками вида:
+      { "e": <event_id>, "factors": [ {"f": <factor_id>, "v": <odd>}, ... ] }
+
+    Возвращает список (event_id, factor_id, raw_value).
+    """
+    out: List[Tuple[int, int, Any]] = []
+
+    def consume_list(lst: Any) -> None:
+        if not isinstance(lst, list) or not lst:
+            return
+        if not isinstance(lst[0], dict):
+            return
+        sample = lst[0]
+        if "factors" not in sample:
+            return
+        if not ("e" in sample or "eventId" in sample or "event" in sample):
+            return
+
+        for item in lst:
+            if not isinstance(item, dict):
+                continue
+            eid = item.get("e") or item.get("eventId") or item.get("event")
+            if isinstance(eid, str) and eid.isdigit():
+                eid = int(eid)
+            if not isinstance(eid, int):
+                continue
+
+            factors = item.get("factors")
+            if not isinstance(factors, list):
+                continue
+
+            for f in factors:
+                if not isinstance(f, dict):
+                    continue
+                fid = f.get("f") or f.get("id") or f.get("factorId")
+                val = f.get("v") or f.get("value") or f.get("p")
+                if isinstance(fid, str) and fid.isdigit():
+                    fid = int(fid)
+                if isinstance(fid, int):
+                    out.append((eid, fid, val))
+
+    # 1) если ключи известны
+    for key in ("customFactors", "eventFactors", "eventFactorList", "factors", "eventFactor"):
+        if key in payload:
+            consume_list(payload.get(key))
+
+    # 2) любые top-level списки похожей формы
+    for v in payload.values():
+        consume_list(v)
+
+    # 3) иногда всё внутри data={}
+    data = payload.get("data")
+    if isinstance(data, dict):
+        for v in data.values():
+            consume_list(v)
+
+    return out
+
+
 def mysql_conn():
-    # ✅ ВАЖНО: сначала MYSQL_*, как у тебя в .env :contentReference[oaicite:4]{index=4}
+    # сначала MYSQL_*, потом DB_*
     host = env("MYSQL_HOST") or env("DB_HOST") or "127.0.0.1"
     user = env("MYSQL_USER") or env("DB_USER") or "root"
     password = env("MYSQL_PASSWORD") or env("DB_PASSWORD") or ""
@@ -206,26 +271,17 @@ def mysql_conn():
     print(f"[db] host={host} user={user} db={database} pass_len={len(password)} source={src}")
 
     if not password:
-        raise RuntimeError("MySQL password empty. Set MYSQL_PASSWORD in D:\\Inforadar_Pro\\.env")
+        raise RuntimeError("MySQL password empty. Set MYSQL_PASSWORD (or DB_PASSWORD) in .env")
 
-    try:
-        return pymysql.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
-            charset="utf8mb4",
-            autocommit=True,
-            cursorclass=pymysql.cursors.DictCursor,
-        )
-    except RuntimeError as e:
-        msg = str(e)
-        if "cryptography" in msg and ("caching_sha2_password" in msg or "sha256_password" in msg):
-            raise RuntimeError(
-                "MySQL auth requires cryptography. Install:\n"
-                "  .\\.venv_fonbet\\Scripts\\pip.exe install -U cryptography"
-            ) from e
-        raise
+    return pymysql.connect(
+        host=host,
+        user=user,
+        password=password,
+        database=database,
+        charset="utf8mb4",
+        autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
 
 
 def upsert_events(cur, rows: List[Dict[str, Any]]) -> None:
@@ -339,8 +395,10 @@ def main():
 
                 ev_rows: List[Dict[str, Any]] = []
                 odds_rows: List[Tuple[int, int, Optional[float]]] = []
-                event_ids: List[int] = []
 
+                event_ids_set: set[int] = set()
+
+                # 1) события
                 for e in events:
                     if not isinstance(e, dict):
                         continue
@@ -363,14 +421,23 @@ def main():
                         "start_ts": st,
                         "state": e.get("state") if isinstance(e.get("state"), str) else None,
                     })
-                    event_ids.append(eid)
+                    event_ids_set.add(eid)
 
-                    for fid, raw_val in extract_factors(e):
+                    # вариант: факторы внутри events
+                    for fid, raw_val in extract_factors_from_event(e):
                         odd = norm_odd(raw_val, cfg.odds_divisor)
                         odds_rows.append((eid, fid, odd))
 
+                # 2) добор котировок из payload (вне events)
+                seen = {(e, f) for (e, f, _) in odds_rows}
+                for peid, pfid, pval in extract_payload_factor_triplets(payload):
+                    if peid in event_ids_set and (peid, pfid) not in seen:
+                        odd = norm_odd(pval, cfg.odds_divisor)
+                        odds_rows.append((peid, pfid, odd))
+                        seen.add((peid, pfid))
+
                 upsert_events(cur, ev_rows)
-                existing = load_existing_odds(cur, event_ids)
+                existing = load_existing_odds(cur, list(event_ids_set))
                 changed = upsert_odds_and_history(cur, odds_rows, existing)
 
                 print(f"✅ events={len(ev_rows)} odds={len(odds_rows)} history_added={changed} pv={pv}")
