@@ -14,20 +14,38 @@ import pymysql
 
 
 # -------- .env loader (без зависимостей) --------
-def load_env(repo_root: Path) -> None:
-    env_path = repo_root / ".env"
-    if not env_path.exists():
-        return
-    raw = env_path.read_text(encoding="utf-8-sig", errors="ignore")
-    for line in raw.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        k = k.strip()
-        v = v.strip().strip('"').strip("'")
-        if os.environ.get(k) is None:
-            os.environ[k] = v
+def load_env(repo_root: Path) -> List[str]:
+    loaded: List[str] = []
+
+    def _load(path: Path) -> bool:
+        if not path.exists():
+            return False
+        raw = path.read_text(encoding="utf-8-sig", errors="ignore")
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip()
+
+            if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
+                v = v[1:-1]
+
+            # НЕ перетираем то, что уже задано в окружении
+            if os.environ.get(k) is None:
+                os.environ[k] = v
+        return True
+
+    root_env = repo_root / ".env"
+    cwd_env = Path.cwd() / ".env"
+
+    if _load(root_env):
+        loaded.append(str(root_env))
+    if cwd_env != root_env and _load(cwd_env):
+        loaded.append(str(cwd_env))
+
+    return loaded
 
 
 def env(name: str, default: str = "") -> str:
@@ -35,15 +53,12 @@ def env(name: str, default: str = "") -> str:
 
 
 def build_proxy_dict() -> Optional[Dict[str, str]]:
-    # ожидаем как у тебя: FONBET_PROXY_SERVER / USERNAME / PASSWORD
     server = env("FONBET_PROXY_SERVER")
     user = env("FONBET_PROXY_USERNAME")
     pwd = env("FONBET_PROXY_PASSWORD")
     if not server:
         return None
 
-    # если server без логина/пароля — ок, requests принимает базу
-    # если нужен auth — соберём URL вида http://user:pass@host:port
     p = urlparse(server)
     if user and pwd and p.scheme and p.hostname and p.port:
         proxy_url = f"{p.scheme}://{user}:{pwd}@{p.hostname}:{p.port}"
@@ -57,20 +72,19 @@ def build_proxy_dict() -> Optional[Dict[str, str]]:
 class FonbetCfg:
     lang: str = "ru"
     scope_market: int = 1700
-    # из твоих логов видим line01/line02... :contentReference[oaicite:1]{index=1}
     line_hosts: Tuple[str, ...] = (
         "https://line01.cy8cff-resources.com",
         "https://line02.cy8cff-resources.com",
     )
     timeout_s: int = 25
-    odds_divisor: int = 1000  # часто odds приходят как int*1000
+    odds_divisor: int = 1000
 
 
 def pick_line_base(cfg: FonbetCfg, s: requests.Session) -> str:
-    # выбираем живой line-host (getApiState)
+    # В твоём capture getApiState — GET :contentReference[oaicite:3]{index=3}
     for base in cfg.line_hosts:
         try:
-            r = s.post(f"{base}/getApiState", timeout=cfg.timeout_s)
+            r = s.get(f"{base}/getApiState", timeout=cfg.timeout_s)
             if r.status_code == 200:
                 return base
         except Exception:
@@ -79,17 +93,21 @@ def pick_line_base(cfg: FonbetCfg, s: requests.Session) -> str:
 
 
 def get_list_base(cfg: FonbetCfg, s: requests.Session, base: str) -> Dict[str, Any]:
-    url = f"{base}/events/listBase"
-    params = {"lang": cfg.lang, "scopeMarket": str(cfg.scope_market)}
-    r = s.get(url, params=params, timeout=cfg.timeout_s)
+    r = s.get(
+        f"{base}/events/listBase",
+        params={"lang": cfg.lang, "scopeMarket": str(cfg.scope_market)},
+        timeout=cfg.timeout_s,
+    )
     r.raise_for_status()
     return r.json()
 
 
 def get_list(cfg: FonbetCfg, s: requests.Session, base: str, version: int) -> Dict[str, Any]:
-    url = f"{base}/events/list"
-    params = {"lang": cfg.lang, "version": str(int(version)), "scopeMarket": str(cfg.scope_market)}
-    r = s.get(url, params=params, timeout=cfg.timeout_s)
+    r = s.get(
+        f"{base}/events/list",
+        params={"lang": cfg.lang, "version": str(int(version)), "scopeMarket": str(cfg.scope_market)},
+        timeout=cfg.timeout_s,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -105,7 +123,6 @@ def get_packet_version(payload: Dict[str, Any]) -> int:
 
 
 def extract_events(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # максимально терпимый экстрактор
     if isinstance(payload.get("events"), list):
         return payload["events"]
     if isinstance(payload.get("data"), dict) and isinstance(payload["data"].get("events"), list):
@@ -130,7 +147,6 @@ def norm_odd(val: Any, divisor: int) -> Optional[float]:
     if isinstance(val, float):
         return float(val)
     if isinstance(val, int):
-        # чаще всего 2000 => 2.0
         if divisor and val >= divisor:
             return val / float(divisor)
         return float(val)
@@ -153,7 +169,6 @@ def extract_event_id(e: Dict[str, Any]) -> Optional[int]:
 
 
 def extract_teams(e: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    # варианты полей отличаются — берём самые частые
     t1 = e.get("team1") or e.get("home") or e.get("homeTeam") or e.get("team1Name")
     t2 = e.get("team2") or e.get("away") or e.get("awayTeam") or e.get("team2Name")
     if isinstance(t1, dict):
@@ -163,9 +178,9 @@ def extract_teams(e: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     return (t1 if isinstance(t1, str) else None, t2 if isinstance(t2, str) else None)
 
 
-def extract_factors(e: Dict[str, Any]) -> List[Tuple[int, Optional[float]]]:
+def extract_factors(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
     factors = e.get("factors")
-    out: List[Tuple[int, Optional[float]]] = []
+    out: List[Tuple[int, Any]] = []
     if not isinstance(factors, list):
         return out
     for f in factors:
@@ -175,22 +190,42 @@ def extract_factors(e: Dict[str, Any]) -> List[Tuple[int, Optional[float]]]:
         val = f.get("v") or f.get("value") or f.get("p")
         if isinstance(fid, str) and fid.isdigit():
             fid = int(fid)
-        if not isinstance(fid, int):
-            continue
-        out.append((fid, val))  # val нормализуем позже
+        if isinstance(fid, int):
+            out.append((fid, val))
     return out
 
 
 def mysql_conn():
-    return pymysql.connect(
-        host=env("DB_HOST", "127.0.0.1"),
-        user=env("DB_USER", "root"),
-        password=env("DB_PASSWORD", ""),
-        database=env("DB_NAME", "inforadar"),
-        charset="utf8mb4",
-        autocommit=True,
-        cursorclass=pymysql.cursors.DictCursor,
-    )
+    # ✅ ВАЖНО: сначала MYSQL_*, как у тебя в .env :contentReference[oaicite:4]{index=4}
+    host = env("MYSQL_HOST") or env("DB_HOST") or "127.0.0.1"
+    user = env("MYSQL_USER") or env("DB_USER") or "root"
+    password = env("MYSQL_PASSWORD") or env("DB_PASSWORD") or ""
+    database = env("MYSQL_DB") or env("MYSQL_DATABASE") or env("DB_NAME") or "inforadar"
+
+    src = "MYSQL_*" if env("MYSQL_PASSWORD") else ("DB_*" if env("DB_PASSWORD") else "defaults")
+    print(f"[db] host={host} user={user} db={database} pass_len={len(password)} source={src}")
+
+    if not password:
+        raise RuntimeError("MySQL password empty. Set MYSQL_PASSWORD in D:\\Inforadar_Pro\\.env")
+
+    try:
+        return pymysql.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            charset="utf8mb4",
+            autocommit=True,
+            cursorclass=pymysql.cursors.DictCursor,
+        )
+    except RuntimeError as e:
+        msg = str(e)
+        if "cryptography" in msg and ("caching_sha2_password" in msg or "sha256_password" in msg):
+            raise RuntimeError(
+                "MySQL auth requires cryptography. Install:\n"
+                "  .\\.venv_fonbet\\Scripts\\pip.exe install -U cryptography"
+            ) from e
+        raise
 
 
 def upsert_events(cur, rows: List[Dict[str, Any]]) -> None:
@@ -214,7 +249,6 @@ def upsert_events(cur, rows: List[Dict[str, Any]]) -> None:
 def load_existing_odds(cur, event_ids: List[int]) -> Dict[Tuple[int, int], float]:
     if not event_ids:
         return {}
-    # IN (...) chunk
     existing: Dict[Tuple[int, int], float] = {}
     chunk = 400
     for i in range(0, len(event_ids), chunk):
@@ -227,18 +261,20 @@ def load_existing_odds(cur, event_ids: List[int]) -> Dict[Tuple[int, int], float
     return existing
 
 
-def upsert_odds_and_history(cur, odds_rows: List[Tuple[int, int, Optional[float]]], existing: Dict[Tuple[int,int], float]) -> int:
+def upsert_odds_and_history(
+    cur,
+    odds_rows: List[Tuple[int, int, Optional[float]]],
+    existing: Dict[Tuple[int, int], float],
+) -> int:
     if not odds_rows:
         return 0
 
-    # upsert current
     cur.executemany(
         "INSERT INTO fonbet_odds (event_id, factor_id, odd) VALUES (%s,%s,%s) "
         "ON DUPLICATE KEY UPDATE odd=VALUES(odd)",
-        [(e, f, o) for (e, f, o) in odds_rows]
+        [(e, f, o) for (e, f, o) in odds_rows],
     )
 
-    # history only on change
     hist_rows = []
     for (e, f, o) in odds_rows:
         if o is None:
@@ -250,19 +286,21 @@ def upsert_odds_and_history(cur, odds_rows: List[Tuple[int, int, Optional[float]
     if hist_rows:
         cur.executemany(
             "INSERT INTO fonbet_odds_history (event_id, factor_id, odd) VALUES (%s,%s,%s)",
-            hist_rows
+            hist_rows,
         )
     return len(hist_rows)
 
 
 def main():
-    repo_root = Path(__file__).resolve().parents[2]  # ...\D:\Inforadar_Pro
-    load_env(repo_root)
+    repo_root = Path(__file__).resolve().parents[2]  # D:\Inforadar_Pro
+    loaded = load_env(repo_root)
+    if loaded:
+        print("[env] loaded from:", " | ".join(loaded))
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", default=env("FONBET_LANG", "ru"))
     ap.add_argument("--scope-market", type=int, default=int(env("FONBET_SCOPE_MARKET", "1700")))
-    ap.add_argument("--interval", type=float, default=float(env("FONBET_INTERVAL", "10")))
+    ap.add_argument("--interval", type=float, default=float(env("FONBET_INTERVAL_SEC", env("FONBET_INTERVAL", "10"))))
     ap.add_argument("--hours", type=float, default=float(env("FONBET_HOURS", "12")))
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--dump", action="store_true")
@@ -287,11 +325,8 @@ def main():
     conn = mysql_conn()
     with conn:
         with conn.cursor() as cur:
-            version = 0
-
-            # listBase -> стартовая версия
             lb = get_list_base(cfg, s, base)
-            version = get_packet_version(lb) or version
+            version = get_packet_version(lb)
             print(f"ℹ️ listBase version={version}")
 
             while True:
@@ -341,11 +376,12 @@ def main():
                 print(f"✅ events={len(ev_rows)} odds={len(odds_rows)} history_added={changed} pv={pv}")
 
                 if args.dump:
-                    dump_path = repo_root / "fonbet_last_payload.json"
-                    dump_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                    (repo_root / "fonbet_last_payload.json").write_text(
+                        json.dumps(payload, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
 
                 version = pv
-
                 if args.once:
                     break
                 time.sleep(max(1.0, float(args.interval)))
