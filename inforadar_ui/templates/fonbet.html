@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Fonbet (com.cy)</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; }
+    .muted { color:#666; font-size:12px; margin-bottom:12px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
+    th { position: sticky; top: 0; background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h2>Fonbet (com.cy)</h2>
+  <div class="muted">
+    API: <code>/fonbet/api/odds?sport=football&live=0</code>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Лига</th>
+        <th>Команды</th>
+        <th>Начало</th>
+        <th>Маркет</th>
+        <th>Исход</th>
+        <th>Кэф</th>
+        <th>Лимит</th>
+        <th>Обновлено</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+async function tick(){
+  try {
+    const res = await fetch("/fonbet/api/odds?sport=football&live=0&limit=800");
+    const payload = await res.json();
+    const data = payload && payload.data ? payload.data : [];
+    const tbody = document.getElementById("rows");
+    tbody.innerHTML = data.map(r => `
+      <tr>
+        <td>${r.league ?? ""}</td>
+        <td>${(r.team1 ?? "")} ${(r.team2 ? "— " + r.team2 : "")}</td>
+        <td>${r.start_time ?? ""}</td>
+        <td>${r.market_key ?? ""}</td>
+        <td>${r.outcome_key ?? ""}</td>
+        <td>${r.odd ?? ""}</td>
+        <td>${r.limit_value ?? ""}</td>
+        <td>${r.updated_at ?? ""}</td>
+      </tr>
+    `).join("");
+  } catch(e) {
+    console.log("poll error", e);
+  }
+}
+setInterval(tick, 2000);
+tick();
+</script>
+</body>
+</html>

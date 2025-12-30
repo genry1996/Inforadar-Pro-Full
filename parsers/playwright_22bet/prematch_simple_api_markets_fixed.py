@@ -17,6 +17,10 @@ from pathlib import Path
 def main() -> int:
     here = Path(__file__).resolve().parent
     candidates = [
+        # New unified wrapper / recommended entry point
+        here / "prematch_wrapper.py",
+        # Current maintained parser
+        here / "prematch_football_12h.py",
         here / "prematch_parser_with_history.py",
         here / "prematch_simple_HISTORY.py",
         here / "prematch_simple.py",
