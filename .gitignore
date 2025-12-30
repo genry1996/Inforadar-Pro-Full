@@ -112,3 +112,12 @@ netdump*/
 .env
 **/.env
 
+# local venv / profiles
+.venv*/
+fonbet_debug/
+fonbet_profile/
+
+# python
+__pycache__/
+*.pyc
+*.log
