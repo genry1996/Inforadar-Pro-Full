@@ -194,6 +194,73 @@ def _base_from_url(url: str) -> str:
     return m.group(1)
 
 
+# --- Filtering helpers (exclude "special bets", team vs player, Home vs Away etc.) ---
+
+_SPECIAL_SUBSTRINGS = [
+    "special bet", "special bets", "специальн", "specials",
+    "team vs player", "team vs team", "player vs team",
+    "winner", "outright", "to win", "champion", "tournament winner",
+    "top scorer", "goalscorer", "first goalscorer", "anytime scorer",
+    "1st teams vs 2nd teams", "1st team", "2nd team",
+]
+
+_GENERIC_TEAMS = {
+    "home", "away", "hosts", "guests", "host", "guest",
+    "хозяева", "гости", "хозяин", "гость",
+}
+
+def _norm_team(x: Optional[str]) -> str:
+    if x is None:
+        return ""
+    s = str(x).strip().lower()
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+def _is_special_event(league: str, name: str, home: Optional[str], away: Optional[str]) -> bool:
+    """Heuristics to keep only real team-vs-team matches."""
+    h = _norm_team(home)
+    a = _norm_team(away)
+    if not h or not a:
+        return True
+    if h in _GENERIC_TEAMS or a in _GENERIC_TEAMS:
+        return True
+    # numeric/ID-like "teams" (often outrights)
+    if re.fullmatch(r"\d{3,}", h) or re.fullmatch(r"\d{3,}", a):
+        return True
+
+    blob = " ".join([str(league or ""), str(name or ""), h, a]).lower()
+    if any(ss in blob for ss in _SPECIAL_SUBSTRINGS):
+        return True
+    # Common explicit markers
+    if "(special" in blob or "special)" in blob or "special bets" in blob:
+        return True
+    if " vs " not in (name or "").lower():
+        # Most real matches have "vs" in the name we build
+        return True
+    return False
+
+
+def _tune_linefeed_1x2_url(url: str, hours: int) -> str:
+    """
+    If you paste a captured LINEFEED_1X2_URL, it often contains small tf/count.
+    We keep the same host/params, but override:
+      - count  (default from LINEFEED_COUNT)
+      - tf     (hours window in ms)
+    """
+    try:
+        sp = urlsplit(url)
+        qs = parse_qs(sp.query, keep_blank_values=True)
+        # override / ensure
+        tf = str(max(3_000_000, int(hours) * 3600 * 1000))
+        count = _env("LINEFEED_COUNT", default="500") or "500"
+        qs["tf"] = [tf]
+        qs["count"] = [count]
+        # flatten query
+        new_q = urlencode({k: v[-1] if isinstance(v, list) else v for k, v in qs.items()})
+        return urlunsplit((sp.scheme, sp.netloc, sp.path, new_q, sp.fragment))
+    except Exception:
+        return url
+
 def _headers(base: str) -> Dict[str, str]:
     # Do NOT request brotli
     return {
@@ -394,7 +461,7 @@ def _build_event_name(game: Dict[str, Any]) -> Tuple[str, Optional[str], Optiona
 
 
 def _guess_league(game: Dict[str, Any]) -> str:
-    x = _pick(game, ["L", "League", "LG", "LeagueName", "CN", "C", "Champ", "ChampName", "CH"])
+    x = _pick(game, ["L", "LE", "League", "LG", "LeagueName", "LName", "CN", "CH", "Champ", "ChampName", "CT", "Tournament", "TN"])
     return str(x).strip() if x else ""
 
 
@@ -411,6 +478,8 @@ def fetch_1x2_linefeed(prematch_url: str, tz_name: str, hours: int, timeout: int
     base = _base_from_url(prematch_url)
 
     url = _env("LINEFEED_1X2_URL", default="").strip()
+    if url:
+        url = _tune_linefeed_1x2_url(url, hours)
     if not url:
         # best-effort fallback (but you SHOULD set LINEFEED_1X2_URL)
         country = _env("LINEFEED_COUNTRY", default="207")
@@ -434,7 +503,7 @@ def fetch_1x2_linefeed(prematch_url: str, tz_name: str, hours: int, timeout: int
         gid = _to_int(_pick(d, ["I", "Id", "ID", "GameId", "GI"]))
         if gid is None or gid < 1000:
             continue
-        if _pick(d, ["O1", "O2", "Team1", "Team2", "HomeTeam", "AwayTeam", "N", "Name"]) is None:
+        if _pick(d, ["O1", "O2", "O1E", "O2E", "Team1", "Team2", "HomeTeam", "AwayTeam", "T1", "T2", "P1", "P2", "N", "Name", "NM", "EN"]) is None:
             continue
         games.append(d)
 
@@ -452,6 +521,8 @@ def fetch_1x2_linefeed(prematch_url: str, tz_name: str, hours: int, timeout: int
 
         league = _guess_league(g)
         name, home, away = _build_event_name(g)
+        if _is_special_event(league, name, home, away):
+            continue
         o1, ox, o2 = _extract_1x2_odds(g)
 
         out.append(EventOdds(gid, league, name, home, away, mt, o1, ox, o2))

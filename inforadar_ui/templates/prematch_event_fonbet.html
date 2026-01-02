@@ -1,62 +1,96 @@
-{% extends "base.html" %}
-{% block content %}
+<!-- inforadar_ui/templates/prematch_event_fonbet.html -->
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fonbet • Event {{ event_id }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 18px; }
+    .muted { color:#777; }
+    .err { color:#b00020; white-space: pre-wrap; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius: 999px; font-size:12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
+    h3 { margin-top: 18px; }
+    a { color:#0b57d0; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <a href="/fonbet">← Назад</a>
 
-<div class="page-header">
-  <h2>Fonbet • Event</h2>
-  {% if event %}
-    <div class="sub">
-      {{ event.league_name or "-" }} •
-      <b>{{ event.team1 or "?" }} — {{ event.team2 or "?" }}</b> •
-      старт: {{ event.start_time or "-" }}
-    </div>
-  {% else %}
-    <div class="sub">Event ID: {{ request.view_args.event_id }}</div>
-  {% endif %}
-</div>
+  <h2>Fonbet • Event <span class="pill">{{ event_id }}</span></h2>
 
-<form method="get" class="filters">
-  <label>Часы истории:
-    <input type="number" name="hours" min="1" max="72" value="{{ hours }}" />
-  </label>
-  <label>Лимит строк:
-    <input type="number" name="limit" min="100" max="5000" value="{{ limit }}" />
-  </label>
-  <button type="submit">Обновить</button>
-  <a class="btn-link" href="/fonbet/">← назад</a>
-</form>
+  <div class="muted" id="subtitle">Loading…</div>
+  <div class="err" id="error"></div>
 
-<div class="table-wrap">
-  <table class="data">
-    <thead>
+  <div id="content"></div>
+
+<script>
+  const EVENT_ID = Number("{{ event_id }}");
+  const subtitle = document.getElementById('subtitle');
+  const errorEl = document.getElementById('error');
+  const content = document.getElementById('content');
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, m => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+    }[m]));
+  }
+
+  function setError(msg) { errorEl.textContent = msg || ''; }
+
+  function renderOddsTable(title, rows) {
+    if (!rows || !rows.length) {
+      return `<div class="muted">Нет данных: ${esc(title)}</div>`;
+    }
+    const head = `<tr><th>Market</th><th>Outcome</th><th>Line</th><th>Odd</th><th>TS</th></tr>`;
+    const body = rows.map(r => `
       <tr>
-        <th>ts</th>
-        <th>factor_id</th>
-        <th>odd</th>
-        <th>prev</th>
-        <th>Δ</th>
+        <td>${esc(r.market)}</td>
+        <td>${esc(r.outcome)}</td>
+        <td>${esc(r.line)}</td>
+        <td>${esc(r.odd)}</td>
+        <td>${esc(r.ts)}</td>
       </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr>
-        <td class="mono">{{ r.ts }}</td>
-        <td class="mono">{{ r.factor_id }}</td>
-        <td><b>{{ "%.3f"|format(r.odd) if r.odd is not none else "-" }}</b></td>
-        <td>{{ "%.3f"|format(r.prev_odd) if r.prev_odd is not none else "-" }}</td>
-        <td>
-          {% if r.prev_odd is not none and r.odd is not none %}
-            {{ "%.3f"|format(r.odd - r.prev_odd) }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-      {% if rows|length == 0 %}
-      <tr><td colspan="5">Нет изменений за выбранный период</td></tr>
-      {% endif %}
-    </tbody>
-  </table>
-</div>
+    `).join('');
+    return `<h3>${esc(title)} (${rows.length})</h3><table>${head}${body}</table>`;
+  }
 
-{% endblock %}
+  async function loadEvent() {
+    setError('');
+    subtitle.textContent = 'Loading…';
+
+    const r = await fetch(`/api/fonbet/event/${encodeURIComponent(EVENT_ID)}?limit=1500`);
+    const data = await r.json().catch(() => ({}));
+
+    if (!r.ok) {
+      setError(`HTTP ${r.status}\n` + JSON.stringify(data, null, 2));
+      subtitle.textContent = 'Ошибка';
+      return;
+    }
+
+    if (data.error && String(data.error).trim()) {
+      setError(String(data.error));
+    }
+
+    const e = data.event || {};
+    subtitle.textContent = `${esc(e.start_time)} • ${esc(e.league_name || '-') } • ${esc(e.team1)} — ${esc(e.team2)} • sport_id=${esc(e.sport_id)}`;
+
+    const m = data.markets || {};
+    content.innerHTML = `
+      ${renderOddsTable('Outcomes', m.outcomes || [])}
+      ${renderOddsTable('Total', m.total || [])}
+      ${renderOddsTable('Handicap', m.handicap || [])}
+      ${renderOddsTable('Other', m.other || [])}
+    `;
+  }
+
+  loadEvent().catch(e => {
+    setError(String(e));
+    subtitle.textContent = 'Ошибка';
+  });
+</script>
+</body>
+</html>

@@ -33,11 +33,9 @@ def load_env(repo_root: Path) -> List[str]:
             k = k.strip()
             v = v.strip()
 
-            # strip quotes
             if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
                 v = v[1:-1]
 
-            # не перетираем env, если уже задано (например через $env:...)
             if os.environ.get(k) is None:
                 os.environ[k] = v
         return True
@@ -134,12 +132,7 @@ def build_session(
 # ----------------------------
 # API calls
 # ----------------------------
-def pick_line_base(
-    cfg: FonbetCfg,
-    s: requests.Session,
-    timeout: Tuple[float, float],
-) -> str:
-    # getApiState (у тебя он приходил GET)
+def pick_line_base(cfg: FonbetCfg, s: requests.Session, timeout: Tuple[float, float]) -> str:
     for base in cfg.line_hosts:
         try:
             r = s.get(f"{base}/getApiState", timeout=timeout)
@@ -150,12 +143,7 @@ def pick_line_base(
     return cfg.line_hosts[0]
 
 
-def get_list_base(
-    cfg: FonbetCfg,
-    s: requests.Session,
-    base: str,
-    timeout: Tuple[float, float],
-) -> Dict[str, Any]:
+def get_list_base(cfg: FonbetCfg, s: requests.Session, base: str, timeout: Tuple[float, float]) -> Dict[str, Any]:
     r = s.get(
         f"{base}/events/listBase",
         params={"lang": cfg.lang, "scopeMarket": str(cfg.scope_market)},
@@ -165,13 +153,7 @@ def get_list_base(
     return r.json()
 
 
-def get_list(
-    cfg: FonbetCfg,
-    s: requests.Session,
-    base: str,
-    version: int,
-    timeout: Tuple[float, float],
-) -> Dict[str, Any]:
+def get_list(cfg: FonbetCfg, s: requests.Session, base: str, version: int, timeout: Tuple[float, float]) -> Dict[str, Any]:
     r = s.get(
         f"{base}/events/list",
         params={"lang": cfg.lang, "version": str(int(version)), "scopeMarket": str(cfg.scope_market)},
@@ -219,7 +201,6 @@ def norm_odd(val: Any, divisor: int) -> Optional[float]:
     if isinstance(val, float):
         return float(val)
     if isinstance(val, int):
-        # 2000 -> 2.0
         if divisor and val >= divisor:
             return val / float(divisor)
         return float(val)
@@ -232,7 +213,7 @@ def norm_odd(val: Any, divisor: int) -> Optional[float]:
 
 
 def extract_event_id(e: Dict[str, Any]) -> Optional[int]:
-    for k in ("id", "eventId", "event_id"):
+    for k in ("id", "eventId", "event_id", "e"):
         v = e.get(k)
         if isinstance(v, int):
             return v
@@ -310,22 +291,93 @@ def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, 
                 if isinstance(fid, int):
                     out.append((eid, fid, val))
 
-    # 1) если ключи явные
     for key in ("customFactors", "eventFactors", "eventFactorList", "factors", "eventFactor"):
         if key in payload:
             consume_list(payload.get(key))
 
-    # 2) любые top-level списки
     for v in payload.values():
         consume_list(v)
 
-    # 3) data
     data = payload.get("data")
     if isinstance(data, dict):
         for v in data.values():
             consume_list(v)
 
     return out
+
+
+# ----------------------------
+# Catalog (sport tree) helpers
+# ----------------------------
+def _walk(obj: Any, cb) -> None:
+    if isinstance(obj, dict):
+        cb(obj)
+        for v in obj.values():
+            _walk(v, cb)
+    elif isinstance(obj, list):
+        for v in obj:
+            _walk(v, cb)
+
+
+def extract_catalog_nodes(payload: Dict[str, Any]) -> Dict[int, Tuple[Optional[int], str]]:
+    """
+    Пробуем вытащить дерево каталога из listBase:
+      node_id -> (parent_id, name)
+    """
+    nodes: Dict[int, Tuple[Optional[int], str]] = {}
+
+    def cb(d: Any) -> None:
+        if not isinstance(d, dict):
+            return
+        _id = d.get("id")
+        name = d.get("name")
+        if isinstance(_id, str) and _id.isdigit():
+            _id = int(_id)
+        if not isinstance(_id, int):
+            return
+        if not isinstance(name, str) or not name.strip():
+            return
+
+        # избегаем "event-like" объектов
+        if any(k in d for k in ("team1", "team2", "homeTeam", "awayTeam", "factors", "factorId", "startTime", "eventId")):
+            return
+
+        parent = None
+        for pk in ("parentId", "parent_id", "pid", "parent", "parentID"):
+            if pk in d:
+                parent = d.get(pk)
+                break
+        if isinstance(parent, str) and parent.isdigit():
+            parent = int(parent)
+        if parent is not None and not isinstance(parent, int):
+            parent = None
+
+        nodes.setdefault(_id, (parent, name.strip()))
+
+    _walk(payload, cb)
+    return nodes
+
+
+def resolve_root(node_id: int, nodes: Dict[int, Tuple[Optional[int], str]]) -> Tuple[int, Optional[str]]:
+    cur = node_id
+    seen = set()
+    while True:
+        if cur in seen:
+            return (node_id, None)
+        seen.add(cur)
+
+        if cur not in nodes:
+            return (node_id, None)
+
+        parent, name = nodes[cur]
+        if parent in (None, 0, cur) or parent not in nodes:
+            return (cur, name)
+        cur = parent
+
+
+def find_root_ids_by_name(nodes: Dict[int, Tuple[Optional[int], str]], needle: str) -> List[int]:
+    n = needle.lower()
+    return [nid for nid, (_, name) in nodes.items() if isinstance(name, str) and n in name.lower()]
 
 
 # ----------------------------
@@ -354,21 +406,47 @@ def mysql_conn():
     )
 
 
-def upsert_events(cur, rows: List[Dict[str, Any]]) -> None:
+def _table_has_col(cur, table: str, col: str) -> bool:
+    cur.execute(
+        "SELECT COUNT(*) c FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s AND COLUMN_NAME=%s",
+        (table, col),
+    )
+    r = cur.fetchone()
+    return bool(r and int(r.get("c", 0)) > 0)
+
+
+def upsert_events(cur, rows: List[Dict[str, Any]], has_category_id: bool) -> None:
     if not rows:
         return
-    sql = """
-    INSERT INTO fonbet_events (event_id, sport_id, league_id, league_name, team1, team2, start_ts, state)
-    VALUES (%(event_id)s, %(sport_id)s, %(league_id)s, %(league_name)s, %(team1)s, %(team2)s, %(start_ts)s, %(state)s)
-    ON DUPLICATE KEY UPDATE
-      sport_id=VALUES(sport_id),
-      league_id=VALUES(league_id),
-      league_name=VALUES(league_name),
-      team1=VALUES(team1),
-      team2=VALUES(team2),
-      start_ts=VALUES(start_ts),
-      state=VALUES(state);
-    """
+
+    if has_category_id:
+        sql = """
+        INSERT INTO fonbet_events (event_id, sport_id, category_id, league_id, league_name, team1, team2, start_ts, state)
+        VALUES (%(event_id)s, %(sport_id)s, %(category_id)s, %(league_id)s, %(league_name)s, %(team1)s, %(team2)s, %(start_ts)s, %(state)s)
+        ON DUPLICATE KEY UPDATE
+          sport_id=VALUES(sport_id),
+          category_id=VALUES(category_id),
+          league_id=VALUES(league_id),
+          league_name=VALUES(league_name),
+          team1=VALUES(team1),
+          team2=VALUES(team2),
+          start_ts=VALUES(start_ts),
+          state=VALUES(state);
+        """
+    else:
+        sql = """
+        INSERT INTO fonbet_events (event_id, sport_id, league_id, league_name, team1, team2, start_ts, state)
+        VALUES (%(event_id)s, %(sport_id)s, %(league_id)s, %(league_name)s, %(team1)s, %(team2)s, %(start_ts)s, %(state)s)
+        ON DUPLICATE KEY UPDATE
+          sport_id=VALUES(sport_id),
+          league_id=VALUES(league_id),
+          league_name=VALUES(league_name),
+          team1=VALUES(team1),
+          team2=VALUES(team2),
+          start_ts=VALUES(start_ts),
+          state=VALUES(state);
+        """
     cur.executemany(sql, rows)
 
 
@@ -431,10 +509,10 @@ def main():
     ap.add_argument("--scope-market", type=int, default=int(env("FONBET_SCOPE_MARKET", "1700")))
     ap.add_argument("--interval", type=float, default=float(env("FONBET_INTERVAL_SEC", env("FONBET_INTERVAL", "10"))))
     ap.add_argument("--hours", type=float, default=float(env("FONBET_HOURS", "12")))
+    ap.add_argument("--only-football", action="store_true", default=env("FONBET_ONLY_FOOTBALL", "0").lower() in ("1", "true", "yes"))
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--dump", action="store_true")
 
-    # anti-hang settings
     ap.add_argument("--connect-timeout", type=float, default=float(env("FONBET_CONNECT_TIMEOUT", "5")))
     ap.add_argument("--read-timeout", type=float, default=float(env("FONBET_READ_TIMEOUT", "25")))
     ap.add_argument("--retries", type=int, default=int(env("FONBET_RETRIES", "2")))
@@ -460,7 +538,6 @@ def main():
         base_idx = (base_idx + 1) % len(bases)
         return bases[base_idx]
 
-    # выбираем рабочую ноду
     base = pick_line_base(cfg, s, timeout=timeout)
     if base in bases:
         base_idx = bases.index(base)
@@ -470,29 +547,56 @@ def main():
     conn = mysql_conn()
     with conn:
         with conn.cursor() as cur:
+            has_category_id = _table_has_col(cur, "fonbet_events", "category_id")
+            if not has_category_id:
+                print("⚠️ fonbet_events.category_id not found — будет старый режим без category_id")
+
+            # listBase + catalog mapping
             try:
                 lb = get_list_base(cfg, s, current_base(), timeout=timeout)
                 version = get_packet_version(lb)
                 print(f"ℹ️ listBase version={version}")
             except Exception as e:
                 print(f"❌ listBase failed on {current_base()}: {e}")
-                print("↪️ failover to next line host")
                 rotate_base()
                 time.sleep(max(0.1, float(args.failover_cooldown)))
                 lb = get_list_base(cfg, s, current_base(), timeout=timeout)
                 version = get_packet_version(lb)
                 print(f"ℹ️ listBase version={version}")
 
+            catalog_nodes = extract_catalog_nodes(lb)
+            root_cache: Dict[int, Tuple[int, Optional[str]]] = {}
+
+            def get_root(cat_id: Optional[int]) -> Tuple[Optional[int], Optional[str]]:
+                if cat_id is None:
+                    return (None, None)
+                if cat_id in root_cache:
+                    rid, rname = root_cache[cat_id]
+                    return (rid, rname)
+                rid, rname = resolve_root(cat_id, catalog_nodes) if catalog_nodes else (cat_id, None)
+                root_cache[cat_id] = (rid, rname)
+                return (rid, rname)
+
+            football_candidates = find_root_ids_by_name(catalog_nodes, "футбол") or find_root_ids_by_name(catalog_nodes, "football")
+            football_root_id: Optional[int] = None
+            football_root_name: Optional[str] = None
+            if football_candidates:
+                football_root_id, football_root_name = resolve_root(football_candidates[0], catalog_nodes)
+                print(f"⚽ detected football_root_id={football_root_id} name={football_root_name!r}")
+                print("   👉 поставь в .env:  FONBET_FOOTBALL_SPORT_ID=<football_root_id>  (для UI по умолчанию)")
+            else:
+                print("⚠️ football root not detected in catalog (будет работать без авто-футбола)")
+
             try:
                 while True:
+                    first_cycle = True
                     try:
-                        payload = get_list(cfg, s, current_base(), version, timeout=timeout) if version else get_list_base(cfg, s, current_base(), timeout=timeout)
+                        payload = (get_list_base(cfg, s, current_base(), timeout=timeout) if (first_cycle or args.once) else get_list(cfg, s, current_base(), version, timeout=timeout))
+                        first_cycle = False
                     except (requests.exceptions.RequestException, ValueError) as e:
                         print(f"⚠️ request/json error on {current_base()}: {e}")
-                        print("↪️ failover to next line host")
                         rotate_base()
                         time.sleep(max(0.1, float(args.failover_cooldown)))
-                        # после переключения попробуем listBase, чтобы восстановить версию
                         try:
                             lb = get_list_base(cfg, s, current_base(), timeout=timeout)
                             version = get_packet_version(lb) or version
@@ -511,7 +615,6 @@ def main():
                     odds_rows: List[Tuple[int, int, Optional[float]]] = []
                     event_ids_set: set[int] = set()
 
-                    # 1) события + факторы внутри events
                     for e in events:
                         if not isinstance(e, dict):
                             continue
@@ -523,24 +626,45 @@ def main():
                         if st is not None and not (now_ts <= st <= max_ts):
                             continue
 
+                        # LEAF category id from event (категория внутри спорта)
+                        sport_cat_id = e.get("sportId") or e.get("sport_id") or e.get("sport")
+                        if isinstance(sport_cat_id, str) and sport_cat_id.isdigit():
+                            sport_cat_id = int(sport_cat_id)
+                        if not isinstance(sport_cat_id, int):
+                            sport_cat_id = None
+
+                        # ROOT sport id (сам "вид спорта": футбол/теннис/…)
+                        sport_root_id, _sport_root_name = get_root(sport_cat_id)
+                        if sport_root_id is None:
+                            sport_root_id = sport_cat_id
+
+                        # optional filter: only football
+                        if args.only_football and football_root_id is not None and sport_root_id != football_root_id:
+                            continue
+
                         t1, t2 = extract_teams(e)
-                        ev_rows.append({
+
+                        row = {
                             "event_id": eid,
-                            "sport_id": e.get("sportId") if isinstance(e.get("sportId"), int) else None,
+                            "sport_id": sport_root_id,
                             "league_id": e.get("leagueId") if isinstance(e.get("leagueId"), int) else None,
                             "league_name": e.get("leagueName") if isinstance(e.get("leagueName"), str) else None,
                             "team1": t1,
                             "team2": t2,
                             "start_ts": st,
                             "state": e.get("state") if isinstance(e.get("state"), str) else None,
-                        })
+                        }
+                        if has_category_id:
+                            row["category_id"] = sport_cat_id
+                        ev_rows.append(row)
+
                         event_ids_set.add(eid)
 
                         for fid, raw_val in extract_factors_from_event(e):
                             odd = norm_odd(raw_val, cfg.odds_divisor)
                             odds_rows.append((eid, fid, odd))
 
-                    # 2) добор котировок из payload (вне events)
+                    # добор котировок из payload (вне events)
                     seen = {(e, f) for (e, f, _) in odds_rows}
                     for peid, pfid, pval in extract_payload_factor_triplets(payload):
                         if peid in event_ids_set and (peid, pfid) not in seen:
@@ -548,7 +672,7 @@ def main():
                             odds_rows.append((peid, pfid, odd))
                             seen.add((peid, pfid))
 
-                    upsert_events(cur, ev_rows)
+                    upsert_events(cur, ev_rows, has_category_id)
                     existing = load_existing_odds(cur, list(event_ids_set))
                     changed = upsert_odds_and_history(cur, odds_rows, existing)
 
