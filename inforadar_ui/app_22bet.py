@@ -2134,7 +2134,6 @@ async function load(){
   if($('sportId')) localStorage.setItem('fonbet_sport_id', sportRaw);
   let url = `/api/fonbet/events?hours=${encodeURIComponent(hours)}&limit=${encodeURIComponent(limit)}&q=${encodeURIComponent(q)}`;
   if (sportRaw !== '') url += `&sport_id=${encodeURIComponent(String(sportRaw))}`;
-  if ($('sportId')) localStorage.setItem('fonbet_sport_id', sportId ? String(sportId) : '');
   const t0 = performance.now();
   try{
     $("status").textContent = "loading…";
@@ -2319,7 +2318,7 @@ FONBET_EVENT_INLINE = r"""<!doctype html>
           <div class="table-wrap">
             <table>
               <thead><tr><th class="mono">Time</th><th>Home</th><th>Hcp</th><th>Away</th><th>Alg.1</th><th>Alg.2</th></tr></thead>
-              <tbody id="t2"><tr><td colspan="6" class="small">Loading…</td></tr></tbody>
+              <tbody id="tH"><tr><td colspan="6" class="small">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2329,7 +2328,7 @@ FONBET_EVENT_INLINE = r"""<!doctype html>
           <div class="table-wrap">
             <table>
               <thead><tr><th class="mono">Time</th><th>Over</th><th>Total</th><th>Under</th><th>Alg.1</th><th>Alg.2</th></tr></thead>
-              <tbody id="t3"><tr><td colspan="6" class="small">Loading…</td></tr></tbody>
+              <tbody id="tT"><tr><td colspan="6" class="small">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2353,6 +2352,28 @@ function fmtNum(v){
   return s;
 }
 
+
+function heatStyle(v){
+  const x = Number(v);
+  if(!isFinite(x)) return "";
+  const a = Math.abs(x);
+  if(a < 0.01) return "";
+  const alpha = Math.min(0.65, a * 0.65); // |1.00| => 0.65
+  return `style="background: rgba(220, 53, 69, ${alpha});"`;
+}
+
+function chgStyle(cur, prev){
+  const c = Number(cur);
+  const p = Number(prev);
+  if(!isFinite(c) || !isFinite(p) || p === 0) return "";
+  const d = c - p;
+  if(Math.abs(d) < 1e-9) return "";
+  const pct = Math.abs(d) / Math.abs(p);
+  const alpha = Math.min(0.55, pct * 4.0);
+  const bg = d < 0 ? `rgba(220, 53, 69, ${alpha})` : `rgba(25, 135, 84, ${alpha})`;
+  return `style="background: ${bg};"`;
+}
+
 function pill(half){
   currentHalf = half;
   $("pill-ft").classList.toggle("active", half==="ft");
@@ -2369,52 +2390,62 @@ function render1x2(rows){
     tb.innerHTML = `<tr><td colspan="4" class="small">No data</td></tr>`;
     return;
   }
-  tb.innerHTML = rows.map(r=>{
+  tb.innerHTML = rows.map((r,i)=>{
+    const prev = i>0 ? rows[i-1] : null;
+    const s1 = prev ? chgStyle(r["1"], prev["1"]) : "";
+    const sx = prev ? chgStyle(r["X"], prev["X"]) : "";
+    const s2 = prev ? chgStyle(r["2"], prev["2"]) : "";
     return `<tr>
       <td class="mono">${String(r.Time||"")}</td>
-      <td class="mono">${fmtNum(r["1"])}</td>
-      <td class="mono">${fmtNum(r["X"])}</td>
-      <td class="mono">${fmtNum(r["2"])}</td>
+      <td class="mono" ${s1}>${fmtNum(r["1"])}</td>
+      <td class="mono" ${sx}>${fmtNum(r["X"])}</td>
+      <td class="mono" ${s2}>${fmtNum(r["2"])}</td>
     </tr>`;
   }).join("");
 }
 
 function renderHandicap(rows){
-  const tb=$("t2");
+  const tb=$("tH");
   if(!rows || !rows.length){
     tb.innerHTML = `<tr><td colspan="6" class="small">No data</td></tr>`;
     return;
   }
-  tb.innerHTML = rows.map(r=>{
-    const a1 = (r.Alg1===null||r.Alg1===undefined) ? "" : fmtNum(r.Alg1);
-    const a2 = (r.Alg2===null||r.Alg2===undefined) ? "" : fmtNum(r.Alg2);
+  tb.innerHTML = rows.map((r,i)=>{
+    const prev = i>0 ? rows[i-1] : null;
+    const sHome = prev ? chgStyle(r.Home, prev.Home) : "";
+    const sAway = prev ? chgStyle(r.Away, prev.Away) : "";
+    const sA1 = heatStyle(r.Alg1);
+    const sA2 = heatStyle(r.Alg2);
     return `<tr>
       <td class="mono">${String(r.Time||"")}</td>
-      <td class="mono">${fmtNum(r.Home)}</td>
-      <td class="mono">${fmtNum(r.Handicap)}</td>
-      <td class="mono">${fmtNum(r.Away)}</td>
-      <td class="mono">${a1}</td>
-      <td class="mono">${a2}</td>
+      <td class="mono" ${sHome}>${fmtNum(r.Home)}</td>
+      <td class="mono">${fmtNum(r.Hcp)}</td>
+      <td class="mono" ${sAway}>${fmtNum(r.Away)}</td>
+      <td class="mono" ${sA1}>${fmtNum(r.Alg1)}</td>
+      <td class="mono" ${sA2}>${fmtNum(r.Alg2)}</td>
     </tr>`;
   }).join("");
 }
 
 function renderTotal(rows){
-  const tb=$("t3");
+  const tb=$("tT");
   if(!rows || !rows.length){
     tb.innerHTML = `<tr><td colspan="6" class="small">No data</td></tr>`;
     return;
   }
-  tb.innerHTML = rows.map(r=>{
-    const a1 = (r.Alg1===null||r.Alg1===undefined) ? "" : fmtNum(r.Alg1);
-    const a2 = (r.Alg2===null||r.Alg2===undefined) ? "" : fmtNum(r.Alg2);
+  tb.innerHTML = rows.map((r,i)=>{
+    const prev = i>0 ? rows[i-1] : null;
+    const sOver = prev ? chgStyle(r.Over, prev.Over) : "";
+    const sUnder = prev ? chgStyle(r.Under, prev.Under) : "";
+    const sA1 = heatStyle(r.Alg1);
+    const sA2 = heatStyle(r.Alg2);
     return `<tr>
       <td class="mono">${String(r.Time||"")}</td>
-      <td class="mono">${fmtNum(r.Over)}</td>
+      <td class="mono" ${sOver}>${fmtNum(r.Over)}</td>
       <td class="mono">${fmtNum(r.Total)}</td>
-      <td class="mono">${fmtNum(r.Under)}</td>
-      <td class="mono">${a1}</td>
-      <td class="mono">${a2}</td>
+      <td class="mono" ${sUnder}>${fmtNum(r.Under)}</td>
+      <td class="mono" ${sA1}>${fmtNum(r.Alg1)}</td>
+      <td class="mono" ${sA2}>${fmtNum(r.Alg2)}</td>
     </tr>`;
   }).join("");
 }
@@ -2422,7 +2453,7 @@ function renderTotal(rows){
 async function load(){
   const hours = $("hours").value || "12";
   const limit = $("limit").value || "8000";
-  const url = `/api/fonbet/event/{{ event.event_id }}/tables?hours=${encodeURIComponent(hours)}&limit=${encodeURIComponent(limit)}&half=${encodeURIComponent(currentHalf)}`;
+    const url = `/api/fonbet/event/{{ event.event_id }}/tables?hours=${encodeURIComponent(hours)}&limit=${encodeURIComponent(limit)}&half=${encodeURIComponent(currentHalf)}`;
   $("m1").textContent="loading…"; $("m2").textContent=""; $("m3").textContent="";
   try{
     const t0=performance.now();
@@ -2433,7 +2464,7 @@ async function load(){
     if(js.error){
       $("meta").textContent = "ERROR: " + js.error;
     } else if(js.meta){
-      $("meta").textContent = `event_id: {{ event.event_id }} • half=${js.meta.half} • snapshots=${js.meta.snapshots} • raw_rows=${js.meta.raw_rows} • ${ms}ms`;
+    $("meta").textContent = `event_id: {{ event.event_id }} • half=${currentHalf} • snapshots=${js.meta?.snapshots ?? 0} • raw_rows=${js.meta?.raw_rows ?? 0} • ${ms}ms`;
     }
 
     $("m1").textContent = js.meta ? (`snapshots: ${js.meta.snapshots}`) : "";
@@ -2691,7 +2722,7 @@ def _fonbet_classify_market(label: str) -> str:
 
     return "other"
 
-def _fonbet_extract_factor_map(obj) -> Dict[int, dict]:
+def _fonbet_extract_factor_map(obj, *, only_event_id: Optional[int] = None, base_event_id: Optional[int] = None, half: str = "ft") -> Dict[int, dict]:
     """
     Build factorId -> {label, market, param} map from various Fonbet JSON payloads.
 
@@ -2705,7 +2736,52 @@ def _fonbet_extract_factor_map(obj) -> Dict[int, dict]:
     # --- eventView fast-path ---
     try:
         if isinstance(obj, dict) and isinstance(obj.get("events"), list):
-            for ev in obj.get("events") or []:
+            events = obj.get("events") or []
+            sel_events: List[dict] = []
+
+            # Prefer a specific event node (prevents factorId/param overwrites between FT and 1H)
+            if only_event_id:
+                try:
+                    oe = int(only_event_id)
+                except Exception:
+                    oe = 0
+                if oe:
+                    for e in events:
+                        if isinstance(e, dict) and safe_int(e.get("id"), 0) == oe:
+                            sel_events.append(e)
+
+            if not sel_events and str(half or "ft").lower() == "1h":
+                # Pick the 1H child by kind/name (+ optional parentId linkage to base_event_id)
+                be = int(base_event_id) if base_event_id else 0
+                for e in events:
+                    if not isinstance(e, dict):
+                        continue
+                    is_1h = (safe_int(e.get("kind"), 0) == 100201) or _fonbet_ev_name_is_1h(str(e.get("name") or ""))
+                    if not is_1h:
+                        continue
+                    if be and safe_int(e.get("parentId"), 0) not in (0, be) and safe_int(e.get("id"), 0) != be:
+                        continue
+                    sel_events.append(e)
+
+            if not sel_events and str(half or "ft").lower() == "ft":
+                # Prefer base event, otherwise exclude 1H-like nodes
+                be = int(base_event_id) if base_event_id else 0
+                if be:
+                    for e in events:
+                        if isinstance(e, dict) and safe_int(e.get("id"), 0) == be:
+                            sel_events.append(e)
+                if not sel_events:
+                    for e in events:
+                        if not isinstance(e, dict):
+                            continue
+                        if (safe_int(e.get("kind"), 0) == 100201) or _fonbet_ev_name_is_1h(str(e.get("name") or "")):
+                            continue
+                        sel_events.append(e)
+
+            if not sel_events:
+                sel_events = [e for e in events if isinstance(e, dict)]
+
+            for ev in sel_events:
                 for sc in (ev.get("subcategories") or []):
                     sc_name = str(sc.get("name") or "").strip()
                     sc_l = sc_name.lower()
@@ -2832,7 +2908,7 @@ def _fonbet_fetch_listbase(lang: str, sys_id: int) -> Any:
     return None
 
 
-def _fonbet_extract_factor_values(obj: Any) -> Dict[int, float]:
+def _fonbet_extract_factor_values(obj: Any, *, only_event_id: Optional[int] = None, base_event_id: Optional[int] = None, half: str = "ft") -> Dict[int, float]:
     """
     Try to extract current coefficient values from eventView JSON.
     Returns factorId -> odd (float).
@@ -2861,6 +2937,75 @@ def _fonbet_extract_factor_values(obj: Any) -> Dict[int, float]:
                 if 1.01 <= y < 1000:
                     return y
         return None
+    # --- eventView fast-path ---
+    # Avoid mixing multiple internal events (FT vs 1H) that may reuse the same factorId with different params.
+    # Also do NOT treat `p` as an odd here (in eventView `p` is the line param).
+    try:
+        if isinstance(obj, dict) and isinstance(obj.get("events"), list):
+            events = obj.get("events") or []
+            sel_events: List[dict] = []
+
+            if only_event_id:
+                try:
+                    oe = int(only_event_id)
+                except Exception:
+                    oe = 0
+                if oe:
+                    for e in events:
+                        if isinstance(e, dict) and safe_int(e.get("id"), 0) == oe:
+                            sel_events.append(e)
+
+            if not sel_events and str(half or "ft").lower() == "1h":
+                be = int(base_event_id) if base_event_id else 0
+                for e in events:
+                    if not isinstance(e, dict):
+                        continue
+                    is_1h = (safe_int(e.get("kind"), 0) == 100201) or _fonbet_ev_name_is_1h(str(e.get("name") or ""))
+                    if not is_1h:
+                        continue
+                    if be and safe_int(e.get("parentId"), 0) not in (0, be) and safe_int(e.get("id"), 0) != be:
+                        continue
+                    sel_events.append(e)
+
+            if not sel_events and str(half or "ft").lower() == "ft":
+                be = int(base_event_id) if base_event_id else 0
+                if be:
+                    for e in events:
+                        if isinstance(e, dict) and safe_int(e.get("id"), 0) == be:
+                            sel_events.append(e)
+                if not sel_events:
+                    for e in events:
+                        if not isinstance(e, dict):
+                            continue
+                        if (safe_int(e.get("kind"), 0) == 100201) or _fonbet_ev_name_is_1h(str(e.get("name") or "")):
+                            continue
+                        sel_events.append(e)
+
+            if not sel_events:
+                sel_events = [e for e in events if isinstance(e, dict)]
+
+            for ev in sel_events:
+                for sc in (ev.get("subcategories") or []):
+                    for q in (sc.get("quotes") or []):
+                        if not isinstance(q, dict):
+                            continue
+                        fid = q.get("factorId")
+                        if fid is None:
+                            continue
+                        try:
+                            fid_i = int(fid)
+                        except Exception:
+                            continue
+                        for k in ("v", "value", "odd", "odds", "coef", "c", "k", "price"):
+                            ov = norm_odd(q.get(k))
+                            if ov is not None:
+                                out[fid_i] = ov
+                                break
+            if out:
+                return out
+    except Exception:
+        pass
+
 
     def walk(x: Any):
         if isinstance(x, dict):
@@ -3416,7 +3561,7 @@ def _choose_mainline(line_counts: Dict[float, int]) -> Optional[float]:
         return cand[0]
     return _median_nearest(cand)
 
-def _fonbet_tables_from_rows(rows: List[dict], fmap: Dict[int, Dict[str, Any]], half: str, team1: str = "", team2: str = "") -> Dict[str, Any]:
+def _fonbet_tables_from_rows(rows: List[dict], fmap: Dict[int, Dict[str, Any]], half: str, team1: str = "", team2: str = "", market_map: Optional[dict] = None) -> Dict[str, Any]:
     """
     Build Inforadar-like history tables from raw fonbet_odds_history rows.
 
@@ -3432,6 +3577,9 @@ def _fonbet_tables_from_rows(rows: List[dict], fmap: Dict[int, Dict[str, Any]], 
 
     t1n = _norm_team_name(team1)
     t2n = _norm_team_name(team2)
+
+    market_map = market_map or {}
+
 
 
     # Precompute stable mappings from factorId -> outcome/side using catalog (fmap),
@@ -3750,7 +3898,7 @@ def _fonbet_tables_from_rows(rows: List[dict], fmap: Dict[int, Dict[str, Any]], 
                 snap_hcp_by_line.setdefault(line, []).append({
                     "Time": ts,
                     "Home": d.get("home"),
-                    "Handicap": hcp_home_line.get(line, line),
+                    "Handicap": line,
                     "Away": d.get("away"),
                 })
 
@@ -3797,8 +3945,28 @@ def _fonbet_tables_from_rows(rows: List[dict], fmap: Dict[int, Dict[str, Any]], 
 
             return best
 
-    main_h = best_line(snap_hcp_by_line, "Home", "Away")
-    main_t = best_line(snap_tot_by_line, "Over", "Under")
+    # Prefer mainlines from eventView mapping (Inforadar-like).
+    mm_main_h = market_map.get("main_hcp")
+    mm_main_t = market_map.get("main_total")
+
+    main_h: Optional[float] = None
+    main_t: Optional[float] = None
+    if mm_main_h is not None:
+        try:
+            main_h = float(mm_main_h)
+        except Exception:
+            main_h = None
+    if mm_main_t is not None:
+        try:
+            main_t = float(mm_main_t)
+        except Exception:
+            main_t = None
+
+    # Fallback to history-based heuristic if mapping is missing
+    if main_h is None:
+        main_h = best_line(snap_hcp_by_line, "Home", "Away")
+    if main_t is None:
+        main_t = best_line(snap_tot_by_line, "Over", "Under")
 
     # convert abs-line key -> signed line for HOME side (Fonbet often stores +X for away and -X for home as separate params)
     main_h_display: Optional[float] = None
@@ -3921,11 +4089,8 @@ def _fonbet_tables_from_rows_strict_inforadar(
         except Exception:
             continue
 
-    hcp_rows: List[Dict[str, Any]] = (market_map.get("handicap_rows") or market_map.get("asian_hcp_rows") or [])
-    forced_main_total = str(market_map.get("main_total") or "").strip() or None
-    forced_main_hcp = str(market_map.get("main_hcp") or "").strip() or None
-
-    for r in hcp_rows:
+    asian_rows: List[Dict[str, Any]] = market_map.get("asian_hcp_rows") or []
+    for r in asian_rows:
         try:
             hcp = str(r.get("hcp"))
             fid_map[int(r["home_factorId"])] = ("handicap", hcp, "Home")
@@ -3954,7 +4119,7 @@ def _fonbet_tables_from_rows_strict_inforadar(
         return odds_by_fid.get(fo), odds_by_fid.get(fu)
 
     def _cur_hcp(hcp: str) -> Tuple[Optional[float], Optional[float]]:
-        for rr in hcp_rows:
+        for rr in asian_rows:
             if str(rr.get("hcp")) == str(hcp):
                 fo, fu = int(rr["home_factorId"]), int(rr["away_factorId"])
                 return odds_by_fid.get(fo), odds_by_fid.get(fu)
@@ -3963,6 +4128,28 @@ def _fonbet_tables_from_rows_strict_inforadar(
     # Outputs
     outcomes_tbl: List[Dict[str, Any]] = []
     total_tbl: List[Dict[str, Any]] = []
+
+    def _append_if_changed(tbl, row, keys):
+        """Append `row` only when any of `keys` changed vs previous row (rounded)."""
+        if not tbl:
+            tbl.append(row)
+            return
+        prev = tbl[-1]
+        for k in keys:
+            a = prev.get(k)
+            b = row.get(k)
+            if a is None and b is None:
+                continue
+            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+                # odds/lines can have tiny float noise; round before compare
+                if round(float(a), 4) != round(float(b), 4):
+                    tbl.append(row)
+                    return
+            else:
+                if a != b:
+                    tbl.append(row)
+                    return
+        # unchanged -> skip (keeps the time of the last actual change)
     hcp_tbl: List[Dict[str, Any]] = []
 
     base_total_line: Optional[str] = None
@@ -3994,25 +4181,24 @@ def _fonbet_tables_from_rows_strict_inforadar(
 
         # Outcomes snapshot (always show row once we have at least one value)
         if any(v is not None for v in cur_out.values()):
-            outcomes_tbl.append({
+            _append_if_changed(outcomes_tbl, {
                 "Time": ts,
                 "1": cur_out.get("1"),
                 "X": cur_out.get("X"),
                 "2": cur_out.get("2"),
-            })
+            }, ["1","X","2"])
 
-        # Mainline: prefer explicit lines from eventView (block "Основные"), fallback to heuristics
-        cur_main_total = forced_main_total
-        cur_main_hcp = forced_main_hcp
-
-        if not cur_main_total and _HAS_FONBET_INFORADAR_MARKETS and choose_mainline_total and total_pairs:
+        # Choose mainlines *for this snapshot* (allows switching 2.5 -> 3.0 etc.)
+        cur_main_total = None
+        cur_main_hcp = None
+        if _HAS_FONBET_INFORADAR_MARKETS and choose_mainline_total and total_pairs:
             try:
                 cur_main_total = choose_mainline_total(total_pairs, odds_by_fid)
             except Exception:
                 cur_main_total = None
-        if not cur_main_hcp and _HAS_FONBET_INFORADAR_MARKETS and choose_mainline_asian_hcp and hcp_rows:
+        if _HAS_FONBET_INFORADAR_MARKETS and choose_mainline_asian_hcp and asian_rows:
             try:
-                cur_main_hcp = choose_mainline_asian_hcp(hcp_rows, odds_by_fid)
+                cur_main_hcp = choose_mainline_asian_hcp(asian_rows, odds_by_fid)
             except Exception:
                 cur_main_hcp = None
 
@@ -4023,14 +4209,14 @@ def _fonbet_tables_from_rows_strict_inforadar(
                 if base_total_line != str(cur_main_total):
                     base_total_line = str(cur_main_total)
                     base_over, base_under = over, under
-                total_tbl.append({
+                _append_if_changed(total_tbl, {
                     "Time": ts,
                     "Over": over,
                     "Total": fnum(cur_main_total),
                     "Under": under,
                     "Alg1": (over - base_over) if (base_over is not None) else None,
                     "Alg2": (under - base_under) if (base_under is not None) else None,
-                })
+                }, ["Total","Over","Under"])
 
         # Handicap row
         if cur_main_hcp:
@@ -4040,7 +4226,7 @@ def _fonbet_tables_from_rows_strict_inforadar(
                 if base_hcp_line != str(cur_main_hcp):
                     base_hcp_line = str(cur_main_hcp)
                     base_home, base_away = home, away
-                hcp_tbl.append({
+                _append_if_changed(hcp_tbl, {
                     "Time": ts,
                     "Home": home,
                     "Handicap": hcp_val,
@@ -4048,7 +4234,7 @@ def _fonbet_tables_from_rows_strict_inforadar(
                     "Away": away,
                     "Alg1": (home - base_home) if (base_home is not None) else None,
                     "Alg2": (away - base_away) if (base_away is not None) else None,
-                })
+                }, ["Handicap","Home","Away"])
 
         i = j
 
@@ -4087,6 +4273,167 @@ def api_fonbet_event_view(event_id: int):
     except Exception as e:
         return jsonify({"error": str(e), "event_id": event_id}), 502
 
+# -----------------------------------------------------------------------------
+# Fonbet: resolve 1st-half (HT) sub-event id (Fonbet часто хранит 1H в отдельном event_id)
+# Strategy:
+#   1) try base eventView -> find child where parentId==base and kind/name indicates 1st half
+#   2) fallback to DB siblings by (sport_id, category_id, start_ts) and verify via eventView for candidates
+# Cache: short TTL to avoid повторных запросов на eventView.
+_FONBET_HALF_EVENT_CACHE: Dict[tuple, tuple] = {}  # (base_event_id, half) -> (effective_event_id, ts_unix)
+
+def _fonbet_norm_half(half_raw: Any) -> str:
+    h = str(half_raw or "ft").strip().lower()
+    if h in ("undefined", "null", "none", ""):
+        return "ft"
+    # common aliases from UI / users
+    if h in ("ht", "1ht", "1h", "1half", "1sthalf", "firsthalf", "1-half", "1_half"):
+        return "1h"
+    if h in ("ft", "full", "match", "0"):
+        return "ft"
+    # tolerant parsing
+    if ("1" in h) and (("h" in h) or ("ht" in h) or ("half" in h)):
+        return "1h"
+    return "ft"
+
+def _fonbet_ev_name_is_1h(name: str) -> bool:
+    n = (name or "").strip().lower()
+    if not n:
+        return False
+    # ru/en patterns
+    if ("1" in n or "перв" in n or "1st" in n) and ("тайм" in n or "half" in n or "полов" in n):
+        return True
+    return False
+
+def _fonbet_ev_find_1h_child(ev: Any, base_event_id: int) -> Optional[int]:
+    if not isinstance(ev, dict):
+        return None
+    events = ev.get("events")
+    if not isinstance(events, list):
+        return None
+    # kind 100201 is commonly used by Fonbet for 1st half (based on historical dumps)
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        if safe_int(e.get("parentId"), 0) == int(base_event_id) and safe_int(e.get("kind"), 0) == 100201:
+            cid = safe_int(e.get("id"), 0)
+            if cid:
+                return cid
+    # fallback by name
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        if safe_int(e.get("parentId"), 0) != int(base_event_id):
+            continue
+        if _fonbet_ev_name_is_1h(str(e.get("name") or "")):
+            cid = safe_int(e.get("id"), 0)
+            if cid:
+                return cid
+    return None
+
+def _fonbet_ev_is_1h_event(ev: Any, cand_event_id: int, base_event_id: int) -> bool:
+    if not isinstance(ev, dict):
+        return False
+    events = ev.get("events")
+    if not isinstance(events, list):
+        return False
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        eid = safe_int(e.get("id"), 0)
+        if eid != int(cand_event_id):
+            continue
+        # If this event is explicitly marked as 1H or named like it, accept
+        if safe_int(e.get("kind"), 0) == 100201:
+            return True
+        if safe_int(e.get("parentId"), 0) == int(base_event_id) and _fonbet_ev_name_is_1h(str(e.get("name") or "")):
+            return True
+        if _fonbet_ev_name_is_1h(str(e.get("name") or "")):
+            return True
+    # Sometimes event itself has name in root fields
+    if _fonbet_ev_name_is_1h(str(ev.get("name") or "")):
+        return True
+    return False
+
+def _fonbet_resolve_1h_event_id(base_event_id: int, *, lang: str, sys_id: int) -> int:
+    key = (int(base_event_id), "1h")
+    now = time.time()
+    cached = _FONBET_HALF_EVENT_CACHE.get(key)
+    if cached and (now - float(cached[1])) < 120.0:
+        return int(cached[0])
+
+    # 1) best: fetch base eventView and look for a child 1H
+    try:
+        ev_base = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=int(base_event_id))
+        cid = _fonbet_ev_find_1h_child(ev_base, int(base_event_id))
+        if cid:
+            _FONBET_HALF_EVENT_CACHE[key] = (int(cid), now)
+            return int(cid)
+    except Exception:
+        pass
+
+    # 2) fallback: DB siblings (sport_id, category_id, start_ts)
+    candidates: List[Dict[str, Any]] = []
+    try:
+        with db_connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT sport_id, category_id, start_ts FROM fonbet_events WHERE event_id=%s LIMIT 1", (int(base_event_id),))
+                base = cur.fetchone() or {}
+                sport_id = safe_int(base.get("sport_id"), 0)
+                category_id = safe_int(base.get("category_id"), 0)
+                start_ts = safe_int(base.get("start_ts"), 0)
+                if not category_id or not start_ts:
+                    _FONBET_HALF_EVENT_CACHE[key] = (int(base_event_id), now)
+                    return int(base_event_id)
+
+                cur.execute(
+                    "SELECT event_id, team1, team2 FROM fonbet_events "
+                    "WHERE sport_id=%s AND category_id=%s AND start_ts=%s AND event_id<>%s "
+                    "LIMIT 25",
+                    (sport_id, category_id, start_ts, int(base_event_id)),
+                )
+                sibs = cur.fetchall() or []
+                for s in sibs:
+                    eid = safe_int(s.get("event_id"), 0)
+                    if not eid:
+                        continue
+                    # history count
+                    cur.execute("SELECT COUNT(*) AS c FROM fonbet_odds_history WHERE event_id=%s", (eid,))
+                    c = safe_int((cur.fetchone() or {}).get("c"), 0)
+                    t1 = str(s.get("team1") or "").strip()
+                    t2 = str(s.get("team2") or "").strip()
+                    null_team = (not t1) or (not t2)
+                    # score: prioritize NULL teams (sub-event), then history density, then closeness by id
+                    score = (1000000 if null_team else 0) + (c * 10) - int(abs(eid - int(base_event_id)) / 1000)
+                    candidates.append({"event_id": eid, "score": score, "hist": c, "null_team": null_team})
+    except Exception:
+        candidates = []
+
+    candidates.sort(key=lambda x: x.get("score", 0), reverse=True)
+    top_ids = [int(c["event_id"]) for c in (candidates[:5] if candidates else []) if safe_int(c.get("event_id"), 0) > 0]
+
+    # 3) verify candidates via their own eventView (точнее, но тяжелее)
+    for eid in top_ids:
+        try:
+            ev_c = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=int(eid))
+            if _fonbet_ev_is_1h_event(ev_c, int(eid), int(base_event_id)):
+                _FONBET_HALF_EVENT_CACHE[key] = (int(eid), now)
+                return int(eid)
+        except Exception:
+            continue
+
+    # 4) fallback: best DB candidate
+    if top_ids:
+        _FONBET_HALF_EVENT_CACHE[key] = (int(top_ids[0]), now)
+        return int(top_ids[0])
+
+    _FONBET_HALF_EVENT_CACHE[key] = (int(base_event_id), now)
+    return int(base_event_id)
+
+@app.route("/api/fonbet/event/<int:event_id>/eventViewTables")
+def api_fonbet_event_view_tables(event_id: int):
+    # alias for compatibility with older debug calls
+    return api_fonbet_event_tables(event_id)
+
 
 @app.route("/api/fonbet/event/<int:event_id>/tables")
 def api_fonbet_event_tables(event_id: int):
@@ -4099,12 +4446,16 @@ def api_fonbet_event_tables(event_id: int):
     """
     hours = safe_int(request.args.get("hours", 6), 6)
     limit = safe_int(request.args.get("limit", 8000), 8000)
-    half = (request.args.get("half") or "ft").lower()
-    if half in ("undefined", "null", "none", ""):
-        half = "ft"
+    half = _fonbet_norm_half(request.args.get("half"))
     # Defaults for Fonbet eventView fetch (used for enrichment)
     lang = _env("FONBET_LANG", default="ru") or "ru"
     sys_id = int(_env("FONBET_SYS_ID", default="21") or "21")
+
+    base_event_id = int(event_id)
+    effective_event_id = base_event_id
+    if half == "1h":
+        # Fonbet часто использует отдельный event_id для рынков 1-го тайма
+        effective_event_id = _fonbet_resolve_1h_event_id(base_event_id, lang=lang, sys_id=sys_id)
 
 
     try:
@@ -4126,7 +4477,7 @@ def api_fonbet_event_tables(event_id: int):
                     ORDER BY {ts_col} ASC
                     LIMIT %s
                     """,
-                    [event_id] + list(params) + [int(limit)],
+                    [effective_event_id] + list(params) + [int(limit)],
                 )
                 rows = cur.fetchall() or []
 
@@ -4138,10 +4489,38 @@ def api_fonbet_event_tables(event_id: int):
                 allowed = set(mm.get("allowed_factor_ids") or [])
                 if allowed:
                     rows_strict = [r for r in (rows or []) if safe_int(r.get("factor_id") or 0, 0) in allowed]
+                    
+                    # Current snapshot from eventView (factorId -> odd)
+                    vals = _fonbet_extract_factor_values(ev_strict) or {}
+                    now_ts = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Seed missing factorIds so 1X2/handicap don't stay empty when only totals changed in history
                     if not rows_strict:
-                        vals = _fonbet_extract_factor_values(ev_strict) or {}
-                        now_ts = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                        rows_strict = [{"ts": now_ts, "factor_id": fid, "odd": odd} for fid, odd in vals.items() if int(fid) in allowed]
+                        seed_ts = now_ts
+                    else:
+                        seed_ts = rows_strict[0].get("ts") or now_ts
+                        try:
+                            seed_ts = _dt_to_str(seed_ts) or now_ts
+                        except Exception:
+                            seed_ts = str(seed_ts) if seed_ts else now_ts
+                    
+                    present = {safe_int(r.get("factor_id") or 0, 0) for r in (rows_strict or [])}
+                    missing = []
+                    for fid in allowed:
+                        fid_i = safe_int(fid, 0)
+                        if not fid_i or fid_i in present:
+                            continue
+                        odd = vals.get(fid_i)
+                        if odd is None:
+                            continue
+                        missing.append({"ts": seed_ts, "factor_id": fid_i, "odd": odd})
+                    
+                    if missing:
+                        rows_strict = list(rows_strict or []) + missing
+                    elif not rows_strict:
+                        # Nothing in history and nothing seeded -> keep empty
+                        rows_strict = []
+                    
                     data_strict = _fonbet_tables_from_rows_strict_inforadar(rows_strict, mm)
                     return jsonify(data_strict)
             except Exception:
@@ -4187,9 +4566,9 @@ def api_fonbet_event_tables(event_id: int):
 
         ev = None
         if needs_ev:
-            ev = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=event_id)
+            ev = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=effective_event_id)
             if isinstance(ev, (dict, list)):
-                ev_map = _fonbet_extract_factor_map(ev) or {}
+                ev_map = _fonbet_extract_factor_map(ev, only_event_id=effective_event_id, base_event_id=base_event_id, half=half) or {}
                 if ev_map:
                     fmap = {**fmap, **ev_map}
 
@@ -4199,7 +4578,7 @@ def api_fonbet_event_tables(event_id: int):
         team2 = ""
         try:
             with mysql_cursor(dict=True) as cur:
-                cur.execute("SELECT * FROM fonbet_events WHERE event_id=%s LIMIT 1", (event_id,))
+                cur.execute("SELECT * FROM fonbet_events WHERE event_id=%s LIMIT 1", (base_event_id,))
                 erow = cur.fetchone() or {}
                 team1 = (erow.get("team1") or erow.get("home") or erow.get("h") or "").strip()
                 team2 = (erow.get("team2") or erow.get("away") or erow.get("a") or "").strip()
@@ -4207,7 +4586,11 @@ def api_fonbet_event_tables(event_id: int):
             team1 = ""
             team2 = ""
 
-        data = _fonbet_tables_from_rows(rows, fmap, half=half, team1=team1, team2=team2)
+        half_rows = half
+        if half == "1h" and effective_event_id != base_event_id:
+            # если 1H хранится отдельным event_id, рынки могут быть без суффикса _1h -> не фильтруем их
+            half_rows = "ft"
+        data = _fonbet_tables_from_rows(rows, fmap, half=half_rows, team1=team1, team2=team2)
 
 
         # If some markets are missing/incomplete in history, try to enrich with *current* odds from eventView (single snapshot).
@@ -4245,11 +4628,11 @@ def api_fonbet_event_tables(event_id: int):
         if need_out or need_hcp or need_tot:
             try:
                 if ev is None:
-                    ev = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=event_id)
+                    ev = _fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=effective_event_id)
 
                 # Merge per-event factor map (labels/params/markets) and rebuild using history rows
                 if isinstance(ev, (dict, list)):
-                    ev_map = _fonbet_extract_factor_map(ev) or {}
+                    ev_map = _fonbet_extract_factor_map(ev, only_event_id=effective_event_id, base_event_id=base_event_id, half=half) or {}
                     if ev_map:
                         fmap = {**fmap, **ev_map}
                         data = _fonbet_tables_from_rows(rows, fmap, half=half, team1=team1, team2=team2)
@@ -4260,7 +4643,7 @@ def api_fonbet_event_tables(event_id: int):
                 need_tot = _need_total(data)
 
                 # Add a single "current" snapshot for missing parts
-                vals = _fonbet_extract_factor_values(ev) if isinstance(ev, (dict, list)) else {}
+                vals = _fonbet_extract_factor_values(ev, only_event_id=effective_event_id, base_event_id=base_event_id, half=half) if isinstance(ev, (dict, list)) else {}
                 if vals and (need_out or need_hcp or need_tot):
                     now_ts = dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                     extra_rows: List[dict] = []
@@ -4297,6 +4680,10 @@ def api_fonbet_event_tables(event_id: int):
                 pass
 
         data.setdefault("meta", {})
+        data["meta"]["base_event_id"] = base_event_id
+        data["meta"]["effective_event_id"] = effective_event_id
+        data["meta"]["half"] = half
+        data["meta"]["half_resolved"] = bool(effective_event_id != base_event_id)
         data["meta"]["factor_ids_total"] = len(factor_ids)
         data["meta"]["factor_ids_covered"] = sum(1 for fid in factor_ids if fid in (fmap or {}))
         data["meta"]["coverage"] = round((data["meta"]["factor_ids_covered"] / max(1, data["meta"]["factor_ids_total"])) * 100, 2)

@@ -1,188 +1,110 @@
-version: '3.8'
-
 name: inforadar_pro
 
 services:
-
   mysql_inforadar:
     image: mysql:8.0
     container_name: mysql_inforadar
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ryban8991!
-      MYSQL_DATABASE: inforadar
+      # берём пароль/имя БД из .env, чтобы не хардкодить
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DB}
+      # дополнительный пользователь (опционально)
       MYSQL_USER: radar
-      MYSQL_PASSWORD: ryban8991!
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ:-Europe/Paris}
     command: >
-      mysqld --default-authentication-plugin=caching_sha2_password
+      mysqld
+      --default-authentication-plugin=caching_sha2_password
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
+      --max_allowed_packet=256M
+      --wait_timeout=28800
+      --interactive_timeout=28800
+      --net_read_timeout=120
+      --net_write_timeout=120
+      --max_connections=500
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pryban8991!"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 30
     networks:
       - inforadar_net
 
-  # =========================================================
-  # 22BET ПАРСЕРЫ
-  # =========================================================
-  
-  parser_22bet_live:
+  inforadar_ui:
     build:
-      context: ./parsers/playwright_22bet
+      context: ./inforadar_ui
       dockerfile: Dockerfile
-    container_name: parser_22bet_live
-    command: python live_parser.py
-    environment:
-      MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-      UPDATE_INTERVAL: 3
-      BOOKMAKER: 22bet
+      args:
+        # чтобы сборка не пыталась ходить через случайные proxy из окружения Windows
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: inforadar_ui
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
     volumes:
-      - ./parsers/playwright_22bet:/app
+      - ./inforadar_ui:/app
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # внутри docker ходим на mysql по имени сервиса
+      MYSQL_HOST: mysql_inforadar
+      MYSQL_PORT: "3306"
+    command: >
+      sh -lc "pip install --no-cache-dir -q python-dotenv && python app_22bet.py"
     depends_on:
       mysql_inforadar:
         condition: service_healthy
     networks:
       - inforadar_net
-    restart: unless-stopped
 
-  parser_22bet_prematch:
+  fonbet_api:
     build:
-      context: ./parsers/playwright_22bet
+      context: ./services/fonbet_api
       dockerfile: Dockerfile
-    container_name: parser_22bet_prematch
-    command: python prematch_parser.py
+      args:
+        # чтобы сборка не пыталась ходить через случайные proxy из окружения Windows
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: fonbet_api
+    ports:
+      - "8010:8010"
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
+      # внутри docker ходим на mysql по имени сервиса
       MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-      UPDATE_INTERVAL: 60
-      BOOKMAKER: 22bet
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DB: ${MYSQL_DB:-inforadar}
+
+      # Fonbet defaults
+      FONBET_FOOTBALL_SPORT_ID: ${FONBET_FOOTBALL_SPORT_ID:-1}
+      FONBET_LANG: ${FONBET_LANG:-ru}
+      # sysId обычно 1 для cy line (если у тебя другое - меняй в .env)
+      FONBET_SYS_ID: ${FONBET_SYS_ID:-1}
+
+      # shared UI logic from app_22bet.py
+      FONBET_SHARED_APP_PATH: /opt/shared/app_22bet.py
     volumes:
-      - ./parsers/playwright_22bet:/app
+      - ./inforadar_ui/app_22bet.py:/opt/shared/app_22bet.py:ro
     depends_on:
       mysql_inforadar:
         condition: service_healthy
     networks:
       - inforadar_net
-    restart: unless-stopped
 
-  # =========================================================
-  # BETFAIR EXCHANGE ПАРСЕР (НОВЫЙ ADVANCED)
-  # =========================================================
-  
-  playwright_betwatch:
-    build:
-      context: ./parsers/playwright_betwatch
-      dockerfile: Dockerfile
-    container_name: playwright_betwatch
-    command: python betwatch_advanced.py
-    environment:
-      MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-      TELEGRAM_TOKEN: 8432470497:AAE35c89FTPLOtmMgUPpCaaD8htYd1gO9uI
-      TELEGRAM_CHAT_ID: "5377484616"
-    volumes:
-      - ./parsers/playwright_betwatch:/app
-    depends_on:
-      mysql_inforadar:
-        condition: service_healthy
-    networks:
-      - inforadar_net
-    restart: unless-stopped
-
-  # =========================================================
-  # СТАРЫЙ 22BET ПАРСЕР (для совместимости)
-  # =========================================================
-  
-  playwright_22bet:
-    container_name: playwright_22bet
-    build:
-      context: ./inforadar_parser
-      dockerfile: parser_22bet_playwright.Dockerfile
-    command: ["python3", "/app/parser_22bet_playwright.py"]
-    environment:
-      MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-    volumes:
-      - ./inforadar_parser:/app
-    depends_on:
-      mysql_inforadar:
-        condition: service_healthy
-    networks:
-      - inforadar_net
-    restart: unless-stopped
-
-  # =========================================================
-  # ДЕТЕКТОРЫ АНОМАЛИЙ
-  # =========================================================
-  
-  anomaly_detector:
-    build:
-      context: ./detectors
-      dockerfile: Dockerfile
-    container_name: anomaly_detector
-    command: python odds_analyzer.py
-    environment:
-      MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-      TELEGRAM_BOT_TOKEN: 8432470497:AAE35c89FTPLOtmMgUPpCaaD8htYd1gO9uI
-      CHECK_INTERVAL: 5
-    volumes:
-      - ./detectors:/app
-    depends_on:
-      mysql_inforadar:
-        condition: service_healthy
-      parser_22bet_live:
-        condition: service_started
-    networks:
-      - inforadar_net
-    restart: unless-stopped
-
-  arbitrage_detector:
-    build:
-      context: .
-      dockerfile: Dockerfile.arbitrage
-    container_name: arbitrage_detector
-    environment:
-      MYSQL_HOST: mysql_inforadar
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ryban8991!
-      MYSQL_DB: inforadar
-      TELEGRAM_TOKEN: 8432470497:AAE35c89FTPLOtmMgUPpCaaD8htYd1gO9uI
-    depends_on:
-      mysql_inforadar:
-        condition: service_healthy
-      playwright_betwatch:
-        condition: service_started
-      playwright_22bet:
-        condition: service_started
-    volumes:
-      - ./inforadar_parser:/app
-    networks:
-      - inforadar_net
-    restart: unless-stopped
-
-  # =========================================================
-  # МОНИТОРИНГ И ВИЗУАЛИЗАЦИЯ
-  # =========================================================
-  
   grafana_inforadar:
     image: grafana/grafana:latest
     container_name: grafana_inforadar
@@ -196,20 +118,8 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/:/etc/grafana/provisioning/
     depends_on:
-      - prometheus_inforadar
       - loki_inforadar
-    networks:
-      - inforadar_net
-
-  prometheus_inforadar:
-    image: prom/prometheus:latest
-    container_name: prometheus_inforadar
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
+      - prometheus_inforadar
     networks:
       - inforadar_net
 
@@ -226,84 +136,244 @@ services:
     networks:
       - inforadar_net
 
+  # ---- Monitoring stack (не требует локальных конфигов, всё внутри командой) ----
+
   promtail_inforadar:
     image: grafana/promtail:latest
     container_name: promtail_inforadar
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./promtail/config.yml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
     depends_on:
       - loki_inforadar
+    volumes:
+      # docker container logs inside Linux VM
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - promtail_positions:/tmp
+    command: >
+      sh -lc "cat > /tmp/promtail.yml <<'EOF'
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki_inforadar:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+          relabel_configs:
+            - source_labels: [__meta_docker_container_name]
+              target_label: container
+            - source_labels: [__meta_docker_container_image]
+              target_label: image
+            - source_labels: [__meta_docker_container_log_stream]
+              target_label: stream
+      EOF
+      /usr/bin/promtail -config.file=/tmp/promtail.yml"
     networks:
       - inforadar_net
 
-  node_exporter_inforadar:
+  prometheus_inforadar:
+    image: prom/prometheus:latest
+    container_name: prometheus_inforadar
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    depends_on:
+      - cadvisor
+      - node_exporter
+    volumes:
+      - prometheus_data:/prometheus
+    command: >
+      sh -lc "cat > /etc/prometheus/prometheus.yml <<'EOF'
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: prometheus
+          static_configs:
+            - targets: ['localhost:9090']
+        - job_name: cadvisor
+          static_configs:
+            - targets: ['cadvisor:8080']
+        - job_name: node_exporter
+          static_configs:
+            - targets: ['node_exporter:9100']
+      EOF
+      /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus"
+    networks:
+      - inforadar_net
+
+  alertmanager_inforadar:
+    image: prom/alertmanager:latest
+    container_name: alertmanager_inforadar
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - alertmanager_data:/alertmanager
+    command: >
+      sh -lc "cat > /etc/alertmanager/alertmanager.yml <<'EOF'
+      global:
+        resolve_timeout: 5m
+      route:
+        receiver: 'null'
+      receivers:
+        - name: 'null'
+      EOF
+      /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager"
+    networks:
+      - inforadar_net
+
+  node_exporter:
     image: prom/node-exporter:latest
-    container_name: node_exporter_inforadar
+    container_name: node_exporter
     restart: unless-stopped
     ports:
       - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
     networks:
       - inforadar_net
 
-  cadvisor_inforadar:
+  cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor_inforadar
+    container_name: cadvisor
     restart: unless-stopped
     ports:
-      - "8085:8080"
+      - "8080:8080"
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:ro
+      - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
     networks:
       - inforadar_net
 
-  # =========================================================
-  # WEB UI
-  # =========================================================
-  
-  inforadar_ui:
+  # ---- Extra services (если есть соответствующие папки/докерфайлы) ----
+
+  anomaly_detector:
+    profiles: ["extra"]
     build:
-      context: ./inforadar_ui
+      context: ./services/anomaly_detector
       dockerfile: Dockerfile
-    container_name: inforadar_ui
-    ports:
-      - "5000:5000"
-    restart: always
-    volumes:
-      - ./inforadar_ui:/app
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: anomaly_detector
+    restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       mysql_inforadar:
         condition: service_healthy
-      prometheus_inforadar:
-        condition: service_started
-      grafana_inforadar:
-        condition: service_started
-      loki_inforadar:
-        condition: service_started
     networks:
       - inforadar_net
 
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: alertmanager_inforadar
-    volumes:
-      - ./alertmanager/config.yml:/etc/alertmanager/config.yml
-    command:
-      - "--config.file=/etc/alertmanager/config.yml"
-    ports:
-      - "9093:9093"
+  arbitrage_detector:
+    profiles: ["extra"]
+    build:
+      context: ./services/arbitrage_detector
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: arbitrage_detector
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      mysql_inforadar:
+        condition: service_healthy
+    networks:
+      - inforadar_net
+
+  parser_22bet_prematch:
+    profiles: ["extra"]
+    build:
+      context: ./parsers/parser_22bet_prematch
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: parser_22bet_prematch
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      mysql_inforadar:
+        condition: service_healthy
+    networks:
+      - inforadar_net
+
+  parser_22bet_live:
+    profiles: ["extra"]
+    build:
+      context: ./parsers/parser_22bet_live
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: parser_22bet_live
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      mysql_inforadar:
+        condition: service_healthy
+    networks:
+      - inforadar_net
+
+  playwright_22bet:
+    profiles: ["extra"]
+    build:
+      context: ./parsers/playwright_22bet
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: playwright_22bet
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - inforadar_net
+
+  playwright_betwatch:
+    profiles: ["extra"]
+    build:
+      context: ./parsers/playwright_betwatch
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        NO_PROXY: ""
+    container_name: playwright_betwatch
+    restart: unless-stopped
+    env_file:
+      - .env
     networks:
       - inforadar_net
 
 volumes:
   mysql_data:
   grafana_data:
-  prometheus_data:
   loki_data:
+  prometheus_data:
+  alertmanager_data:
+  promtail_positions:
 
 networks:
   inforadar_net:

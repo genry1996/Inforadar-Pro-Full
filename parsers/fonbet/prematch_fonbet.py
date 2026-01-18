@@ -212,6 +212,37 @@ def norm_odd(val: Any, divisor: int) -> Optional[float]:
     return None
 
 
+def norm_param(val: Any) -> Optional[float]:
+    """Normalize numeric line/parameter (handicap/total) if present."""
+    if val is None:
+        return None
+    if isinstance(val, float):
+        return float(val)
+    if isinstance(val, int):
+        return float(val)
+    if isinstance(val, str):
+        s = val.strip().replace(",", ".")
+        # Allow strings like '+1.5' or '-2'
+        try:
+            return float(s)
+        except Exception:
+            return None
+    return None
+
+
+def norm_label(val: Any, max_len: int = 255) -> Optional[str]:
+    if val is None:
+        return None
+    try:
+        s = str(val).strip()
+    except Exception:
+        return None
+    if not s:
+        return None
+    if len(s) > max_len:
+        s = s[:max_len]
+    return s
+
 def extract_event_id(e: Dict[str, Any]) -> Optional[int]:
     for k in ("id", "eventId", "event_id", "e"):
         v = e.get(k)
@@ -232,11 +263,41 @@ def extract_teams(e: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     return (t1 if isinstance(t1, str) else None, t2 if isinstance(t2, str) else None)
 
 
-def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
+def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any, Any, Any]]:
+    """Extract factors from an event in listBase payload.
+
+    Returns tuples: (factor_id, raw_odd_value, raw_param_value, raw_label)
+      - raw_odd_value is usually f['v'] (or f['value'])
+      - raw_param_value is usually f['p'] for totals/handicaps (may be absent)
+      - raw_label is optional text label/name/title if present (may be absent)
+    """
     factors = e.get("factors")
-    out: List[Tuple[int, Any]] = []
+    out: List[Tuple[int, Any, Any, Any]] = []
     if not isinstance(factors, list):
         return out
+    for f in factors:
+        if not isinstance(f, dict):
+            continue
+        fid = f.get("f") or f.get("id") or f.get("factorId")
+        raw_odd = f.get("v")
+        if raw_odd is None:
+            raw_odd = f.get("value") or f.get("odd")
+        raw_param = f.get("p")
+        if raw_param is None:
+            raw_param = f.get("param") or f.get("line")
+        raw_label = (
+            f.get("t")
+            or f.get("title")
+            or f.get("name")
+            or f.get("caption")
+            or f.get("label")
+        )
+
+        if isinstance(fid, str) and fid.isdigit():
+            fid = int(fid)
+        if isinstance(fid, int):
+            out.append((fid, raw_odd, raw_param, raw_label))
+    return out
     for f in factors:
         if not isinstance(f, dict):
             continue
@@ -249,13 +310,13 @@ def extract_factors_from_event(e: Dict[str, Any]) -> List[Tuple[int, Any]]:
     return out
 
 
-def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, int, Any]]:
+def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, int, Any, Any, Any]]:
     """
     Частый формат у Fonbet:
-      { "e": <event_id>, "factors": [ {"f": <factor_id>, "v": <odd>}, ... ] }
-    Возвращает (event_id, factor_id, raw_value)
+      { "e": <event_id>, "factors": [ {"f": <factor_id>, "v": <odd>, "p": <param?>}, ... ] }
+    Возвращает (event_id, factor_id, raw_odd, raw_param, raw_label)
     """
-    out: List[Tuple[int, int, Any]] = []
+    out: List[Tuple[int, int, Any, Any, Any]] = []
 
     def consume_list(lst: Any) -> None:
         if not isinstance(lst, list) or not lst:
@@ -265,31 +326,40 @@ def extract_payload_factor_triplets(payload: Dict[str, Any]) -> List[Tuple[int, 
         sample = lst[0]
         if "factors" not in sample:
             return
-        if not ("e" in sample or "eventId" in sample or "event" in sample):
-            return
 
         for item in lst:
             if not isinstance(item, dict):
                 continue
-            eid = item.get("e") or item.get("eventId") or item.get("event")
+            eid = item.get("e") or item.get("eventId") or item.get("event_id")
             if isinstance(eid, str) and eid.isdigit():
                 eid = int(eid)
             if not isinstance(eid, int):
                 continue
-
             factors = item.get("factors")
             if not isinstance(factors, list):
                 continue
-
             for f in factors:
                 if not isinstance(f, dict):
                     continue
                 fid = f.get("f") or f.get("id") or f.get("factorId")
-                val = f.get("v") or f.get("value") or f.get("p")
+                raw_odd = f.get("v")
+                if raw_odd is None:
+                    raw_odd = f.get("value") or f.get("odd")
+                raw_param = f.get("p")
+                if raw_param is None:
+                    raw_param = f.get("param") or f.get("line")
+                raw_label = (
+                    f.get("t")
+                    or f.get("title")
+                    or f.get("name")
+                    or f.get("caption")
+                    or f.get("label")
+                )
+
                 if isinstance(fid, str) and fid.isdigit():
                     fid = int(fid)
                 if isinstance(fid, int):
-                    out.append((eid, fid, val))
+                    out.append((eid, fid, raw_odd, raw_param, raw_label))
 
     for key in ("customFactors", "eventFactors", "eventFactorList", "factors", "eventFactor"):
         if key in payload:
@@ -383,20 +453,153 @@ def find_root_ids_by_name(nodes: Dict[int, Tuple[Optional[int], str]], needle: s
 # ----------------------------
 # MySQL
 # ----------------------------
+
+# ----------------------------
+# Factor catalog helpers (factor_id -> name/raw_json)
+# ----------------------------
+def _as_int(x: Any) -> Optional[int]:
+    try:
+        if isinstance(x, bool):
+            return None
+        if isinstance(x, int):
+            return x
+        if isinstance(x, float):
+            return int(x)
+        if isinstance(x, str) and x.strip().isdigit():
+            return int(x.strip())
+    except Exception:
+        return None
+    return None
+
+
+def extract_factor_catalog_entries(payload: Any, max_nodes: int = 300_000) -> Dict[int, Tuple[str, str]]:
+    """
+    Пытаемся достать справочник факторов (factor_id -> name, raw_json) из listBase/list.
+    Fonbet иногда кладёт его в массивы вида:
+      - customFactors / factors / factorCatalog / ... (или любые ключи содержащие 'factor')
+    или в словари, где у объектов есть factorId/f/id + name/title/caption/text.
+
+    Возвращаем dict: {factor_id: (name, raw_json_str)}.
+    """
+    out: Dict[int, Tuple[str, str]] = {}
+    seen = 0
+
+    def dump_obj(o: Any) -> str:
+        try:
+            return json.dumps(o, ensure_ascii=False, separators=(",", ":"), default=str)
+        except Exception:
+            return str(o)
+
+    def add_one(fid: Any, name: Any, raw_obj: Any) -> None:
+        fid_i = _as_int(fid)
+        if not fid_i or fid_i <= 0:
+            return
+        if not isinstance(name, str):
+            try:
+                name_s = str(name)
+            except Exception:
+                return
+        else:
+            name_s = name
+        name_s = name_s.strip()
+        if not name_s:
+            return
+        if fid_i not in out:
+            out[fid_i] = (name_s, dump_obj(raw_obj))
+
+    stack: List[Tuple[Any, str]] = [(payload, "")]
+    while stack:
+        node, pkey = stack.pop()
+        seen += 1
+        if seen > max_nodes:
+            break
+
+        if isinstance(node, dict):
+            # 1) Частый вариант: под ключом содержащим 'factor' лежит список справочника
+            for k, v in node.items():
+                lk = str(k).lower()
+                if isinstance(v, list) and ("factor" in lk or lk in ("factors", "customfactors")):
+                    for item in v:
+                        if not isinstance(item, dict):
+                            continue
+                        # в справочниках часто id + name
+                        fid = (
+                            item.get("factorId")
+                            or item.get("factor_id")
+                            or item.get("factor")
+                            or item.get("f")
+                            or item.get("id")
+                        )
+                        nm = item.get("name") or item.get("title") or item.get("caption") or item.get("text")
+                        add_one(fid, nm, item)
+
+                # рекурсивно
+                if isinstance(v, (dict, list)):
+                    stack.append((v, lk))
+
+            # 2) Общий вариант: dict содержит factorId/f + name/title/caption
+            fid = node.get("factorId") or node.get("factor_id") or node.get("factor")
+            if fid is None and isinstance(pkey, str) and ("factor" in pkey):
+                # иногда справочник лежит как список, а элементы имеют id+name
+                fid = node.get("id")
+            if fid is None:
+                fid = node.get("f")  # на всякий случай
+
+            nm = node.get("name") or node.get("title") or node.get("caption") or node.get("text") or node.get("label")
+            # важно: не добавляем ноды без явного имени
+            if fid is not None and nm is not None:
+                add_one(fid, nm, node)
+
+        elif isinstance(node, list):
+            for item in node:
+                if isinstance(item, (dict, list)):
+                    stack.append((item, pkey))
+
+    return out
+
+
+def upsert_factor_catalog(cur, entries: Dict[int, Tuple[str, str]]) -> int:
+    if not entries:
+        return 0
+
+    rows = [(int(fid), name, raw) for fid, (name, raw) in entries.items()]
+    # батчим, чтобы не словить huge packet / long query
+    sql = (
+        "INSERT INTO fonbet_factor_catalog (factor_id, name, raw_json) "
+        "VALUES (%s,%s,%s) "
+        "ON DUPLICATE KEY UPDATE "
+        "name=VALUES(name), raw_json=VALUES(raw_json), updated_at=CURRENT_TIMESTAMP"
+    )
+
+    total = 0
+    batch = 1000
+    for i in range(0, len(rows), batch):
+        cur.executemany(sql, rows[i : i + batch])
+        total += len(rows[i : i + batch])
+    return total
+
+
 def mysql_conn():
     host = env("MYSQL_HOST") or env("DB_HOST") or "127.0.0.1"
+    port_s = env("MYSQL_PORT") or env("DB_PORT") or "3306"
     user = env("MYSQL_USER") or env("DB_USER") or "root"
     password = env("MYSQL_PASSWORD") or env("DB_PASSWORD") or ""
     database = env("MYSQL_DB") or env("MYSQL_DATABASE") or env("DB_NAME") or "inforadar"
 
+    try:
+        port = int(float(str(port_s).strip()))
+    except Exception:
+        port = 3306
+
     src = "MYSQL_*" if env("MYSQL_PASSWORD") else ("DB_*" if env("DB_PASSWORD") else "defaults")
-    print(f"[db] host={host} user={user} db={database} pass_len={len(password)} source={src}")
+    print(f"[db] host={host} port={port} user={user} db={database} pass_len={len(password)} source={src}")
 
     if not password:
         raise RuntimeError("MySQL password empty. Set MYSQL_PASSWORD (or DB_PASSWORD) in .env")
 
     return pymysql.connect(
         host=host,
+        port=port,
         user=user,
         password=password,
         database=database,
@@ -404,6 +607,7 @@ def mysql_conn():
         autocommit=True,
         cursorclass=pymysql.cursors.DictCursor,
     )
+
 
 
 def _table_has_col(cur, table: str, col: str) -> bool:
@@ -467,31 +671,53 @@ def load_existing_odds(cur, event_ids: List[int]) -> Dict[Tuple[int, int], float
 
 def upsert_odds_and_history(
     cur,
-    odds_rows: List[Tuple[int, int, Optional[float]]],
+    odds_rows: List[Tuple[int, int, Optional[float], Optional[float], Optional[str]]],
     existing: Dict[Tuple[int, int], float],
+    has_hist_param: bool = False,
+    has_hist_label: bool = False,
 ) -> int:
+    """Upsert latest odds into fonbet_odds and append changes into fonbet_odds_history.
+
+    We only *require* (event_id, factor_id, odd). If DB has extra columns:
+      - fonbet_odds_history.param  (DOUBLE)  -> save normalized line/handicap/total
+      - fonbet_odds_history.label  (VARCHAR) -> save factor label if present
+    """
     if not odds_rows:
         return 0
 
     cur.executemany(
         "INSERT INTO fonbet_odds (event_id, factor_id, odd) VALUES (%s,%s,%s) "
         "ON DUPLICATE KEY UPDATE odd=VALUES(odd)",
-        [(e, f, o) for (e, f, o) in odds_rows],
+        [(e, f, o) for (e, f, o, _p, _lbl) in odds_rows],
     )
 
     hist_rows = []
-    for (e, f, o) in odds_rows:
+    for (e, f, o, p, lbl) in odds_rows:
         if o is None:
             continue
         prev = existing.get((e, f))
         if prev is None or abs(prev - o) > 1e-9:
-            hist_rows.append((e, f, o))
+            if has_hist_param and has_hist_label:
+                hist_rows.append((e, f, o, p, lbl))
+            elif has_hist_param:
+                hist_rows.append((e, f, o, p))
+            elif has_hist_label:
+                hist_rows.append((e, f, o, lbl))
+            else:
+                hist_rows.append((e, f, o))
 
     if hist_rows:
-        cur.executemany(
-            "INSERT INTO fonbet_odds_history (event_id, factor_id, odd) VALUES (%s,%s,%s)",
-            hist_rows,
-        )
+        if has_hist_param and has_hist_label:
+            sql = "INSERT INTO fonbet_odds_history (event_id, factor_id, odd, param, label) VALUES (%s,%s,%s,%s,%s)"
+        elif has_hist_param:
+            sql = "INSERT INTO fonbet_odds_history (event_id, factor_id, odd, param) VALUES (%s,%s,%s,%s)"
+        elif has_hist_label:
+            sql = "INSERT INTO fonbet_odds_history (event_id, factor_id, odd, label) VALUES (%s,%s,%s,%s)"
+        else:
+            sql = "INSERT INTO fonbet_odds_history (event_id, factor_id, odd) VALUES (%s,%s,%s)"
+
+        cur.executemany(sql, hist_rows)
+
     return len(hist_rows)
 
 
@@ -545,9 +771,19 @@ def main():
     print(f"🏁 Fonbet PREMATCH | base={current_base()} | scopeMarket={cfg.scope_market} | interval={args.interval}s")
 
     conn = mysql_conn()
+    try:
+        with conn.cursor() as _cur:
+            _cur.execute("SELECT @@hostname AS hostname, @@port AS port, DATABASE() AS db")
+            _info = _cur.fetchone() or {}
+        print(f"[db] connected: hostname={_info.get('hostname')} port={_info.get('port')} db={_info.get('db')}")
+    except Exception as e:
+        print(f"[db] connected: (cannot read server info: {type(e).__name__}: {e})")
+
     with conn:
         with conn.cursor() as cur:
             has_category_id = _table_has_col(cur, "fonbet_events", "category_id")
+            has_hist_param = _table_has_col(cur, "fonbet_odds_history", "param")
+            has_hist_label = _table_has_col(cur, "fonbet_odds_history", "label")
             if not has_category_id:
                 print("⚠️ fonbet_events.category_id not found — будет старый режим без category_id")
 
@@ -565,6 +801,20 @@ def main():
                 print(f"ℹ️ listBase version={version}")
 
             catalog_nodes = extract_catalog_nodes(lb)
+
+            # факторный справочник (factor_id -> name/raw_json). Нужен UI для 1X2/фора/тотал.
+            factor_catalog_loaded = False
+            try:
+                fc = extract_factor_catalog_entries(lb)
+                n_fc = upsert_factor_catalog(cur, fc)
+                if n_fc:
+                    factor_catalog_loaded = True
+                    print(f"🗂️ factor_catalog upserted: {len(fc)}")
+                else:
+                    print("ℹ️ factor_catalog: not found in listBase (попробуем из /events/list)")
+            except Exception as e:
+                print(f"⚠️ factor_catalog extract/upsert failed: {type(e).__name__}: {e}")
+
             root_cache: Dict[int, Tuple[int, Optional[str]]] = {}
 
             def get_root(cat_id: Optional[int]) -> Tuple[Optional[int], Optional[str]]:
@@ -606,13 +856,25 @@ def main():
                         continue
 
                     pv = get_packet_version(payload) or version
+
+                    # если listBase не дал факторный справочник — пробуем вытащить его из payload /events/list
+                    if not factor_catalog_loaded:
+                        try:
+                            fc2 = extract_factor_catalog_entries(payload)
+                            n2 = upsert_factor_catalog(cur, fc2)
+                            if n2:
+                                factor_catalog_loaded = True
+                                print(f"🗂️ factor_catalog upserted from list: {len(fc2)}")
+                        except Exception as e:
+                            print(f"⚠️ factor_catalog extract/upsert (list) failed: {type(e).__name__}: {e}")
+
                     events = extract_events(payload)
 
                     now_ts = int(time.time())
                     max_ts = now_ts + int(args.hours * 3600)
 
                     ev_rows: List[Dict[str, Any]] = []
-                    odds_rows: List[Tuple[int, int, Optional[float]]] = []
+                    odds_rows: List[Tuple[int, int, Optional[float], Optional[float], Optional[str]]] = []
                     event_ids_set: set[int] = set()
 
                     for e in events:
@@ -660,21 +922,25 @@ def main():
 
                         event_ids_set.add(eid)
 
-                        for fid, raw_val in extract_factors_from_event(e):
+                        for fid, raw_val, raw_param, raw_label in extract_factors_from_event(e):
                             odd = norm_odd(raw_val, cfg.odds_divisor)
-                            odds_rows.append((eid, fid, odd))
+                            param = norm_param(raw_param)
+                            label = norm_label(raw_label)
+                            odds_rows.append((eid, fid, odd, param, label))
 
                     # добор котировок из payload (вне events)
-                    seen = {(e, f) for (e, f, _) in odds_rows}
-                    for peid, pfid, pval in extract_payload_factor_triplets(payload):
+                    seen = {(e, f) for (e, f, _o, _p, _lbl) in odds_rows}
+                    for peid, pfid, pval, pparam, plabel in extract_payload_factor_triplets(payload):
                         if peid in event_ids_set and (peid, pfid) not in seen:
                             odd = norm_odd(pval, cfg.odds_divisor)
-                            odds_rows.append((peid, pfid, odd))
+                            param = norm_param(pparam)
+                            label = norm_label(plabel)
+                            odds_rows.append((peid, pfid, odd, param, label))
                             seen.add((peid, pfid))
 
                     upsert_events(cur, ev_rows, has_category_id)
                     existing = load_existing_odds(cur, list(event_ids_set))
-                    changed = upsert_odds_and_history(cur, odds_rows, existing)
+                    changed = upsert_odds_and_history(cur, odds_rows, existing, has_hist_param=has_hist_param, has_hist_label=has_hist_label)
 
                     print(f"✅ events={len(ev_rows)} odds={len(odds_rows)} history_added={changed} pv={pv} base={current_base()}")
 
