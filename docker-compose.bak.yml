@@ -287,7 +287,6 @@ services:
       PYTHONUNBUFFERED: "1"
       MYSQL_HOST: mysql_inforadar
       MYSQL_PORT: "3306"
-      NO_PROXY: "fonbet_api,localhost,127.0.0.1"
     command: >
       sh -lc "pip install --no-cache-dir -q python-dotenv && python app_22bet.py"
     depends_on:
@@ -317,8 +316,6 @@ services:
       FONBET_FOOTBALL_SPORT_ID: "${FONBET_FOOTBALL_SPORT_ID:-1}"
       FONBET_LANG: "ru"
       FONBET_SYS_ID: "1"
-      FONBET_PREMATCH_PROXY: "${FONBET_PREMATCH_PROXY}"
-      NO_PROXY: "localhost,127.0.0.1"
       FONBET_SHARED_APP_PATH: /opt/shared/app_22bet.py
       MYSQL_PORT: "3306"
     volumes:

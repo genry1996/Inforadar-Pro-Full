@@ -70,13 +70,19 @@ function Run-Once {
   }
 }
 
+# ---- main ----
 Load-DotEnv -Path $EnvPath
 
+# Save old proxy env (important: might be empty)
+$hadHttp  = Test-Path Env:HTTP_PROXY
+$hadHttps = Test-Path Env:HTTPS_PROXY
 $oldHttp  = $env:HTTP_PROXY
 $oldHttps = $env:HTTPS_PROXY
 
+# Clear proxy for clean run (avoid 407 / broken urls)
 Clear-ProxyEnv
 
+# Apply prematch proxy only for this script run
 if (-not [string]::IsNullOrWhiteSpace($env:FONBET_PREMATCH_PROXY)) {
   $env:HTTP_PROXY  = $env:FONBET_PREMATCH_PROXY
   $env:HTTPS_PROXY = $env:FONBET_PREMATCH_PROXY
@@ -93,5 +99,7 @@ while ($true) {
   Start-Sleep -Seconds $Interval
 }
 
-if ($null -ne $oldHttp)  { $env:HTTP_PROXY  = $oldHttp  }
-if ($null -ne $oldHttps) { $env:HTTPS_PROXY = $oldHttps }
+# Restore proxy env exactly as it was BEFORE запуск
+Clear-ProxyEnv
+if ($hadHttp)  { $env:HTTP_PROXY  = $oldHttp }
+if ($hadHttps) { $env:HTTPS_PROXY = $oldHttps }
