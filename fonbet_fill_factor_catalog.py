@@ -2,29 +2,38 @@
 # -*- coding: utf-8 -*-
 """Fill/repair `fonbet_factor_catalog.name`.
 
-Why you need this:
-- If `fonbet_factor_catalog.name` is NULL/''/'None', UI can't classify markets (1X2, totals, handicap).
+Your run showed:
+- proxy works (ipify 200)
+- listBase endpoint returns 200
+- but extracted factors=0
+
+Reason:
+Fonbet `events/listBase` JSON shape varies; factor catalog can be a dict/map or nested differently.
 
 What this script does (safe & idempotent):
-1) Finds factor_ids with missing/invalid name.
-2) Tries to load factor catalog from Fonbet `events/listBase` (with multiple fallback paths + multiple bases).
-3) Fallback: derives names from `fonbet_odds_history` (best non-empty text among label/other columns).
-4) Optional: dumps full catalog + what was fixed to a TXT file so you don't lose output in chat/terminal.
+1) Finds factor_ids where `name` is NULL/''/'None' in `fonbet_factor_catalog`.
+2) Tries to fetch factor_id -> name from Fonbet `listBase` using multiple paths/bases.
+   - Extraction scans the whole JSON and supports dict-maps too.
+   - If extracted=0, saves raw JSON (when --dump is used).
+3) If listBase gives nothing, tries `eventView` for a handful of event_ids from your DB.
+4) Final fallback: derive names from `fonbet_odds_history` text columns (if present).
+5) Optional: writes a detailed dump file so you don't lose "pages" in terminal.
 
-PowerShell examples:
-  $env:FONBET_PREMATCH_PROXY = "http://USER:PASS@IP:PORT"
-  python .\fonbet_fill_factor_catalog.py --env .\.env --use-proxy --dump
+PowerShell (recommended):
+  Remove-Item Env:FONBET_PREMATCH_PROXY -ErrorAction SilentlyContinue
+  $line = (Select-String -Path .\\.env -Pattern '^FONBET_PREMATCH_PROXY=').Line
+  $env:FONBET_PREMATCH_PROXY = $line.Split('=',2)[1].Trim().Trim('"')
+  python .\\fonbet_fill_factor_catalog.py --env .\\.env --use-proxy --dump
 
-Notes:
-- Fonbet endpoints usually work via: https://<line-host>/events/listBase?lang=ru&scopeMarket=1600
-  (some scripts mistakenly use /line/listBase -> often 404)
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+import time
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pymysql
 
@@ -82,21 +91,24 @@ def _mysql_conn() -> pymysql.connections.Connection:
     )
 
 
-# ---------------------- Fonbet parsing ----------------------
+# ---------------------- extraction helpers ----------------------
+
+def _clean_name(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    s2 = str(s).strip()
+    if not s2 or s2.lower() == "none":
+        return None
+    return s2
+
 
 def _pick_name(obj: Any) -> Optional[str]:
-    """Try to extract a human readable name from a factor dict/tuple."""
     if obj is None:
         return None
 
-    # common shapes:
-    # {"id": 921, "name": "1"}
-    # {"f": 921, "t": "П1"}
-    # [921, "1"]
     if isinstance(obj, (list, tuple)):
-        if len(obj) >= 2 and isinstance(obj[1], str) and obj[1].strip():
-            s = obj[1].strip()
-            return s if s.lower() != "none" else None
+        if len(obj) >= 2 and isinstance(obj[1], str):
+            return _clean_name(obj[1])
         return None
 
     if not isinstance(obj, dict):
@@ -105,14 +117,16 @@ def _pick_name(obj: Any) -> Optional[str]:
     for k in ("name", "t", "title", "caption", "c", "n", "label", "s", "sname"):
         v = obj.get(k)
         if isinstance(v, str):
-            v = v.strip()
-            if v and v.lower() != "none":
-                return v
+            v2 = _clean_name(v)
+            if v2:
+                return v2
 
     for k in ("ru", "en"):
         v = obj.get(k)
-        if isinstance(v, str) and v.strip() and v.strip().lower() != "none":
-            return v.strip()
+        if isinstance(v, str):
+            v2 = _clean_name(v)
+            if v2:
+                return v2
 
     return None
 
@@ -139,24 +153,88 @@ def _pick_id(obj: Any) -> Optional[int]:
     return None
 
 
-def _find_factor_items(tree: Any) -> List[Any]:
-    """Recursively find lists under keys like factors/factorCatalog etc."""
-    items: List[Any] = []
+def _add_mapping(mapping: Dict[int, str], fid: int, name: str) -> None:
+    name2 = _clean_name(name)
+    if not name2:
+        return
+    prev = mapping.get(fid)
+    # prefer longer/non-trivial text
+    if prev is None:
+        mapping[fid] = name2
+        return
+    if len(name2) > len(prev):
+        mapping[fid] = name2
+
+
+def collect_factor_pairs(tree: Any, wanted: Optional[Set[int]] = None) -> Dict[int, str]:
+    """Scan entire JSON and collect factor_id -> name.
+
+    Supports:
+    - list items like {id:..., name:...} or [id, name]
+    - dict maps like {"910": "П1"} or {910: {name:...}}
+    - deeply nested structures
+
+    If `wanted` is provided, only collects those ids.
+    """
+
+    out: Dict[int, str] = {}
+
+    def add(fid: Optional[int], name: Optional[str]) -> None:
+        if fid is None:
+            return
+        if wanted is not None and fid not in wanted:
+            return
+        n = _clean_name(name)
+        if not n:
+            return
+        _add_mapping(out, fid, n)
 
     def walk(x: Any) -> None:
-        if isinstance(x, dict):
-            for k, v in x.items():
-                lk = str(k).lower()
-                if lk in ("factors", "factor", "factorcatalog", "fc") and isinstance(v, list):
-                    items.extend(v)
-                walk(v)
-        elif isinstance(x, list):
+        if x is None:
+            return
+
+        # direct pair from object
+        fid = _pick_id(x)
+        nm = _pick_name(x)
+        if fid is not None and nm:
+            add(fid, nm)
+
+        if isinstance(x, list):
+            # list of [id,name] or dicts
             for it in x:
                 walk(it)
+            return
+
+        if isinstance(x, dict):
+            # dict might be a direct map id->name
+            for k, v in x.items():
+                if isinstance(k, int) or (isinstance(k, str) and k.isdigit()):
+                    fid2 = int(k)
+                    if isinstance(v, str):
+                        add(fid2, v)
+                    else:
+                        add(fid2, _pick_name(v))
+                        walk(v)
+                else:
+                    # sometimes factor blocks are inside keys with "factor" substring
+                    lk = str(k).lower()
+                    if "factor" in lk or lk in ("factors", "factor", "factorcatalog", "fc", "customfactors"):
+                        if isinstance(v, dict):
+                            # could be id->obj or nested groups
+                            walk(v)
+                        elif isinstance(v, list):
+                            walk(v)
+                        else:
+                            walk(v)
+                    else:
+                        walk(v)
+            return
 
     walk(tree)
-    return items
+    return out
 
+
+# ---------------------- network helpers ----------------------
 
 def _mk_proxies(proxy: Optional[str]) -> Optional[Dict[str, str]]:
     if not proxy:
@@ -164,85 +242,204 @@ def _mk_proxies(proxy: Optional[str]) -> Optional[Dict[str, str]]:
     return {"http": proxy, "https": proxy}
 
 
-def fetch_listbase_factor_map(
+def _default_headers(base: str) -> Dict[str, str]:
+    # Some Fonbet edges behave better with a browser-like UA
+    origin = base.rstrip("/")
+    return {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": origin + "/",
+        "Origin": origin,
+        "Connection": "keep-alive",
+    }
+
+
+def _request_json(
+    method: str,
+    url: str,
+    params: Optional[Dict[str, str]] = None,
+    payload: Optional[Dict[str, Any]] = None,
+    proxies: Optional[Dict[str, str]] = None,
+    headers: Optional[Dict[str, str]] = None,
+    timeout: int = 35,
+) -> Any:
+    if requests is None:
+        raise RuntimeError("requests is not installed")
+
+    method = method.upper().strip()
+    if method == "GET":
+        r = requests.get(url, params=params, proxies=proxies, headers=headers, timeout=timeout)
+    elif method == "POST":
+        r = requests.post(url, params=params, json=payload, proxies=proxies, headers=headers, timeout=timeout)
+    else:
+        raise ValueError(f"Unsupported method: {method}")
+
+    r.raise_for_status()
+    return r.json(), getattr(r, "url", url)
+
+
+def fetch_listbase(
     bases: List[str],
     lang: str,
     sysid: int,
     scope_market: int,
     proxy: Optional[str],
-) -> Dict[int, str]:
-    """Try multiple bases and multiple URL paths until we get JSON."""
-    if requests is None:
-        return {}
+    wanted: Optional[Set[int]] = None,
+    dump_raw_path: Optional[str] = None,
+    try_scopes: bool = True,
+    try_sysids: bool = True,
+) -> Tuple[Dict[int, str], str, Dict[str, Any]]:
+    """Fetch listBase and return (mapping, used_url, meta).
+
+    If mapping is empty and dump_raw_path is set, saves raw JSON with meta.
+    """
 
     path_variants = [
         "/events/listBase",
         "/events/listBase/",
-        "/line/listBase",
-        "/line/listBase/",
         "/listBase",
         "/listBase/",
+        "/line/listBase",
+        "/line/listBase/",
     ]
 
-    params = {"lang": lang, "sysId": str(sysid), "scopeMarket": str(scope_market)}
+    scopes = [scope_market]
+    if try_scopes:
+        for s in (1700, 1600, 1500, 1800, 1400, 1300):
+            if s not in scopes:
+                scopes.append(s)
+
+    sysids = [sysid]
+    if try_sysids:
+        for sid in (1, 2, 3):
+            if sid not in sysids:
+                sysids.append(sid)
+
     proxies = _mk_proxies(proxy)
 
     last_err: Optional[Exception] = None
-    data: Any = None
-    used_url: Optional[str] = None
+    last_raw: Any = None
+    last_used_url = ""
+    last_meta: Dict[str, Any] = {}
 
     for b in bases:
         b0 = b.strip().rstrip("/")
         if not b0:
             continue
+        headers = _default_headers(b0)
+
+        for sid in sysids:
+            for sc in scopes:
+                params = {"lang": lang, "sysId": str(sid), "scopeMarket": str(sc)}
+
+                for p in path_variants:
+                    url = f"{b0}{p}"
+
+                    # Try GET first, then POST
+                    for method in ("GET", "POST"):
+                        try:
+                            payload = {"lang": lang, "sysId": sid, "scopeMarket": sc} if method == "POST" else None
+                            raw, used = _request_json(
+                                method=method,
+                                url=url,
+                                params=params if method == "GET" else None,
+                                payload=payload,
+                                proxies=proxies,
+                                headers=headers,
+                            )
+                            last_raw = raw
+                            last_used_url = used
+                            last_meta = {"base": b0, "path": p, "method": method, "params": params}
+
+                            mapping = collect_factor_pairs(raw, wanted=wanted)
+
+                            # If we extracted something - success
+                            if mapping:
+                                return mapping, used, last_meta
+
+                            # mapping empty: keep trying other scope/sys/path but remember last success raw
+                            last_err = None
+
+                        except Exception as e:
+                            last_err = e
+                            continue
+
+    # Nothing extracted
+    if dump_raw_path and last_raw is not None:
+        try:
+            with open(dump_raw_path, "w", encoding="utf-8") as f:
+                json.dump({"meta": last_meta, "used_url": last_used_url, "data": last_raw}, f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    raise RuntimeError(
+        "listBase returned no extractable factors for all bases/paths/sysId/scopeMarket. "
+        f"bases={bases}. last_err={last_err}"
+    )
+
+
+def fetch_eventview(
+    bases: List[str],
+    event_id: int,
+    lang: str,
+    proxy: Optional[str],
+    wanted: Optional[Set[int]] = None,
+    dump_raw_path: Optional[str] = None,
+) -> Dict[int, str]:
+    if requests is None:
+        return {}
+
+    path_variants = [
+        "/events/eventView",
+        "/line/eventView",
+        "/eventView",
+    ]
+
+    proxies = _mk_proxies(proxy)
+
+    last_raw: Any = None
+    last_meta: Dict[str, Any] = {}
+
+    for b in bases:
+        b0 = b.strip().rstrip("/")
+        if not b0:
+            continue
+        headers = _default_headers(b0)
+
         for p in path_variants:
             url = f"{b0}{p}"
+            params = {"lang": lang, "eventId": str(event_id)}
 
-            # 1) GET
-            try:
-                r = requests.get(url, params=params, proxies=proxies, timeout=35)
-                if r.status_code in (404, 405):
-                    raise requests.HTTPError(f"GET {url} -> {r.status_code}")
-                r.raise_for_status()
-                data = r.json()
-                used_url = str(r.url)
-                break
-            except Exception as e:
-                last_err = e
+            for method in ("GET", "POST"):
+                try:
+                    payload = {"lang": lang, "eventId": event_id} if method == "POST" else None
+                    raw, used = _request_json(
+                        method=method,
+                        url=url,
+                        params=params if method == "GET" else None,
+                        payload=payload,
+                        proxies=proxies,
+                        headers=headers,
+                    )
+                    last_raw = raw
+                    last_meta = {"base": b0, "path": p, "method": method, "used_url": used, "params": params}
 
-            # 2) POST
-            try:
-                payload = {"lang": lang, "sysId": sysid, "scopeMarket": scope_market}
-                r = requests.post(url, json=payload, proxies=proxies, timeout=35)
-                if r.status_code in (404, 405):
-                    raise requests.HTTPError(f"POST {url} -> {r.status_code}")
-                r.raise_for_status()
-                data = r.json()
-                used_url = url
-                break
-            except Exception as e:
-                last_err = e
+                    mapping = collect_factor_pairs(raw, wanted=wanted)
+                    if mapping:
+                        return mapping
 
-        if data is not None:
-            break
+                except Exception:
+                    continue
 
-    if data is None:
-        raise RuntimeError(
-            "listBase failed for all bases/paths. "
-            f"bases={bases}. last_err={last_err}"
-        )
+    if dump_raw_path and last_raw is not None:
+        try:
+            with open(dump_raw_path, "w", encoding="utf-8") as f:
+                json.dump({"meta": last_meta, "data": last_raw}, f, ensure_ascii=False)
+        except Exception:
+            pass
 
-    mapping: Dict[int, str] = {}
-    for item in _find_factor_items(data):
-        fid = _pick_id(item)
-        nm = _pick_name(item)
-        if fid is not None and nm:
-            mapping[fid] = nm
-
-    if used_url:
-        print(f"[net] listBase OK: {used_url} (factors={len(mapping)})")
-
-    return mapping
+    return {}
 
 
 # ---------------------- DB helpers ----------------------
@@ -275,15 +472,15 @@ def update_names(conn: pymysql.connections.Connection, mapping: Dict[int, str], 
     updated = 0
     with conn.cursor() as cur:
         for fid, name in mapping.items():
-            name = (name or "").strip()
-            if not name or name.lower() == "none":
+            name2 = _clean_name(name)
+            if not name2:
                 continue
             if dry_run:
                 updated += 1
                 continue
             cur.execute(
                 "UPDATE fonbet_factor_catalog SET name=%s WHERE factor_id=%s",
-                (name, fid),
+                (name2, fid),
             )
             updated += 1
 
@@ -301,10 +498,49 @@ def _get_table_columns(conn: pymysql.connections.Connection, table: str) -> List
     return [str(r["COLUMN_NAME"]) for r in rows]
 
 
+def pick_event_ids_for_factors(
+    conn: pymysql.connections.Connection,
+    factor_ids: List[int],
+    limit_events: int,
+) -> List[int]:
+    if not factor_ids or limit_events <= 0:
+        return []
+
+    cols = _get_table_columns(conn, "fonbet_odds_history")
+    cols_lc = {c.lower(): c for c in cols}
+    if "event_id" not in cols_lc or "factor_id" not in cols_lc:
+        return []
+
+    ev_col = cols_lc["event_id"]
+    fac_col = cols_lc["factor_id"]
+
+    # choose events with most records for these factor_ids
+    placeholders = ",".join(["%s"] * len(factor_ids))
+    q = (
+        f"SELECT {ev_col} AS event_id, COUNT(*) AS c "
+        f"FROM fonbet_odds_history "
+        f"WHERE {fac_col} IN ({placeholders}) "
+        f"GROUP BY {ev_col} "
+        f"ORDER BY c DESC "
+        f"LIMIT %s"
+    )
+
+    with conn.cursor() as cur:
+        cur.execute(q, factor_ids + [int(limit_events)])
+        rows = cur.fetchall()
+
+    out: List[int] = []
+    for r in rows:
+        try:
+            out.append(int(r["event_id"]))
+        except Exception:
+            continue
+    return out
+
+
 def derive_from_history_text(
     conn: pymysql.connections.Connection,
     factor_ids: List[int],
-    prefer_cols: Optional[List[str]] = None,
 ) -> Dict[int, str]:
     if not factor_ids:
         return {}
@@ -312,7 +548,7 @@ def derive_from_history_text(
     cols = _get_table_columns(conn, "fonbet_odds_history")
     cols_lc = {c.lower(): c for c in cols}
 
-    candidates_default = [
+    candidates = [
         "label",
         "factor_name",
         "name",
@@ -328,7 +564,6 @@ def derive_from_history_text(
         "text",
     ]
 
-    candidates = prefer_cols or candidates_default
     picked: List[str] = []
     for c in candidates:
         real = cols_lc.get(c.lower())
@@ -336,7 +571,8 @@ def derive_from_history_text(
             picked.append(real)
 
     if not picked:
-        print("[db] fonbet_odds_history: no known text columns found (label/title/name/...).")
+        print("[db] fonbet_odds_history: no known text columns found.")
+        print("[db] fonbet_odds_history columns:", ", ".join(cols))
         return {}
 
     best: Dict[int, Tuple[str, int]] = {}
@@ -355,9 +591,9 @@ def derive_from_history_text(
                 rows = cur.fetchall()
                 for r in rows:
                     fid = int(r["factor_id"])
-                    val = str(r["val"]).strip()
+                    val = _clean_name(r["val"])
                     c = int(r["c"])
-                    if not val or val.lower() == "none":
+                    if not val:
                         continue
                     prev = best.get(fid)
                     if prev is None or c > prev[1]:
@@ -372,6 +608,8 @@ def dump_txt(path: str, title: str, rows: List[Tuple[str, str]]) -> None:
         for a, b in rows:
             f.write(f"{a}\t{b}\n")
 
+
+# ---------------------- main ----------------------
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -390,17 +628,34 @@ def main() -> int:
 
     ap.add_argument("--lang", default=os.getenv("FONBET_LANG", "ru"))
     ap.add_argument("--sysid", type=int, default=int(os.getenv("FONBET_SYSID", "1")))
-    ap.add_argument("--scope-market", type=int, default=int(os.getenv("FONBET_SCOPE_MARKET", "1700")), dest="scope_market")
+    ap.add_argument(
+        "--scope-market",
+        type=int,
+        default=int(os.getenv("FONBET_SCOPE_MARKET", "1700")),
+        dest="scope_market",
+    )
 
     ap.add_argument("--use-proxy", action="store_true", help="use FONBET_PREMATCH_PROXY from env")
     ap.add_argument("--proxy", default="", help="proxy URL like http://user:pass@ip:port")
-    ap.add_argument("--no-net", action="store_true", help="skip listBase and only use DB")
 
     ap.add_argument("--limit", type=int, default=0, help="limit number of factor_ids to fix")
     ap.add_argument("--dry-run", action="store_true")
 
     ap.add_argument("--dump", action="store_true", help="write dump to fonbet_factor_catalog_dump.txt")
     ap.add_argument("--dump-path", default="fonbet_factor_catalog_dump.txt", help="dump file path")
+
+    ap.add_argument(
+        "--scan-events",
+        type=int,
+        default=40,
+        help="if listBase yields nothing, try eventView for up to N event_ids from DB",
+    )
+
+    ap.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="disable fallback sysId/scopeMarket bruteforce for listBase",
+    )
 
     args = ap.parse_args()
 
@@ -417,6 +672,7 @@ def main() -> int:
     else:
         b0 = args.base.strip().rstrip("/")
         bases = [b0]
+        # common alt host
         if b0.startswith("https://"):
             if "line01" in b0 and "line01w" not in b0:
                 bases.append(b0.replace("line01", "line01w"))
@@ -431,7 +687,12 @@ def main() -> int:
         print("[ok] Nothing to fix.")
         return 0
 
+    wanted = set(bad_ids)
+
     dump_path = args.dump_path
+    listbase_raw_path = "fonbet_listbase_raw.json" if args.dump else None
+    eventview_raw_path = "fonbet_eventview_sample.json" if args.dump else None
+
     if args.dump:
         try:
             if os.path.exists(dump_path):
@@ -440,45 +701,90 @@ def main() -> int:
             pass
         dump_txt(dump_path, "CONFIG", [("bases", ", ".join(bases)), ("proxy", "yes" if proxy else "no")])
 
+    # 1) listBase
     net_mapping: Dict[int, str] = {}
-    if not args.no_net:
-        try:
-            if requests is None:
-                raise RuntimeError("requests is not installed")
-            net_all = fetch_listbase_factor_map(
-                bases=bases, lang=args.lang, sysid=args.sysid, scope_market=args.scope_market, proxy=proxy
-            )
-            bad_set = set(bad_ids)
-            net_mapping = {fid: nm for fid, nm in net_all.items() if fid in bad_set}
-            print(f"[net] mapping for bad ids: {len(net_mapping)}")
-
-            if args.dump:
-                dump_rows = [(str(fid), nm) for fid, nm in sorted(net_all.items(), key=lambda x: x[0])]
-                dump_txt(dump_path, "LISTBASE_FACTORS", dump_rows)
-
-        except Exception as e:
-            print(f"[net] listBase failed: {e}")
+    try:
+        start = time.time()
+        mapping, used_url, meta = fetch_listbase(
+            bases=bases,
+            lang=args.lang,
+            sysid=args.sysid,
+            scope_market=args.scope_market,
+            proxy=proxy,
+            wanted=wanted,
+            dump_raw_path=listbase_raw_path,
+            try_scopes=not args.no_fallback,
+            try_sysids=not args.no_fallback,
+        )
+        dt = time.time() - start
+        net_mapping = mapping
+        print(f"[net] listBase OK: {used_url} (mapped={len(net_mapping)}) in {dt:.1f}s")
+        if args.dump:
+            dump_txt(dump_path, "LISTBASE_META", [(k, str(v)) for k, v in meta.items()])
+            dump_txt(dump_path, "UPDATED_NET", [(str(k), v) for k, v in sorted(net_mapping.items())])
+    except Exception as e:
+        print(f"[net] listBase failed/empty: {e}")
 
     updated_net = update_names(conn, net_mapping, dry_run=args.dry_run)
 
+    # Remaining after listBase
     remaining = get_bad_factor_ids(conn, limit=args.limit)
     remaining_set = set(remaining)
 
-    hist_mapping = derive_from_history_text(conn, remaining)
-    hist_mapping = {fid: nm for fid, nm in hist_mapping.items() if fid in remaining_set}
+    # 2) eventView fallback (only if listBase didn't help)
+    eventview_mapping: Dict[int, str] = {}
+    if remaining and args.scan_events > 0:
+        ev_ids = pick_event_ids_for_factors(conn, remaining, limit_events=args.scan_events)
+        if ev_ids:
+            print(f"[net] eventView: scanning {len(ev_ids)} events ...")
+            for idx, ev_id in enumerate(ev_ids, 1):
+                m = fetch_eventview(
+                    bases=bases,
+                    event_id=ev_id,
+                    lang=args.lang,
+                    proxy=proxy,
+                    wanted=remaining_set,
+                    dump_raw_path=eventview_raw_path if (args.dump and idx == 1) else None,
+                )
+                if m:
+                    eventview_mapping.update(m)
+                    # stop early if we got most ids
+                    if len(eventview_mapping) >= min(200, len(remaining_set)):
+                        break
+
+            if eventview_mapping:
+                print(f"[net] eventView mapped: {len(eventview_mapping)}")
+                if args.dump:
+                    dump_txt(dump_path, "UPDATED_EVENTVIEW", [(str(k), v) for k, v in sorted(eventview_mapping.items())])
+
+    updated_ev = update_names(conn, eventview_mapping, dry_run=args.dry_run)
+
+    # 3) history text fallback
+    remaining2 = get_bad_factor_ids(conn, limit=args.limit)
+    remaining2_set = set(remaining2)
+
+    hist_mapping = derive_from_history_text(conn, remaining2)
+    hist_mapping = {fid: nm for fid, nm in hist_mapping.items() if fid in remaining2_set}
     print(f"[db] history mapping: {len(hist_mapping)}")
 
     updated_hist = update_names(conn, hist_mapping, dry_run=args.dry_run)
 
-    remaining2 = get_bad_factor_ids(conn, limit=args.limit)
+    remaining3 = get_bad_factor_ids(conn, limit=args.limit)
 
-    print(f"[done] updated: {updated_net + updated_hist} (net={updated_net}, history={updated_hist}); remaining bad: {len(remaining2)}")
+    print(
+        f"[done] updated: {updated_net + updated_ev + updated_hist} "
+        f"(net={updated_net}, eventView={updated_ev}, history={updated_hist}); "
+        f"remaining bad: {len(remaining3)}"
+    )
 
     if args.dump:
-        dump_txt(dump_path, "UPDATED_NET", [(str(k), v) for k, v in sorted(net_mapping.items())])
         dump_txt(dump_path, "UPDATED_HISTORY", [(str(k), v) for k, v in sorted(hist_mapping.items())])
-        dump_txt(dump_path, "REMAINING_BAD", [(str(fid), "") for fid in remaining2])
+        dump_txt(dump_path, "REMAINING_BAD", [(str(fid), "") for fid in remaining3])
         print(f"[dump] written: {dump_path}")
+        if listbase_raw_path and os.path.exists(listbase_raw_path):
+            print(f"[dump] listBase raw: {listbase_raw_path}")
+        if eventview_raw_path and os.path.exists(eventview_raw_path):
+            print(f"[dump] eventView sample raw: {eventview_raw_path}")
 
     return 0
 
