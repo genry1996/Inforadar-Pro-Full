@@ -1,0 +1,4 @@
+﻿
+>>> curl.exe -s -D - "http://localhost:8010/health"
+
+

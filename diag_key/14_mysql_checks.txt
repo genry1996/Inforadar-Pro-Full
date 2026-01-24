@@ -1,0 +1,40 @@
+﻿
+>>> docker exec -e MYSQL_PWD=ryban8991! mysql_inforadar sh -lc "mysql -uroot -D inforadar -e "select count(*) as c from fonbet_events;
+select sport_id, count(*) as c from fonbet_events group by sport_id order by c desc limit 20;
+select min(start_time) as min_start, max(start_time) as max_start, now() as now_local, utc_timestamp() as now_utc from fonbet_events;
+select count(*) as c_next12h
+  from fonbet_events
+ where start_time between utc_timestamp() and date_add(utc_timestamp(), interval 12 hour)
+   and sport_id = 1;""
+
+Invoke-Expression : строка:3 знак:72
++ ... (start_time) as min_start, max(start_time) as max_start, now() as now ...
++                                                                  ~
+После ''('' ожидалось выражение.
+
+строка:3 знак:102
++ ... (start_time) as max_start, now() as now_local, utc_timestamp() as now ...
++                                                                  ~
+После ''('' ожидалось выражение.
+
+строка:5 знак:3
++   from fonbet_events
++   ~~~~
+Ключевое слово "from" не поддерживается в этой версии языка.
+
+строка:6 знак:41
++  where start_time between utc_timestamp() and date_add(utc_timestamp( ...
++                                         ~
+После ''('' ожидалось выражение.
+
+строка:6 знак:70
++ ... tart_time between utc_timestamp() and date_add(utc_timestamp(), inter ...
++                                                                  ~
+После ''('' ожидалось выражение.
+D:\Inforadar_Pro\collect_fonbet_diag.ps1:47 знак:13
++     $res = (Invoke-Expression $cmd 2>&1 | Out-String)
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ParserError: (:) [Invoke-Expression], ParseException
+    + FullyQualifiedErrorId : ExpectedExpression,Microsoft.PowerShell.Commands.InvokeExpressionCommand
+ 
+

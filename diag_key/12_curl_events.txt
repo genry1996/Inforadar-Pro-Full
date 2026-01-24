@@ -1,0 +1,4 @@
+﻿
+>>> curl.exe -s -D - "http://localhost:8010/fonbet/events?hours=12&limit=200&sport_id=1"
+
+

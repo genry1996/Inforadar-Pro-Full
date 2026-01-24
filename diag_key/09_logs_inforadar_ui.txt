@@ -1,0 +1,4 @@
+﻿
+>>> docker logs inforadar_ui --tail 400
+
+

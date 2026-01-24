@@ -1,0 +1,4 @@
+﻿
+>>> docker logs fonbet_api --tail 400
+
+

@@ -1,0 +1,8 @@
+﻿
+>>> docker ps --filter "name=fonbet" --filter "name=inforadar" --filter "name=mysql_inforadar" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+NAMES             STATUS                         PORTS
+fonbet_api        Restarting (1) 9 minutes ago   
+mysql_inforadar   Up 2 hours (unhealthy)         0.0.0.0:3307->3306/tcp, [::]:3307->3306/tcp
+inforadar_ui      Up About an hour               0.0.0.0:5000->5000/tcp, [::]:5000->5000/tcp
+
