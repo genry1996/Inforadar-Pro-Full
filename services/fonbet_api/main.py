@@ -1,3 +1,9 @@
+
+
+
+def get_db_conn():
+    """Compatibility helper (older code paths expect get_db_conn())."""
+    return shared.db_connect()
 import os
 import json
 import ast
@@ -9,6 +15,170 @@ from typing import Optional, Any, Dict, List, Set, Tuple
 
 from fastapi import FastAPI, Query, Path
 
+
+# --- Inforadar hotfix: PyMySQL percent escape (DATE_FORMAT/LIKE with params) ---
+# Problem: PyMySQL uses Python %-formatting for params. Any literal % inside SQL query
+# (inside quotes like '%Y-%m-%d' or LIKE '%abc%') must be escaped as %% or PyMySQL crashes.
+def _escape_sql_percent_literals__inforadar(q: str) -> str:
+    # Escapes % only inside single-quoted SQL literals.
+    # Keeps already-escaped %% intact.
+    out = []
+    i = 0
+    in_str = False
+    n = len(q)
+    while i < n:
+        ch = q[i]
+        if not in_str:
+            if ch == "'":
+                in_str = True
+                out.append(ch)
+                i += 1
+                continue
+            out.append(ch)
+            i += 1
+            continue
+
+        # inside single-quoted literal
+        if ch == "'":
+            # SQL escaped quote as '' (two single quotes)
+            if i + 1 < n and q[i + 1] == "'":
+                out.append("''")
+                i += 2
+                continue
+            in_str = False
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "%":
+            # keep already escaped %%
+            if i + 1 < n and q[i + 1] == "%":
+                out.append("%%")
+                i += 2
+                continue
+            out.append("%%")
+            i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _patch_pymysql_execute__inforadar():
+    try:
+        import pymysql  # noqa
+# --- Inforadar hotfix: PyMySQL percent escape (DATE_FORMAT/LIKE with params) ---
+# Problem: PyMySQL uses Python %-formatting for params. Any literal % inside SQL query
+# (inside quotes like '%Y-%m-%d' or LIKE '%abc%') must be escaped as %% or PyMySQL crashes.
+def _escape_sql_percent_literals__inforadar(q: str) -> str:
+    # Escapes % only inside single-quoted SQL literals.
+    # Keeps already-escaped %% intact.
+    out = []
+    i = 0
+    in_str = False
+    n = len(q)
+    while i < n:
+        ch = q[i]
+        if not in_str:
+            if ch == "'":
+                in_str = True
+                out.append(ch)
+                i += 1
+                continue
+            out.append(ch)
+            i += 1
+            continue
+
+        # inside single-quoted literal
+        if ch == "'":
+            # SQL escaped quote as '' (two single quotes)
+            if i + 1 < n and q[i + 1] == "'":
+                out.append("''")
+                i += 2
+                continue
+            in_str = False
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "%":
+            # keep already escaped %%
+            if i + 1 < n and q[i + 1] == "%":
+                out.append("%%")
+                i += 2
+                continue
+            out.append("%%")
+            i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _patch_pymysql_execute__inforadar():
+    try:
+        import pymysql  # noqa: F401
+        from pymysql.cursors import Cursor
+    except Exception:
+        return
+
+    # idempotent: patch only once
+    if getattr(Cursor.execute, "percent_escape_patched__inforadar", False):
+        return
+
+    _orig_execute = Cursor.execute
+    _orig_executemany = Cursor.executemany
+
+    def _exec(self, query, args=None):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_execute(self, query, args)
+
+    def _many(self, query, args):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_executemany(self, query, args)
+
+    setattr(_exec, "percent_escape_patched__inforadar", True)
+    Cursor.execute = _exec
+    Cursor.executemany = _many
+
+
+_patch_pymysql_execute__inforadar()
+# --- end Inforadar hotfix ---
+
+        from pymysql.cursors import Cursor
+    except Exception:
+        return
+
+    # idempotent: patch only once
+    if getattr(Cursor.execute, "percent_escape_patched", False):
+        return
+
+    _orig_execute = Cursor.execute
+    _orig_executemany = Cursor.executemany
+
+    def _exec(self, query, args=None):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_execute(self, query, args)
+
+    def _many(self, query, args):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_executemany(self, query, args)
+
+    setattr(_exec, "percent_escape_patched", True)
+    Cursor.execute = _exec
+    Cursor.executemany = _many
+
+
+_patch_pymysql_execute__inforadar()
+# --- end Inforadar hotfix ---
 
 SHARED_APP_PATH = os.getenv("FONBET_SHARED_APP_PATH", "/opt/shared/app_22bet.py")
 
@@ -27,6 +197,33 @@ shared = _load_shared_module(SHARED_APP_PATH)
 app = FastAPI(title="Fonbet Microservice", version="0.2.6")
 
 
+# --- Inforadar hotfix: always return JSON on 500 for UI ---
+# Starlette default returns plain text "Internal Server Error". UI ожидает JSON.
+try:
+    import os as _os
+    import traceback as _traceback
+    from starlette.requests import Request as _Request
+    from starlette.responses import JSONResponse as _JSONResponse
+    import logging as _logging
+
+    @app.exception_handler(Exception)  # type: ignore[name-defined]
+    async def _inforadar_json_500_handler(request: _Request, exc: Exception):
+        _logging.exception("Unhandled exception in fonbet_api: %s", exc)
+        dbg = (_os.getenv("FONBET_API_DEBUG", "0") or "").lower() in ("1", "true", "yes")
+        if dbg:
+            return _JSONResponse(
+                status_code=500,
+                content={
+                    "error": str(exc),
+                    "type": type(exc).__name__,
+                    "traceback": _traceback.format_exc(),
+                },
+            )
+        return _JSONResponse(status_code=500, content={"error": "Internal Server Error"})
+except Exception:
+    pass
+# --- end Inforadar hotfix ---
+
 def _sql_has_col(cur, table: str, col: str) -> bool:
     """Return True if `table` has column `col`. Uses SHOW COLUMNS."""
     try:
@@ -41,7 +238,175 @@ def _fmt_start_ts(start_ts: int) -> str:
         return datetime.fromtimestamp(int(start_ts)).strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
         return ""
-@app.get("/health")
+
+
+def _try_int(v: Any) -> Optional[int]:
+    try:
+        if v is None or isinstance(v, bool):
+            return None
+        return int(v)
+    except Exception:
+        return None
+
+
+def _pick_existing(cols: Set[str], candidates: List[str]) -> Optional[str]:
+    for c in candidates:
+        if c in cols:
+            return c
+    return None
+
+
+def _history_table_and_cols(cur) -> Tuple[Optional[str], Set[str]]:
+    """Pick best history table and return its columns."""
+    for t in ("fonbet_odds_history", "odds_history"):
+        try:
+            cur.execute("SHOW TABLES LIKE %s", (t,))
+            if not cur.fetchone():
+                continue
+            cur.execute(f"SHOW COLUMNS FROM {t}")
+            rows = cur.fetchall() or []
+            cols = {str(r.get("Field") or "").strip() for r in rows if isinstance(r, dict)}
+            cols = {c for c in cols if c}
+            return t, cols
+        except Exception:
+            continue
+    return None, set()
+
+
+def _fetch_odds_history_rows(
+    event_id: int,
+    half: str = "ft",
+    hours: int = 12,
+    limit: int = 8000,
+) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Fetch odds-history rows for a single Fonbet event.
+
+    This service has to tolerate different schemas and timestamp formats:
+    - time-like column: DATETIME (time/created_at/...)
+    - numeric ts column: unix seconds / unix ms / YYYYMMDDHHMMSS (14 digits)
+    - string ts column: 'YYYY-MM-DD HH:MM:SS'
+
+    We normalize timestamps to make the 'hours' filter work reliably.
+    """
+    conn = get_db_conn()
+    with conn.cursor(pymysql.cursors.DictCursor) as cur:
+        table, cols = _detect_history_table_and_cols(cur)
+        if not table:
+            return [], None, None, None, None
+
+        # ---- detect columns
+        # time column (DATETIME)
+        time_col = None
+        for c in ("time", "created_at", "updated_at", "dt", "datetime", "ts_time"):
+            if c in cols:
+                time_col = c
+                break
+
+        # numeric/string timestamp column
+        ts_col = None
+        for c in ("ts", "timestamp", "ts_ms", "ts_sec"):
+            if c in cols:
+                ts_col = c
+                break
+
+        # label/param columns (used by market builder)
+        label_col = "label" if "label" in cols else ("name" if "name" in cols else None)
+        param_col = "param" if "param" in cols else ("line" if "line" in cols else None)
+
+        # half column (ft/ht)
+        half_col = None
+        for c in ("half", "period", "part"):
+            if c in cols:
+                half_col = c
+                break
+
+        where = ["event_id = %s"]
+        params: List[Any] = [int(event_id)]
+
+        if half_col:
+            half_norm = (half or "ft").strip().lower()
+            half_db = "1h" if half_norm in ("ht", "1h", "1") else "ft"
+            where.append(f"{half_col} = %s")
+            params.append(half_db)
+
+        # ---- decide how to filter/order by time
+        ts_norm_expr = None
+        ts_kind = None  # "time", "numeric", "str_dt", "unknown"
+
+        if time_col:
+            ts_kind = "time"
+            where.append(f"{time_col} >= DATE_SUB(NOW(), INTERVAL %s HOUR)")
+            params.append(int(hours))
+            order_by = f"{time_col} DESC"
+        elif ts_col:
+            # peek one sample
+            sample = None
+            try:
+                # try common pk names first
+                order_pk = "id" if "id" in cols else (time_col if time_col else ts_col)
+                cur.execute(
+                    f"SELECT {ts_col} AS v FROM {table} WHERE event_id=%s ORDER BY {order_pk} DESC LIMIT 1",
+                    (int(event_id),),
+                )
+                sample = (cur.fetchone() or {}).get("v")
+            except Exception:
+                sample = None
+
+            if isinstance(sample, (int, float)) or (isinstance(sample, str) and sample.strip().isdigit()):
+                ts_kind = "numeric"
+                raw = f"CAST({ts_col} AS UNSIGNED)"
+                ts_norm_expr = (
+                    "CASE "
+                    f"WHEN {raw} >= 10000000000000 THEN UNIX_TIMESTAMP(STR_TO_DATE(CAST({ts_col} AS CHAR), '%Y%m%d%H%i%s')) "
+                    f"WHEN {raw} >= 1000000000000 THEN FLOOR({raw}/1000) "
+                    f"ELSE {raw} "
+                    "END"
+                )
+                where.append(f"{ts_norm_expr} >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL %s HOUR))")
+                params.append(int(hours))
+                order_by = f"{ts_norm_expr} DESC"
+            elif isinstance(sample, str) and re.match(r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}", sample.strip()):
+                ts_kind = "str_dt"
+                dt_expr = f"STR_TO_DATE({ts_col}, '%Y-%m-%d %H:%i:%s')"
+                where.append(f"{dt_expr} >= DATE_SUB(NOW(), INTERVAL %s HOUR)")
+                params.append(int(hours))
+                order_by = f"{dt_expr} DESC"
+            else:
+                ts_kind = "unknown"
+                order_by = f"id DESC" if "id" in cols else "event_id DESC"
+        else:
+            ts_kind = "unknown"
+            order_by = f"id DESC" if "id" in cols else "event_id DESC"
+
+        # ---- build query
+        select_parts = ["h.*"]
+        ts_col_name = time_col or ts_col
+
+        if ts_kind == "numeric" and ts_norm_expr:
+            # override/standardize 'ts' to a readable datetime string for the UI
+            select_parts.append(f"FROM_UNIXTIME({ts_norm_expr}) AS ts")
+            ts_col_name = "ts"
+        elif ts_kind == "time" and time_col:
+            # keep consistent key for UI
+            select_parts.append(f"{time_col} AS ts")
+            ts_col_name = "ts"
+
+        sql = f"""
+        SELECT {', '.join(select_parts)}
+        FROM {table} h
+        WHERE {' AND '.join(where)}
+        ORDER BY {order_by}
+        LIMIT %s
+        """
+        params.append(int(limit))
+
+        try:
+            cur.execute(sql, params)
+            rows = cur.fetchall() or []
+        except Exception:
+            rows = []
+
+        return rows, ts_col_name, label_col, param_col, half_col
 def health():
     return {"ok": True, "shared": SHARED_APP_PATH, "version": "0.3.0"}
 
@@ -243,6 +608,36 @@ def _classify_market_text(ctx: str) -> str:
     return "other"
 
 
+def _classify_half_text(txt: str) -> str:
+    """
+    Detect whether factor/label belongs to 1st half (HT / 1H).
+    Returns: "1h" or "ft"
+    """
+    if not txt:
+        return "ft"
+    s = str(txt).lower()
+
+    # RU hints
+    if re.search(r"\b(1[-\s]?й|1)\s*тайм\b", s):
+        return "1h"
+    if re.search(r"\bперв(ый|ого)\s*тайм\b", s):
+        return "1h"
+    if re.search(r"\bв\s*1[-\s]?м\s*тайм", s):
+        return "1h"
+
+    # EN hints
+    if re.search(r"\b(1st|first)\s*half\b", s):
+        return "1h"
+    if re.search(r"\bhalf\s*1\b", s):
+        return "1h"
+
+    # Short hints (careful but useful for Fonbet context strings)
+    if re.search(r"\b(1h|ht)\b", s):
+        return "1h"
+
+    return "ft"
+
+
 def _fetch_factor_catalog_map(fids: List[int]) -> Tuple[Dict[int, Dict[str, Any]], Optional[str], List[str], Dict[int, str]]:
     """
     Fetch factor_id -> {market,label,param} from DB table fonbet_factor_catalog.
@@ -383,6 +778,27 @@ def _merge_maps(primary: Dict[int, Any], secondary: Dict[int, Any]) -> Dict[int,
     return merged
 
 
+def _merge_fmaps(primary: Dict[int, Any], secondary: Dict[int, Any]) -> Dict[int, Any]:
+    """Backward-compatible alias: older code called this _merge_fmaps."""
+    return _merge_maps(primary, secondary)
+
+
+def _enrich_fmap_with_catalog(
+    fmap: Dict[int, Any],
+    catalog_map: Dict[int, Any],
+    half_norm: str,
+) -> Dict[int, Any]:
+    """
+    Merge factor map with catalog-derived info.
+    We intentionally keep it conservative: only fill missing market/label/param.
+    """
+    try:
+        return _merge_maps(fmap or {}, catalog_map or {})
+    except Exception:
+        return fmap or {}
+
+
+
 def _enrich_from_eventview(
     base_event_id: int,
     effective_event_id: int,
@@ -447,10 +863,51 @@ def _infer_market_from_row(label: str, param: Any) -> str:
 
 def _apply_inferred_markets(rows: List[Dict[str, Any]], fmap: Dict[int, Any], half_norm: str) -> Dict[int, Any]:
     """
-    If factor map cannot classify, try infer from odds_history row label/param.
+    Infer market from odds_history row label/param when catalog/eventView are missing.
+    IMPORTANT: half (FT vs 1H) must be inferred from label/context, NOT from requested half,
+    otherwise FT lines will leak into HT.
     """
     if not rows:
         return fmap
+
+    if fmap is None:
+        fmap = {}
+
+    for r in rows:
+        fid = _try_int(r.get("factor_id"))
+        if fid is None:
+            continue
+
+        info = fmap.get(fid)
+        if not isinstance(info, dict):
+            info = {}
+
+        cur_m = str(info.get("market") or "").strip()
+        if cur_m and cur_m != "other":
+            continue
+
+        label = r.get("label") or r.get("name") or ""
+        inferred_base = _infer_market_from_row(label, r.get("param"))
+        if inferred_base == "other":
+            continue
+
+        half_hint = info.get("half_hint") or _classify_half_text(label)
+
+        inferred = inferred_base
+        if half_hint == "1h" and inferred_base in ("outcomes", "handicap", "total"):
+            inferred = inferred_base + "_1h"
+
+        info2 = dict(info)
+        info2["market"] = inferred
+        info2["half_hint"] = half_hint
+
+        if _is_noneish(info2.get("label")):
+            info2["label"] = label
+
+        fmap[int(fid)] = info2
+
+    return fmap
+
 
     for r in rows:
         try:
@@ -496,10 +953,96 @@ def _apply_inferred_markets(rows: List[Dict[str, Any]], fmap: Dict[int, Any], ha
 
 def _normalize_half_markets(fmap: Dict[int, Any], half_norm: str) -> Dict[int, Any]:
     """
-    Never mix FT and HT markets. Enforce suffix based on requested half.
+    Strictly prevent mixing FT and 1H markets.
+
+    - For FT request: drop *_1h markets (set to "other").
+    - For 1H request: keep only *_1h markets (FT markets become "other").
     """
     if not fmap:
         return fmap
+
+    if half_norm not in ("ft", "1h"):
+        return fmap
+
+    for fid, info in list(fmap.items()):
+        if not isinstance(info, dict):
+            continue
+
+        m = str(info.get("market") or "").strip()
+        if not m:
+            continue
+
+        if half_norm == "ft":
+            # drop first-half markets
+            if m.endswith("_1h"):
+                info2 = dict(info)
+                info2["market"] = "other"
+                fmap[int(fid)] = info2
+        else:
+            # keep only first-half markets
+            if m in ("outcomes", "handicap", "total"):
+                info2 = dict(info)
+                info2["market"] = "other"
+                fmap[int(fid)] = info2
+
+    return fmap
+
+
+def _filter_rows_by_half(rows: List[Dict[str, Any]], fmap: Dict[int, Any], half_norm: str) -> List[Dict[str, Any]]:
+    """
+    Filter odds_history rows so that:
+      - for FT: exclude factors classified as *_1h
+      - for 1H: keep only factors classified as *_1h
+    """
+    if not rows:
+        return rows
+    if not fmap or half_norm not in ("ft", "1h"):
+        return rows
+
+    if half_norm == "ft":
+        bad = set()
+        for fid, info in fmap.items():
+            if isinstance(info, dict) and str(info.get("market") or "").endswith("_1h"):
+                bad.add(int(fid))
+        if not bad:
+            return rows
+        return [r for r in rows if _try_int(r.get("factor_id")) not in bad]
+
+    good = set()
+    for fid, info in fmap.items():
+        if isinstance(info, dict) and str(info.get("market") or "").endswith("_1h"):
+            good.add(int(fid))
+    if not good:
+        return []
+    return [r for r in rows if _try_int(r.get("factor_id")) in good]
+
+
+
+
+    if half_norm not in ("ft", "1h"):
+        return fmap
+
+    for fid, info in list(fmap.items()):
+        if not isinstance(info, dict):
+            continue
+
+        m = str(info.get("market") or "").strip()
+        if not m:
+            continue
+
+        if half_norm == "ft":
+            if m.endswith("_1h"):
+                info2 = dict(info)
+                info2["market"] = "other"
+                fmap[int(fid)] = info2
+        else:
+            if m in ("outcomes", "handicap", "total"):
+                info2 = dict(info)
+                info2["market"] = "other"
+                fmap[int(fid)] = info2
+
+    return fmap
+
 
     for fid, info in list(fmap.items()):
         if not isinstance(info, dict):
@@ -523,18 +1066,18 @@ def _normalize_half_markets(fmap: Dict[int, Any], half_norm: str) -> Dict[int, A
 
 
 
-def _apply_factor_id_fallback(fmap: Dict[int, Any], half_norm: str) -> Dict[int, Any]:
+def _apply_factor_id_fallback(fmap: Dict[int, Any], half_norm: str, force_1h: bool = False) -> Dict[int, Any]:
     """
     Hard fallback for the most common Fonbet factor_ids when catalog/eventView do not provide labels/markets.
-    This prevents /tables returning only "other" when label/name are NULL.
+
+    CRITICAL:
+    - Do NOT blindly mark factors as 1H just because requested half=1h.
+      That makes FT lines appear in HT tab for matches that do not have 1H markets.
+    - Only force "_1h" when we are confident the whole event_id represents 1H (child event_id).
     """
     if fmap is None:
         fmap = {}
 
-    # NOTE: IDs below are based on observed usage in this project DB:
-    # 921/922/923/924/925/1571 = outcomes (1X2 + double chance),
-    # 930/931 = totals (over/under),
-    # 927/928 = handicaps (team1/team2)
     fid_map: Dict[int, Tuple[str, str]] = {
         921: ("outcomes", "1"),
         922: ("outcomes", "X"),
@@ -557,10 +1100,12 @@ def _apply_factor_id_fallback(fmap: Dict[int, Any], half_norm: str) -> Dict[int,
         if cur_m and cur_m != "other":
             continue
 
-        mkt = mkt_base + "_1h" if half_norm == "1h" else mkt_base
+        mkt = mkt_base + "_1h" if force_1h else mkt_base
 
         info2 = dict(info)
         info2["market"] = mkt
+        if "half_hint" not in info2:
+            info2["half_hint"] = "1h" if force_1h else "ft"
 
         if _is_noneish(info2.get("label")):
             info2["label"] = lbl
@@ -570,6 +1115,111 @@ def _apply_factor_id_fallback(fmap: Dict[int, Any], half_norm: str) -> Dict[int,
     return fmap
 
 
+
+
+
+def _try_float(v: Any) -> Optional[float]:
+    try:
+        if v is None:
+            return None
+        if isinstance(v, bool):
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+
+def _norm_line_value(v: Any) -> Any:
+    """
+    Normalize Fonbet line values stored as 250 -> 2.5, 150 -> 1.5, 100 -> 1.0.
+    Leaves already-normal values (<=20 by abs) unchanged.
+    """
+    fv = _try_float(v)
+    if fv is None:
+        return v
+    if abs(fv) >= 20:
+        return fv / 100.0
+    return fv
+
+
+def _ui_add_aliases_inplace(payload: Dict[str, Any]) -> None:
+    """
+    Add backward-compatible aliases for UI rendering:
+    - outcomes: time, p1/px/p2, k1/kx/k2
+    - handicap/total: time, hcp/total, alg1/alg2, Alg.1/Alg.2
+    Also normalizes Total/main_total if stored as 250 -> 2.5.
+    This is safe: only adds keys / normalizes obvious line scalings.
+    """
+    if not isinstance(payload, dict):
+        return
+
+    # outcomes (1X2)
+    for r in payload.get("outcomes") or []:
+        if not isinstance(r, dict):
+            continue
+        if "Time" in r and "time" not in r:
+            r["time"] = r.get("Time")
+        # JS cannot do row.1, so provide dot-safe aliases
+        if "1" in r:
+            r.setdefault("p1", r.get("1"))
+            r.setdefault("k1", r.get("1"))
+        if "X" in r:
+            r.setdefault("px", r.get("X"))
+            r.setdefault("kx", r.get("X"))
+        if "2" in r:
+            r.setdefault("p2", r.get("2"))
+            r.setdefault("k2", r.get("2"))
+
+    # handicap
+    for r in payload.get("handicap") or []:
+        if not isinstance(r, dict):
+            continue
+        if "Time" in r and "time" not in r:
+            r["time"] = r.get("Time")
+        if "Hcp" in r and "hcp" not in r:
+            r["hcp"] = r.get("Hcp")
+        # alg aliases
+        if "Alg1" in r:
+            r.setdefault("alg1", r.get("Alg1"))
+            r.setdefault("Alg.1", r.get("Alg1"))
+        if "Alg2" in r:
+            r.setdefault("alg2", r.get("Alg2"))
+            r.setdefault("Alg.2", r.get("Alg2"))
+        # if dotted came from somewhere, mirror back
+        if "Alg.1" in r and "Alg1" not in r:
+            r["Alg1"] = r.get("Alg.1")
+        if "Alg.2" in r and "Alg2" not in r:
+            r["Alg2"] = r.get("Alg.2")
+
+    # total
+    for r in payload.get("total") or []:
+        if not isinstance(r, dict):
+            continue
+        if "Time" in r and "time" not in r:
+            r["time"] = r.get("Time")
+
+        if "Total" in r:
+            r["Total"] = _norm_line_value(r.get("Total"))
+            r.setdefault("total", r.get("Total"))
+
+        if "Alg1" in r:
+            r.setdefault("alg1", r.get("Alg1"))
+            r.setdefault("Alg.1", r.get("Alg1"))
+        if "Alg2" in r:
+            r.setdefault("alg2", r.get("Alg2"))
+            r.setdefault("Alg.2", r.get("Alg2"))
+        if "Alg.1" in r and "Alg1" not in r:
+            r["Alg1"] = r.get("Alg.1")
+        if "Alg.2" in r and "Alg2" not in r:
+            r["Alg2"] = r.get("Alg.2")
+
+    # meta lines
+    meta = payload.get("meta")
+    if isinstance(meta, dict):
+        if "main_total" in meta:
+            meta["main_total"] = _norm_line_value(meta.get("main_total"))
+        if "main_handicap" in meta:
+            meta["main_handicap"] = _norm_line_value(meta.get("main_handicap"))
 @app.get("/fonbet/events")
 def fonbet_events(
     hours: int = Query(12, ge=1, le=168),
@@ -675,133 +1325,75 @@ def fonbet_live_events(
 
 @app.get("/fonbet/event/{event_id}/tables")
 def fonbet_event_tables(
-    event_id: int = Path(..., ge=1),
-    hours: int = Query(48, ge=1, le=168),
-    limit: int = Query(8000, ge=1, le=20000),
-    half: str = Query("ft"),
-    debug: int = Query(0, ge=0, le=1),
-):
-    half_norm = shared._fonbet_norm_half(half)
-
-    lang = os.getenv("FONBET_LANG", "ru") or "ru"
-    sys_id = int(os.getenv("FONBET_SYS_ID", "1") or "1")
-base_event_id = int(event_id)
+    event_id: int,
+    half: str = "ft",
+    hours: int = 12,
+    limit: int = 8000,
+    debug: int = 0,
+) -> Dict[str, Any]:
+    """
+    Return pre-aggregated tables for UI (1X2, Handicap mainline, Total mainline).
+    Fixes:
+      - HT/1H must not show FT markets when 1H markets are absent.
+      - If 1H markets existed earlier but are now removed -> show last history with half_status="removed".
+    """
+    half_norm = shared._fonbet_norm_half(half)  # "ft" or "1h"
+    base_event_id = int(event_id)
     effective_event_id = base_event_id
 
-    ht_now = None
-    ht_status = None
+    # Try to fetch eventView to get teams and detect whether HT exists now
+    ev: Optional[Dict[str, Any]] = None
+    ht_now = False
+    try:
+        ev = shared._fonbet_fetch_event_view(base_event_id)
+        if isinstance(ev, dict):
+            # Most reliable: explicit child-event id for 1H, if present
+            child = ev.get("child_1h_event_id") or ev.get("childEventId") or ev.get("eventId1h")
+            if child:
+                ht_now = True
+            else:
+                # Fallback: if factor_map already contains *_1h markets
+                try:
+                    fmap_now = shared._fonbet_extract_factor_map(ev) or {}
+                    for _fid, info in fmap_now.items():
+                        if isinstance(info, dict) and str(info.get("market") or "").endswith("_1h"):
+                            ht_now = True
+                            break
+                except Exception:
+                    pass
+    except Exception:
+        ev = None
 
-    # Resolve HT event id and status (Inforadar-like)
+    # If HT requested, try to resolve child 1H event_id (if book provides it)
     if half_norm == "1h":
-        effective_event_id = shared._fonbet_resolve_1h_event_id(base_event_id, lang=lang, sys_id=sys_id)
-
         try:
-            ev_base_now = shared._fonbet_fetch_event_view(lang=lang, sys_id=sys_id, event_id=base_event_id)
+            effective_event_id = shared._fonbet_resolve_1h_event_id(base_event_id, ev)
         except Exception:
-            ev_base_now = None
+            effective_event_id = base_event_id
+        if effective_event_id != base_event_id:
+            ht_now = True
 
-        try:
-            ht_now = bool(shared._fonbet_ev_find_1h_child(ev_base_now, base_event_id))
-        except Exception:
-            ht_now = False
+    # Pull history rows
+    rows, last_ts, ts_col_name, label_col_name, param_col_name = _fetch_odds_history_rows(
+        event_id=effective_event_id,
+        hours=int(hours),
+        limit=int(limit),
+    )
+    used_label_col = label_col_name or "label"
+    used_param_col = param_col_name or "param"
 
-        if not ht_now:
-            try:
-                fm0 = shared._fonbet_extract_factor_map(ev_base_now, base_event_id=base_event_id, half="ft") or {}
-                ht_now = any(str((info or {}).get("market") or "").endswith("_1h") for info in fm0.values())
-            except Exception:
-                ht_now = False
-
-    last_ts = None
-    ts_col_name = None
-    used_label_col = None
-    used_param_col = None
-
-    # Load odds history rows
-    with shared.db_connect() as conn:
-        with conn.cursor() as cur:
-            ts_col_name = shared._fonbet_ts_col(cur)
-            cond, params = shared._fonbet_ts_where(cur, ts_col_name, int(hours))
-            ts_select = shared._fonbet_ts_select_expr(cur, ts_col_name)
-
-            used_label_col = shared._fonbet_label_col(cur) or ("label" if _sql_has_col(cur, "fonbet_odds_history", "label") else None)
-            label_select = f", {used_label_col} AS label" if used_label_col else ""
-            used_param_col = shared._fonbet_param_col(cur) or ("param" if _sql_has_col(cur, "fonbet_odds_history", "param") else None)
-            param_select = f", {used_param_col} AS param" if used_param_col else ""
-
-            phase_norm = (phase or "prematch").strip().lower()
-            if phase_norm not in ("prematch", "live"):
-                phase_norm = "prematch"
-
-            phase_cond = ""
-            phase_params: List[Any] = []
-            has_phase = _sql_has_col(cur, "fonbet_odds_history", "phase")
-            if has_phase:
-                if phase_norm == "prematch":
-                    phase_cond = " AND (phase=%s OR phase IS NULL OR phase='')"
-                    phase_params = [phase_norm]
-                else:
-                    phase_cond = " AND phase=%s"
-                    phase_params = [phase_norm]
-
-
-            sql = f"""
-                SELECT factor_id, odd, {ts_select} AS ts{label_select}{param_select}
-                FROM fonbet_odds_history
-                WHERE event_id=%s{phase_cond} AND {cond}
-                ORDER BY {ts_col_name} ASC
-                LIMIT %s
-            """
-            cur.execute(sql, [effective_event_id] + phase_params + list(params) + [int(limit)])
-            rows = cur.fetchall() or []
-
-            try:
-                cur.execute(
-                    f"SELECT MAX({ts_select}) AS mx FROM fonbet_odds_history WHERE event_id=%s{phase_cond}",
-                    (effective_event_id, *phase_params),
-                )
-                last_ts = (cur.fetchone() or {}).get("mx")
-            except Exception:
-                last_ts = None
-
-    # HT status logic
-    if half_norm == "1h":
-        ht_hist = bool(rows)
-        if ht_now is True:
-            ht_status = "active"
-        elif ht_hist:
-            ht_status = "removed"
-        else:
-            ht_status = "never"
-
-        if ht_status == "never":
-            return {
-                "outcomes": [],
-                "handicap": [],
-                "total": [],
-                "meta": {
-                    "half": "1h",
-                    "half_status": "never",
-                    "no_data_text": "Нет рынков 1-го тайма (HT) на Fonbet",
-                    "snapshots": 0,
-                    "raw_rows": 0,
-                    "main_handicap": None,
-                    "main_total": None,
-                    "hours": int(hours),
-                    "last_ts": str(last_ts) if last_ts else None,
-                    "ts_col": ts_col_name,
-                    "label_col": used_label_col,
-                    "param_col": used_param_col,
-                },
-            }
-
+    # No DB rows at all
     if not rows:
+        ht_status = None
+        if half_norm == "1h":
+            ht_status = "active" if ht_now else "never"
         return {
             "outcomes": [],
             "handicap": [],
             "total": [],
             "meta": {
-                "half": "1h" if half_norm == "1h" else "ft",
+                "half": half_norm,
+                "half_status": ht_status,
                 "snapshots": 0,
                 "raw_rows": 0,
                 "main_handicap": None,
@@ -812,162 +1404,145 @@ base_event_id = int(event_id)
                 "ts_col": ts_col_name,
                 "label_col": used_label_col,
                 "param_col": used_param_col,
+                "catalog_cols": ["factor_id", "name", "raw_json", "updated_at"],
+                "markets_seen": [],
             },
         }
 
     fids = _fids_from_rows(rows)
 
-    # Build factor map: raw_json-aware factor catalog + shared cache
-    fmap_catalog, catalog_err, catalog_cols, ctx_map = _fetch_factor_catalog_map(fids)
+    # Factor map from event view + shared parsing
+    fmap: Dict[int, Any] = {}
     try:
-        fmap_shared = shared.fonbet_factor_catalog_map(force=False) or {}
+        if isinstance(ev, dict):
+            fmap = shared._fonbet_extract_factor_map(ev) or {}
     except Exception:
-        fmap_shared = {}
+        fmap = {}
 
-    fmap = _merge_maps(fmap_catalog, fmap_shared)
+    try:
+        fmap = _merge_fmaps(fmap, shared._fonbet_parse_factors_from_eventview(ev) if isinstance(ev, dict) else {})
+    except Exception:
+        pass
+    # Catalog (name/raw_json) for factor_ids we see in history
+    catalog_map, catalog_err, catalog_cols, ctx_map = _fetch_factor_catalog_map(fids)
 
-    # If HT stored as dedicated sub-event: force *_1h to avoid mixing
+    # Enrich/normalize factor map with catalog context
+    try:
+        fmap = _enrich_fmap_with_catalog(fmap, catalog_map, half_norm)
+    except Exception:
+        pass
+
+    # If we have a dedicated child event_id for 1H - treat all base markets as 1H inside it
     if half_norm == "1h" and effective_event_id != base_event_id:
-        for fid, info in list((fmap or {}).items()):
+        for fid, info in list(fmap.items()):
             if not isinstance(info, dict):
                 continue
-            mkt = str(info.get("market") or "")
-            if mkt in ("outcomes", "handicap", "total") and not mkt.endswith("_1h"):
+            m = str(info.get("market") or "")
+            if m in ("outcomes", "handicap", "total"):
                 info2 = dict(info)
-                info2["market"] = mkt + "_1h"
+                info2["market"] = m + "_1h"
+                info2["half_hint"] = "1h"
                 fmap[int(fid)] = info2
 
-    # Enrich by eventView (if available)
-    fmap, ev_err = _enrich_from_eventview(
-        base_event_id=base_event_id,
-        effective_event_id=effective_event_id,
-        half_norm=half_norm,
-        fmap=fmap,
-        fids=fids,
-        lang=lang,
-        sys_id=sys_id,
+    # Hard fallback for common factor_ids (only force 1H when child event_id is used)
+    fmap = _apply_factor_id_fallback(
+        fmap,
+        half_norm,
+        force_1h=(half_norm == "1h" and effective_event_id != base_event_id),
     )
 
-    # Hard fallback by factor_id (when label/name are NULL)
-    fmap = _apply_factor_id_fallback(fmap, half_norm)
-
-    # Fallback infer from history label/param
+    # Infer missing markets from label/param (half inferred from text)
     fmap = _apply_inferred_markets(rows, fmap, half_norm)
 
-    # Final normalize suffix for requested half
+    # Final strict normalization (no mixing)
     fmap = _normalize_half_markets(fmap, half_norm)
 
-    # Teams (for handicap sign correctness)
-    team1 = team2 = ""
-    try:
-        with shared.db_connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT team1, team2 FROM fonbet_events WHERE event_id=%s LIMIT 1", (base_event_id,))
-                er = cur.fetchone() or {}
-                team1 = (er.get("team1") or "").strip()
-                team2 = (er.get("team2") or "").strip()
-    except Exception:
-        team1 = team2 = ""
+    # Filter rows by half (core fix)
+    rows = _filter_rows_by_half(rows, fmap, half_norm)
 
-    data = shared._fonbet_tables_from_rows(rows, fmap, half=half_norm, team1=team1, team2=team2)
+    # HT status AFTER filtering
+    ht_status = None
+    if half_norm == "1h":
+        ht_hist = bool(rows)
+        if ht_now:
+            ht_status = "active"
+        else:
+            ht_status = "removed" if ht_hist else "never"
 
-    # Fallback: build handicap table when shared returns empty but handicap factors exist (often param=0)
-    try:
-        if not data.get("handicap"):
-            h: List[Tuple[Any, int, float, Any]] = []
-            for r in rows:
-                fid = int(r.get("factor_id") or 0)
-                info = fmap.get(fid) or {}
-                if (info.get("market") or "") != "handicap":
-                    continue
-                # param can be 0 -> MUST NOT be treated as empty
-                if r.get("param") is None:
-                    continue
-                try:
-                    p = float(r.get("param")) / 100.0
-                except Exception:
-                    continue
-                ts = r.get("ts")
-                odd = r.get("odd")
-                h.append((ts, fid, p, odd))
+        if ht_status == "never":
+            return {
+                "outcomes": [],
+                "handicap": [],
+                "total": [],
+                "meta": {
+                    "half": half_norm,
+                    "half_status": ht_status,
+                    "snapshots": 0,
+                    "raw_rows": 0,
+                    "main_handicap": None,
+                    "main_total": None,
+                    "hours": int(hours),
+                    "last_ts": str(last_ts) if last_ts else None,
+                    "ts_col": ts_col_name,
+                    "label_col": used_label_col,
+                    "param_col": used_param_col,
+                    "catalog_cols": ["factor_id", "name", "raw_json", "updated_at"],
+                    "markets_seen": [],
+                },
+            }
 
-            if h:
-                counts: Dict[float, int] = {}
-                signed_home: Dict[float, float] = {}
-                for ts, fid, p, odd in h:
-                    abs_line = round(abs(p), 4)
-                    counts[abs_line] = counts.get(abs_line, 0) + 1
-                    lbl = str((fmap.get(fid) or {}).get("label") or "").lower()
-                    is_home = ("f1" in lbl) or ("ф1" in lbl) or (lbl.strip() == "1") or (fid in (927,))
-                    if is_home and abs_line not in signed_home:
-                        signed_home[abs_line] = p
+    # After filtering we might have no rows (e.g., HT active but history window too small)
+    if not rows:
+        return {
+            "outcomes": [],
+            "handicap": [],
+            "total": [],
+            "meta": {
+                "half": half_norm,
+                "half_status": ht_status,
+                "snapshots": 0,
+                "raw_rows": 0,
+                "main_handicap": None,
+                "main_total": None,
+                "hours": int(hours),
+                "last_ts": str(last_ts) if last_ts else None,
+                "ts_col": ts_col_name,
+                "label_col": used_label_col,
+                "param_col": used_param_col,
+                "catalog_cols": ["factor_id", "name", "raw_json", "updated_at"],
+                "markets_seen": [],
+            },
+        }
 
-                def _prio(x: float) -> int:
-                    frac = round(abs(x) % 1.0, 4)
-                    if abs(frac - 0.5) < 1e-6:
-                        return 0
-                    if abs(frac - 0.25) < 1e-6 or abs(frac - 0.75) < 1e-6:
-                        return 1
-                    return 2
+    team1 = (ev.get("team1") if isinstance(ev, dict) else None) or (ev.get("homeTeam") if isinstance(ev, dict) else None) or ""
+    team2 = (ev.get("team2") if isinstance(ev, dict) else None) or (ev.get("awayTeam") if isinstance(ev, dict) else None) or ""
 
-                main_abs = sorted(counts.keys(), key=lambda x: (_prio(x), -counts.get(x, 0), x))[0]
+    data = shared._fonbet_tables_from_rows(
+        rows=rows,
+        fmap=fmap,
+        half=half_norm,
+        team1=team1,
+        team2=team2,
+        hours=int(hours),
+        last_ts=last_ts,
+        ts_col=ts_col_name,
+        label_col=used_label_col,
+        param_col=used_param_col,
+    )
 
-                home_line = signed_home.get(main_abs)
-                if home_line is None:
-                    home_line = 0.0 if main_abs == 0 else -float(main_abs)
-
-                by_ts: Dict[str, Dict[str, Any]] = {}
-                for ts, fid, p, odd in h:
-                    if round(abs(p), 4) != main_abs:
-                        continue
-                    ts_s = str(ts)
-                    row = by_ts.get(ts_s)
-                    if row is None:
-                        row = {"Time": ts_s, "H1": None, "Handicap": float(home_line), "H2": None}
-                        by_ts[ts_s] = row
-
-                    lbl = str((fmap.get(fid) or {}).get("label") or "").lower()
-                    is_home = ("f1" in lbl) or ("ф1" in lbl) or (lbl.strip() == "1") or (fid in (927,))
-                    if is_home:
-                        row["H1"] = odd
-                    else:
-                        row["H2"] = odd
-
-                data["handicap"] = [by_ts[k] for k in sorted(by_ts.keys())]
-                data.setdefault("meta", {})
-                data["meta"]["main_handicap"] = float(home_line)
-    except Exception:
-        pass
+    if not isinstance(data, dict):
+        data = {"outcomes": [], "handicap": [], "total": [], "meta": {"half": half_norm}}
 
     data.setdefault("meta", {})
-    data["meta"]["hours"] = int(hours)
-    data["meta"]["last_ts"] = str(last_ts) if last_ts else None
-    data["meta"]["ts_col"] = ts_col_name
-    data["meta"]["label_col"] = used_label_col
-    data["meta"]["param_col"] = used_param_col
-    if half_norm == "1h":
+    if ht_status is not None:
         data["meta"]["half_status"] = ht_status
 
-    if catalog_err:
-        data["meta"]["catalog_err"] = catalog_err
-    if catalog_cols:
-        data["meta"]["catalog_cols"] = catalog_cols
-
-    if ev_err:
-        data["meta"]["eventview_err"] = ev_err
-
-    # Debug: markets seen
-    try:
-        markets = {str((fmap.get(fid) or {}).get("market") or "") for fid in fids}
-        data["meta"]["markets_seen"] = sorted(m for m in markets if m)
-    except Exception:
-        pass
-
-    # Debug: show first factors classification context
-    if int(debug or 0) == 1:
-        dbg: List[Dict[str, Any]] = []
-        for fid in fids[:40]:
-            info = fmap.get(fid) or {}
+    if debug:
+        dbg = []
+        for fid in sorted(set(_fids_from_rows(rows))):
+            info = fmap.get(fid) if fmap else None
+            if not isinstance(info, dict):
+                info = {}
             dbg.append(
                 {
                     "factor_id": fid,
@@ -978,5 +1553,11 @@ base_event_id = int(event_id)
                 }
             )
         data["meta"]["debug_factors"] = dbg
+
+    # UI compatibility: add safe aliases and normalize obvious line scalings
+    try:
+        _ui_add_aliases_inplace(data)
+    except Exception:
+        pass
 
     return data

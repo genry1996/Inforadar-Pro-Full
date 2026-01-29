@@ -62,6 +62,88 @@ except Exception:
 
 
 import pymysql
+# --- Inforadar hotfix: PyMySQL percent escape (DATE_FORMAT/LIKE with params) ---
+# Problem: PyMySQL uses Python %-formatting for params. Any literal % inside SQL query
+# (inside quotes like '%Y-%m-%d' or LIKE '%abc%') must be escaped as %% or PyMySQL crashes.
+def _escape_sql_percent_literals__inforadar(q: str) -> str:
+    # Escapes % only inside single-quoted SQL literals.
+    # Keeps already-escaped %% intact.
+    out = []
+    i = 0
+    in_str = False
+    n = len(q)
+    while i < n:
+        ch = q[i]
+        if not in_str:
+            if ch == "'":
+                in_str = True
+                out.append(ch)
+                i += 1
+                continue
+            out.append(ch)
+            i += 1
+            continue
+
+        # inside single-quoted literal
+        if ch == "'":
+            # SQL escaped quote as '' (two single quotes)
+            if i + 1 < n and q[i + 1] == "'":
+                out.append("''")
+                i += 2
+                continue
+            in_str = False
+            out.append(ch)
+            i += 1
+            continue
+
+        if ch == "%":
+            # keep already escaped %%
+            if i + 1 < n and q[i + 1] == "%":
+                out.append("%%")
+                i += 2
+                continue
+            out.append("%%")
+            i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _patch_pymysql_execute__inforadar():
+    try:
+        import pymysql  # noqa: F401
+        from pymysql.cursors import Cursor
+    except Exception:
+        return
+
+    # idempotent: patch only once
+    if getattr(Cursor.execute, "percent_escape_patched__inforadar", False):
+        return
+
+    _orig_execute = Cursor.execute
+    _orig_executemany = Cursor.executemany
+
+    def _exec(self, query, args=None):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_execute(self, query, args)
+
+    def _many(self, query, args):
+        if args is not None and isinstance(query, str) and "%" in query and "'" in query:
+            query = _escape_sql_percent_literals__inforadar(query)
+        return _orig_executemany(self, query, args)
+
+    setattr(_exec, "percent_escape_patched__inforadar", True)
+    Cursor.execute = _exec
+    Cursor.executemany = _many
+
+
+_patch_pymysql_execute__inforadar()
+# --- end Inforadar hotfix ---
+
 from flask import Flask, jsonify, request, render_template, render_template_string, redirect, url_for
 
 APP_TITLE = "Inforadar Pro - Prematch UI"
@@ -2134,6 +2216,7 @@ async function load(){
   if($('sportId')) localStorage.setItem('fonbet_sport_id', sportRaw);
   let url = `/api/fonbet/events?hours=${encodeURIComponent(hours)}&limit=${encodeURIComponent(limit)}&q=${encodeURIComponent(q)}`;
   if (sportRaw !== '') url += `&sport_id=${encodeURIComponent(String(sportRaw))}`;
+  if ($('sportId')) localStorage.setItem('fonbet_sport_id', sportId ? String(sportId) : '');
   const t0 = performance.now();
   try{
     $("status").textContent = "loading…";
@@ -3138,23 +3221,39 @@ def _table_has_col(cur, table: str, col: str) -> bool:
 def _sql_fonbet_events(cur, hours: int, q: str, limit: int, sport_id: int) -> List[dict]:
     """
     Returns Fonbet events for the upcoming window.
-    IMPORTANT: do NOT over-filter here (fonbet data often has league_name='-' or state='prematch').
+
+    NOTE:
+    - Fonbet may store start_ts in different formats depending on the parser build:
+        * Unix seconds (10 digits)
+        * Unix milliseconds (13 digits)
+        * YYYYMMDDHHMMSS (14 digits)
+      This helper normalizes start_ts to unix seconds for filtering/sorting.
     """
     has_sport = _table_has_col(cur, "fonbet_events", "sport_id")
 
+    # normalize e.start_ts -> unix seconds
+    ts_raw = "CAST(e.start_ts AS UNSIGNED)"
+    ts_norm = (
+        "CASE "
+        f"WHEN {ts_raw} >= 10000000000000 THEN UNIX_TIMESTAMP(STR_TO_DATE(CAST(e.start_ts AS CHAR), '%Y%m%d%H%i%s')) "
+        f"WHEN {ts_raw} >= 1000000000000 THEN FLOOR({ts_raw}/1000) "
+        f"ELSE {ts_raw} "
+        "END"
+    )
+
     where = [
         "e.start_ts IS NOT NULL",
-        "CASE WHEN e.start_ts > 2000000000 THEN FLOOR(e.start_ts/1000) ELSE e.start_ts END >= UNIX_TIMESTAMP(NOW())",
-        "CASE WHEN e.start_ts > 2000000000 THEN FLOOR(e.start_ts/1000) ELSE e.start_ts END <= UNIX_TIMESTAMP(NOW()) + %s",
+        f"{ts_norm} IS NOT NULL",
+        f"{ts_norm} >= UNIX_TIMESTAMP(NOW())",
+        f"{ts_norm} <= UNIX_TIMESTAMP(NOW()) + %s",
         # keep team placeholders (like '?') - we can hide them in UI later
         "e.team1 IS NOT NULL AND e.team1 <> '' AND e.team1 <> '?'",
         "e.team2 IS NOT NULL AND e.team2 <> '' AND e.team2 <> '?'",
     ]
-    params: List[Any] = [hours * 3600]
+    params: List[Any] = [int(hours) * 3600]
 
     # sport_id=0 means "any"
     if has_sport and int(sport_id) > 0:
-        # some rows may have NULL sport_id - don't lose them
         where.append("e.sport_id = %s")
         params.append(int(sport_id))
 
@@ -3168,18 +3267,16 @@ def _sql_fonbet_events(cur, hours: int, q: str, limit: int, sport_id: int) -> Li
       e.event_id{select_sport},
       COALESCE(NULLIF(e.league_name,''), '-') AS league_name,
       e.team1, e.team2,
-      FROM_UNIXTIME(CASE WHEN e.start_ts > 2000000000 THEN FLOOR(e.start_ts/1000) ELSE e.start_ts END) AS start_time,
+      FROM_UNIXTIME({ts_norm}) AS start_time,
       e.start_ts
     FROM fonbet_events e
     WHERE {' AND '.join(where)}
-    ORDER BY league_name ASC, e.start_ts ASC
+    ORDER BY league_name ASC, {ts_norm} ASC
     LIMIT %s
     """
     params.append(int(limit))
     cur.execute(sql, params)
     return cur.fetchall() or []
-
-
 def _sql_fonbet_drops_map(cur, ts_col: str, hours: int = 6) -> Dict[int, dict]:
     """
     For each event_id: count factors where last odd < prev odd; also min delta among dropped factors.
